@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from bitrab.best_effort_runner import LocalGitLabRunner
+from bitrab.plan import LocalGitLabRunner
 
 
 # Example test case

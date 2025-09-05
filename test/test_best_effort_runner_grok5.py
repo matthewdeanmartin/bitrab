@@ -3,7 +3,8 @@ from pathlib import Path
 import pytest
 from ruamel.yaml import YAML
 
-from bitrab.best_effort_runner import JobExecutionError, LocalGitLabRunner
+from bitrab.exceptions import JobExecutionError
+from bitrab.plan import LocalGitLabRunner
 
 yaml = YAML()
 

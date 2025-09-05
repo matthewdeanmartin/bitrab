@@ -25,3 +25,27 @@ Run from folder where your `.gitlab-ci.yml` file is.
 ```bash
 bitrab
 ```
+
+
+## Implemented
+
+- Runs jobs in stage order
+- Basic variable 
+
+## Road Map
+
+- dotenv support
+- Parallel jobs
+- Needs. Maybe rules
+- Artifacts
+- CLI to resemble make or just.
+
+## Won't Implement
+- `image:` support. Only runs in shell.
+- `git clone`
+
+## Prior Art
+
+[gitlab-runner](https://docs.gitlab.com/runner/install/) Official Gitlab.
+
+[gitlab-ci-local](https://github.com/firecow/gitlab-ci-local) Independent, NPM installable.
