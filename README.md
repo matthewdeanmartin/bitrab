@@ -1,8 +1,14 @@
 # Bitrab 🐰
 
-**Local GitLab CI Runner** - Execute GitLab CI pipelines locally without Docker
+**Local GitLab Compatible CI Runner** - Execute GitLab(TM) CI pipelines locally without Docker
 
-Bitrab is a lightweight, Python-based tool that allows you to run GitLab CI pipelines on your local machine. Perfect for testing CI configurations, debugging pipeline issues, and rapid development iteration without pushing to GitLab.
+Bitrab is a lightweight, Python-based tool that allows you to run GitLab CI pipelines on your local machine. Perfect for
+testing CI configurations, debugging pipeline issues, and rapid development iteration.
+
+Doesn't even require GitLab, works on any build host with python, e.g. GitHub, AWS CodeBuild, anything
+
+GITLAB is a trademark of GitLab Inc. in the United States and other countries and regions. This tool is not affiliated,
+endorsed, sponsored, or approved with or by GitLab Inc.
 
 ## ✨ Features
 
@@ -13,7 +19,7 @@ Bitrab is a lightweight, Python-based tool that allows you to run GitLab CI pipe
 - 📊 **Job listing** - View all jobs organized by stages
 - 🧪 **Dry-run mode** - Preview what would be executed without running
 - ♻️ **Retry logic** - Full GitLab-compatible retry support with backoff strategies
-- 🌍 **Variable substitution** - Complete GitLab CI variable support
+- 🌍 **Variable substitution** - Complete GitLab CI variable support (aspirational feature ATM)
 - 📋 **Include directives** - Process `include:` statements like GitLab
 - 🎨 **Colored output** - Beautiful terminal output with emoji indicators
 
@@ -22,10 +28,7 @@ Bitrab is a lightweight, Python-based tool that allows you to run GitLab CI pipe
 ### Installation
 
 ```bash
-# Install from source
-git clone https://github.com/your-org/bitrab.git
-cd bitrab
-pip install -e .
+pipx install bitrab
 ```
 
 ### Basic Usage
@@ -52,6 +55,7 @@ bitrab run --parallel 4
 ### Commands
 
 #### `bitrab run` (default)
+
 Execute the GitLab CI pipeline locally.
 
 ```bash
@@ -63,11 +67,13 @@ bitrab run --jobs build test        # Run specific jobs (planned)
 ```
 
 **Options:**
+
 - `--dry-run` - Show commands without executing them
 - `--parallel, -j N` - Number of parallel jobs per stage
 - `--jobs JOB...` - Run only specified jobs (coming soon)
 
 #### `bitrab list`
+
 Display all jobs organized by stages.
 
 ```bash
@@ -76,6 +82,7 @@ bitrab list -c custom-ci.yml        # List jobs from custom config
 ```
 
 #### `bitrab validate`
+
 Validate pipeline configuration and check for common issues.
 
 ```bash
@@ -84,6 +91,7 @@ bitrab validate --json              # Output validated config as JSON
 ```
 
 #### `bitrab lint`
+
 Server-side validation using GitLab's official linter (planned).
 
 ```bash
@@ -124,7 +132,7 @@ build_job:
     - npm run build
   retry:
     max: 2
-    when: [script_failure]
+    when: [ script_failure ]
 
 test_job:
   stage: test
@@ -139,12 +147,13 @@ deploy_job:
   script:
     - echo "Deploying application..."
   only:
-    - main  # Note: 'only' rules are parsed but not enforced locally
+    - main  # Note: 'only' rules are parsed but not enforced locally, not yet
 ```
 
 ### Supported Features
 
 ✅ **Fully Supported:**
+
 - `stages` - Pipeline stage definitions
 - `variables` - Global and job-level variables
 - `default` - Default configuration for all jobs
@@ -154,11 +163,13 @@ deploy_job:
 - Variable substitution (`$VAR` and `${VAR}`)
 
 ⚠️ **Parsed but Limited:**
+
 - `only`, `except`, `rules` - Parsed but not enforced (all jobs run)
 - `image`, `services` - Parsed but ignored (no Docker support)
 - `cache`, `artifacts` - Parsed but not implemented
 
 ❌ **Not Supported:**
+
 - Docker/container execution
 - GitLab Runner specific features
 - Remote includes (only local file includes)
@@ -183,6 +194,7 @@ export NO_COLOR=1                          # Disable colored output
 ### Configuration Examples
 
 #### Simple Pipeline
+
 ```yaml
 # .gitlab-ci.yml
 script:
@@ -190,6 +202,7 @@ script:
 ```
 
 #### Multi-stage Pipeline
+
 ```yaml
 stages:
   - prepare
@@ -205,16 +218,17 @@ build_app:
   stage: build
   script:
     - echo "Building application..."
-  needs: [prepare_env]
+  needs: [ prepare_env ]
 
 test_app:
   stage: test
   script:
     - echo "Running tests..."
-  needs: [build_app]
+  needs: [ build_app ]
 ```
 
 #### With Includes
+
 ```yaml
 # .gitlab-ci.yml
 include:
@@ -240,21 +254,27 @@ Bitrab consists of several key components:
 ### Common Issues
 
 **Pipeline not found**
+
 ```bash
 ❌ Configuration file not found: .gitlab-ci.yml
 ```
+
 Make sure you're in a directory with a `.gitlab-ci.yml` file or specify the path with `-c`.
 
 **Job failures**
+
 ```bash
 ❌ Job build_job failed after 1 attempt(s) with exit code 1
 ```
+
 Check the job script and ensure all commands are valid for your local environment.
 
 **Permission errors**
+
 ```bash
 ❌ Permission denied: ./script.sh
 ```
+
 Ensure scripts have execute permissions: `chmod +x script.sh`
 
 ### Debug Mode
@@ -272,7 +292,7 @@ bitrab run --dry-run --verbose      # Preview with detailed output
 We welcome contributions! Here are some areas where help is needed:
 
 - 🎯 **Job filtering** - Implement selective job execution
-- 🔍 **GitLab API integration** - Server-side linting support  
+- 🔍 **GitLab API integration** - Server-side linting support
 - 📊 **Dependency graphs** - Visual pipeline representation
 - 🧹 **Artifact management** - Cache and artifact support
 - 📈 **Performance profiling** - Execution time analysis
@@ -293,10 +313,12 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🙋 FAQ
 
 **Q: Why not use Docker like GitLab Runner?**
-A: Bitrab is designed for local development where you want fast iteration without container overhead. It runs jobs directly on your system using your existing tools.
+A: Bitrab is designed for local development where you want fast iteration without container overhead. It runs jobs
+directly on your system using your existing tools.
 
 **Q: Does it support all GitLab CI features?**
-A: Bitrab focuses on core pipeline execution. Features requiring GitLab infrastructure (runners, registry, etc.) are not supported.
+A: Bitrab focuses on core pipeline execution. Features requiring GitLab infrastructure (runners, registry, etc.) are not
+supported.
 
 **Q: Can I use this in production?**
 A: Bitrab is designed for local development and testing. For production CI/CD, use official GitLab Runners.
