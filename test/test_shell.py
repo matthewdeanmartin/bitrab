@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -77,6 +78,7 @@ def test_env_and_cwd(tmp_path: Path):
     assert str(tmp_path.name) in lines[1]
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Only works on windows!")
 @pytest.mark.parametrize(
     "line_endings",
     ["unix", "windows"],
