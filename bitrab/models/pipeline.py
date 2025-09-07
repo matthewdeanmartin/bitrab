@@ -24,6 +24,11 @@ class JobConfig:
     before_script: list[str] = field(default_factory=list)
     after_script: list[str] = field(default_factory=list)
 
+    # GitLab-aligned retry fields
+    retry_max: int = 0
+    retry_when: list[str] = field(default_factory=list)
+    retry_exit_codes: list[int] = field(default_factory=list)  # empty => not used
+
 
 @dataclass
 class DefaultConfig:

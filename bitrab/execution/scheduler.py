@@ -64,23 +64,27 @@ class StageOrchestrator:
             # If it isn't, change _run_single_job to reconstruct the executor from config.
             failures: list[tuple[JobConfig, BaseException]] = []
 
-            with ProcessPoolExecutor(max_workers=self.maximum_degree_of_parallelism) as pool:
-                futures = {pool.submit(_run_single_job, job, self.job_executor): job for job in stage_jobs}
+            if self.maximum_degree_of_parallelism ==1:
+                for job in stage_jobs:
+                    self.job_executor.execute_job(job)
+            else:
+                with ProcessPoolExecutor(max_workers=self.maximum_degree_of_parallelism) as pool:
+                    futures = {pool.submit(_run_single_job, job, self.job_executor): job for job in stage_jobs}
 
-                for fut in as_completed(futures):
-                    job = futures[fut]
-                    try:
-                        fut.result()  # propagate errors
-                        print(f"✅ Job completed: {job.name}")
-                    except BaseException as exc:  # catch all to surface any worker failures
-                        failures.append((job, exc))
-                        print(f"❌ Job failed: {job.name} -> {exc!r}")
+                    for fut in as_completed(futures):
+                        job = futures[fut]
+                        try:
+                            fut.result()  # propagate errors
+                            print(f"✅ Job completed: {job.name}")
+                        except BaseException as exc:  # catch all to surface any worker failures
+                            failures.append((job, exc))
+                            print(f"❌ Job failed: {job.name} -> {exc!r}")
 
-            if failures:
-                # If any job in the stage fails, stop the pipeline (common CI behavior).
-                print("\n🛑 Stopping pipeline due to failures in stage:", stage)
-                # Re-raise the first failure to signal error to caller/runner
-                raise failures[0][1]
+                if failures:
+                    # If any job in the stage fails, stop the pipeline (common CI behavior).
+                    print("\n🛑 Stopping pipeline due to failures in stage:", stage)
+                    # Re-raise the first failure to signal error to caller/runner
+                    raise failures[0][1]
 
         print("\n🎉 Pipeline completed successfully!")
 

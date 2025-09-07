@@ -64,29 +64,13 @@ homepage = "https://github.com/matthewdeanmartin/bitrab"
 issues = "https://github.com/matthewdeanmartin/bitrab/issues/"
 # support – e.g. chat or forum - TODO
 
-[project.optional-dependencies]
-# "all" pulls in everything that isn't strictly core
-# This is to defend against supply chain risks on the build server.
-# The assumption is untrusted code is a bigger problem on a build server
-# This is not a substitute for being vigilant with your package scanning.
-all = [
-    # CLI
-    "argcomplete", # could be optional
-    # UI
-    "textual", # could be optional
-    "colorlog", # could be optional
-    "rich", # could be optional - interative/init/tui
-    "watchdog>=3.0.0", # optional
-    # graphing
-    "pyvis", # could be optional
-    "graphviz", # could be optional
-    "matplotlib", # could be optional
-    # update checker
-    "packaging", # could be optional
-    # Config
-    "tomlkit", # right now only used by init
-    "tomli; python_version < '3.11'",
-]
+#[project.optional-dependencies]
+## "all" pulls in everything that isn't strictly core
+## This is to defend against supply chain risks on the build server.
+## The assumption is untrusted code is a bigger problem on a build server
+## This is not a substitute for being vigilant with your package scanning.
+#all = [
+#]
 
 #[project.optional-dependencies]
 #chat = ["bitrab-chat"]

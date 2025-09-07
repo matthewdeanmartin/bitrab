@@ -71,7 +71,13 @@ class PipelineProcessor:
             variables=default_data.get("variables", {}),
         )
 
-    def _process_job(self, name: str, job_data: dict[str, Any], default: DefaultConfig, global_vars: dict[str, str]) -> JobConfig:
+    def _process_job(
+            self,
+            name: str,
+            job_data: dict[str, Any],
+            default: DefaultConfig,
+            global_vars: dict[str, str],
+    ) -> JobConfig:
         """
         Process a single job configuration.
 
@@ -85,7 +91,7 @@ class PipelineProcessor:
             A JobConfig object.
         """
         # Merge variables with precedence: job > global > default
-        variables = {}
+        variables: dict[str, str] = {}
         variables.update(default.variables)
         variables.update(global_vars)
         variables.update(job_data.get("variables", {}))
@@ -94,6 +100,29 @@ class PipelineProcessor:
         before_script = default.before_script + self._ensure_list(job_data.get("before_script", []))
         after_script = self._ensure_list(job_data.get("after_script", [])) + default.after_script
 
+        # GitLab-aligned retry parsing
+        retry_cfg = job_data.get("retry", 0)
+        retry_max = 0
+        retry_when: list[str] = []
+        retry_exit_codes: list[int] = []
+
+        if isinstance(retry_cfg, int):
+            retry_max = max(0, int(retry_cfg))
+        elif isinstance(retry_cfg, dict):
+            # GitLab uses "max"
+            retry_max = int(retry_cfg.get("max", 0) or 0)
+            _when = retry_cfg.get("when", [])
+            if isinstance(_when, str):
+                retry_when = [_when]
+            elif isinstance(_when, list):
+                retry_when = [str(x) for x in _when if isinstance(x, (str, int))]
+
+            _codes = retry_cfg.get("exit_codes", [])
+            if isinstance(_codes, int):
+                retry_exit_codes = [int(_codes)]
+            elif isinstance(_codes, list):
+                retry_exit_codes = [int(c) for c in _codes if isinstance(c, (int, str)) and str(c).isdigit()]
+
         return JobConfig(
             name=name,
             stage=job_data.get("stage", "test"),
@@ -101,6 +130,9 @@ class PipelineProcessor:
             variables=variables,
             before_script=before_script,
             after_script=after_script,
+            retry_max=retry_max,
+            retry_when=retry_when,
+            retry_exit_codes=retry_exit_codes,
         )
 
     def _ensure_list(self, value: Union[str, list[str]]) -> list[str]:
@@ -137,8 +169,11 @@ class LocalGitLabRunner:
             self.base_path = base_path
         self.loader = ConfigurationLoader(base_path)
         self.processor = PipelineProcessor()
+        self.job_executor: JobExecutor | None = None
+        self.orchestrator: StageOrchestrator | None = None
 
-    def run_pipeline(self, config_path: Path | None = None) -> None:
+    def run_pipeline(self, config_path: Path | None = None,
+                     maximum_degree_of_parallelism: int | None = None) -> None:
         """
         Run the complete pipeline.
 
@@ -158,11 +193,12 @@ class LocalGitLabRunner:
 
         # Set up execution components
         variable_manager = VariableManager(pipeline.variables)
-        job_executor = JobExecutor(variable_manager)
-        orchestrator = StageOrchestrator(job_executor)
+        self.job_executor = JobExecutor(variable_manager)
+        self.orchestrator = StageOrchestrator(self.job_executor,
+                                              maximum_degree_of_parallelism=maximum_degree_of_parallelism)
 
         # Execute pipeline
-        orchestrator.execute_pipeline(pipeline)
+        self.orchestrator.execute_pipeline(pipeline)
 
 
 def best_efforts_run(config_path: Path) -> None:
