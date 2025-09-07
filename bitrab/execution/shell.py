@@ -1,7 +1,3 @@
-from __future__ import annotations
-
-from contextlib import contextmanager
-
 """
 A subprocess/bash runner that supports **streaming** (threads for real-time output)
 *and* a **captured** mode that plays perfectly with pytest and CI.
@@ -40,12 +36,17 @@ Deterministic (captured) tests:
 
 """
 
+from __future__ import annotations
+
 import os
+import subprocess  # nosec
 import sys
 import threading
-import subprocess  # nosec
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import IO, Optional
+from typing import IO
+
+from bitrab.exceptions import BitrabError
 
 # ---------- Color helpers ----------
 GREEN = "\033[92m"
@@ -53,7 +54,7 @@ RED = "\033[91m"
 RESET = "\033[0m"
 
 
-def _colors_enabled(force: Optional[bool]) -> bool:
+def _colors_enabled(force: bool | None) -> bool:
     if force is True:
         return True
     if force is False:
@@ -69,7 +70,7 @@ class RunResult:
     stdout: str
     stderr: str
 
-    def check_returncode(self) -> "RunResult":
+    def check_returncode(self) -> RunResult:
         if self.returncode != 0:
             raise subprocess.CalledProcessError(self.returncode, "<bash stdin>", self.stdout, self.stderr)
         return self
@@ -79,7 +80,7 @@ class RunResult:
 _BASE_ENV = os.environ.copy()
 
 
-def merge_env(env: Optional[dict[str, str]] = None) -> dict[str, str]:
+def merge_env(env: dict[str, str] | None = None) -> dict[str, str]:
     """Return a merged environment where `env` overrides current process env."""
     if env:
         merged = {**_BASE_ENV, **env}
@@ -92,7 +93,7 @@ def merge_env(env: Optional[dict[str, str]] = None) -> dict[str, str]:
 class _Buffer:
     """A very small helper to collect text while also acting like a file-like object."""
 
-    def __init__(self, target: Optional[IO[str]] = None) -> None:
+    def __init__(self, target: IO[str] | None = None) -> None:
         self._buf: list[str] = []
         self._target = target
 
@@ -125,14 +126,14 @@ def _pick_bash(login_shell: bool) -> list[str]:
 def run_bash(
     script: str,
     *,
-    env: Optional[dict[str, str]] = None,
-    cwd: Optional[str | os.PathLike[str]] = None,
+    env: dict[str, str] | None = None,
+    cwd: str | os.PathLike[str] | None = None,
     mode: str = "stream",  # "stream" | "capture"
     check: bool = True,
     login_shell: bool = False,
-    force_color: Optional[bool] = None,
-    stdout_target: Optional[IO[str]] = None,
-    stderr_target: Optional[IO[str]] = None,
+    force_color: bool | None = None,
+    stdout_target: IO[str] | None = None,
+    stderr_target: IO[str] | None = None,
 ) -> RunResult:
     """Run a bash *script string* via stdin.
 
@@ -157,12 +158,11 @@ def run_bash(
     stdout_target / stderr_target : IO[str] | None
         Streams to receive live output in streaming mode. Defaults to sys.stdout/sys.stderr.
 
-    Returns
+    Returns:
     -------
     RunResult
         Includes return code and full stdout/stderr text.
     """
-
     env_merged = merge_env(env)
 
     # Normalize line endings for Git-Bash on Windows when feeding via stdin
@@ -191,7 +191,6 @@ def run_bash(
             stderr=subprocess.PIPE,
             text=True,
         ) as proc:
-            assert proc.stdin is not None
             out, err = proc.communicate(robust_script_content)
             rc = proc.returncode
         result = RunResult(rc, out, err)
@@ -213,7 +212,7 @@ def run_bash(
         finally:
             try:
                 pipe.close()
-            except Exception:
+            except Exception:  # nosec: clean up
                 pass
 
     with subprocess.Popen(  # nosec
@@ -226,7 +225,8 @@ def run_bash(
         text=True,
         bufsize=1,  # line buffered
     ) as proc:
-        assert proc.stdout is not None and proc.stderr is not None and proc.stdin is not None
+        if not (proc.stdout is not None and proc.stderr is not None and proc.stdin is not None):
+            raise BitrabError("proc properties are None")
 
         t_out = threading.Thread(target=_stream, args=(proc.stdout, g, out_buf), daemon=True)
         t_err = threading.Thread(target=_stream, args=(proc.stderr, r, err_buf), daemon=True)
@@ -249,6 +249,7 @@ def run_bash(
 # Optional: env var knob (document for CI/pytest usage)
 _ENV_MODE = "BITRAB_SUBPROC_MODE"  # "stream" or "capture"
 
+
 def _auto_mode() -> str:
     mode = os.getenv(_ENV_MODE)
     if mode in {"stream", "capture"}:
@@ -258,7 +259,8 @@ def _auto_mode() -> str:
         return "capture"
     return "stream"
 
-def run_colored(script: str, env=None, cwd=None, mode:str|None=None) ->  RunResult:
+
+def run_colored(script: str, env=None, cwd=None, mode: str | None = None) -> RunResult:
     """
     Backward-compatible wrapper. Keeps streaming default in dev,
     but auto-switches to capture in pytest/CI, unless overridden via BITRAB_SUBPROC_MODE.
@@ -272,8 +274,8 @@ def run_colored(script: str, env=None, cwd=None, mode:str|None=None) ->  RunResu
         env=env,
         cwd=cwd,
         mode=mode,
-        check=True,          # old behavior: raise on non-zero
-        force_color=None,    # respect NO_COLOR by default
+        check=True,  # old behavior: raise on non-zero
+        force_color=None,  # respect NO_COLOR by default
         # You can pass stdout_target/stderr_target here if you want custom tee targets
     )
     return result

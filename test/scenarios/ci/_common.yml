@@ -1,0 +1,6 @@
+# Local include with a minimal hidden job (demonstrates local include support).
+# You could put shared anchors, rulesets, or macros here.
+
+.common_echo:
+  before_script:
+    - echo "[_common.yml] Included at $(date)"

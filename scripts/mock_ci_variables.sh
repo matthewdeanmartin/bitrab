@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Auto-generated mock CI variables
+set -euo pipefail
 
 export CI="false"
 export GITLAB_CI="false"

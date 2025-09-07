@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import os
-import sys
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
+
 import pytest
 
 from bitrab.execution.shell import run_bash, run_colored
@@ -24,12 +24,11 @@ def _bash_available() -> bool:
     return os.path.exists(default_git_bash)
 
 
-pytestmark = pytest.mark.skipif(
-    not _bash_available(), reason="Bash not available for subprocess tests"
-)
+pytestmark = pytest.mark.skipif(not _bash_available(), reason="Bash not available for subprocess tests")
 
 
 # ---------------- run_bash tests ----------------
+
 
 def test_capture_mode_returns_stdout_and_stderr():
     res = run_bash(
@@ -109,7 +108,6 @@ def test_run_colored_capture_produces_no_live_output(monkeypatch, capsys):
     # In capture mode, nothing should be *written* to live std streams
     assert "captured" not in captured.out
     assert "err" not in captured.err
-
 
 
 def test_run_colored_stream_writes_to_std_streams(monkeypatch, capsys):

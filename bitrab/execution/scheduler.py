@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Iterable
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import Any
 
 from bitrab.execution.job import JobExecutor
-from bitrab.models.pipeline import PipelineConfig, JobConfig
+from bitrab.models.pipeline import JobConfig, PipelineConfig
 
 
 def _run_single_job(job: JobConfig, executor: JobExecutor) -> None:
@@ -29,16 +29,10 @@ class StageOrchestrator:
                       os.cpu_count() (falls back to 1 if None).
     """
 
-    def __init__(
-        self,
-        job_executor: JobExecutor,
-        maximum_degree_of_parallelism: int | None = None,
-    ):
+    def __init__(self, job_executor: JobExecutor, maximum_degree_of_parallelism: int | None = None, dry_run: bool = False):
         self.job_executor = job_executor
         cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = (
-            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
-        )
+        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
 
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
         """
@@ -64,7 +58,7 @@ class StageOrchestrator:
             # If it isn't, change _run_single_job to reconstruct the executor from config.
             failures: list[tuple[JobConfig, BaseException]] = []
 
-            if self.maximum_degree_of_parallelism ==1:
+            if self.maximum_degree_of_parallelism == 1:
                 for job in stage_jobs:
                     self.job_executor.execute_job(job)
             else:

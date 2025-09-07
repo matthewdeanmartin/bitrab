@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from bitrab.exceptions import BitrabError, JobExecutionError
-from bitrab.execution.shell import run_colored, RunResult
+from bitrab.execution.shell import RunResult, run_colored
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
 
@@ -19,11 +19,12 @@ class JobExecutor:
         variable_manager: The VariableManager instance for managing variables.
     """
 
-    def __init__(self, variable_manager: VariableManager):
+    def __init__(self, variable_manager: VariableManager, dry_run: bool = False):
         self.variable_manager = variable_manager
-        self.job_history:list[RunResult] =[]
+        self.job_history: list[RunResult] = []
+        self.dry_run = dry_run
 
-# ---- retry helpers ----
+    # ---- retry helpers ----
     @staticmethod
     def _env_delay_seconds() -> int:
         try:
@@ -138,9 +139,7 @@ class JobExecutor:
 
         # out of attempts
         if isinstance(last_exc, subprocess.CalledProcessError):
-            raise JobExecutionError(
-                f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}"
-            ) from last_exc
+            raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}") from last_exc
         raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s).") from last_exc
 
     def _execute_scripts(self, scripts: list[str], env: dict[str, str]) -> None:
@@ -166,11 +165,16 @@ class JobExecutor:
         full_script = "\n".join(lines)
         print(f"    $ {full_script}")
 
-        result = run_colored(
-            full_script,
-            env=env,
-            cwd=Path.cwd(),
-        )
+        if self.dry_run:
+            print("Not running...")
+            print(full_script)
+            result = RunResult(0, "", "")
+        else:
+            result = run_colored(
+                full_script,
+                env=env,
+                cwd=Path.cwd(),
+            )
         self.job_history.append(result)
 
         if result.returncode != 0:

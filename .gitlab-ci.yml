@@ -23,14 +23,14 @@ stages:
 
 # Shared setup to avoid duplication
 
-before_script:
-  - set -euo pipefail
-  - apt-get update -y && apt-get install -y --no-install-recommends curl git ca-certificates && rm -rf /var/lib/apt/lists/*
-  - |
-    curl -LsSf https://astral.sh/uv/install.sh | sh -s -- -y
-  - export PATH="$HOME/.local/bin:$PATH"
-  - uv --version
-  - uv sync --all-extras --dev
+#before_script:
+#  - set -euo pipefail
+#  - apt-get update -y && apt-get install -y --no-install-recommends curl git ca-certificates && rm -rf /var/lib/apt/lists/*
+#  - |
+#    curl -LsSf https://astral.sh/uv/install.sh | sh -s -- -y
+#  - export PATH="$HOME/.local/bin:$PATH"
+#  - uv --version
+#  - uv sync --all-extras --dev
 
 cache:
   key:

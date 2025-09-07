@@ -1,0 +1,266 @@
+# Local-runner friendly pipeline for "calculate_tip" (no Docker, shared FS)
+
+include:
+  # Demonstrate local include (kept minimal and optional)
+  - local: "ci/_common.yml"
+
+workflow:
+  rules:
+    # Skip pipelines on WIP branches; run otherwise
+    - if: '$CI_COMMIT_BRANCH =~ /^wip\//'
+      when: never
+    - when: always
+
+stages:
+  - prepare
+  - lint
+  - test
+  - package
+  - integration
+  - docs
+  - summarize
+  - publish
+
+# -------- Global defaults (safe for a local clone runner) --------
+default:
+  interruptible: true
+  timeout: 30m
+  # Export a few global variables (can be overridden per-job)
+  variables:
+    PYTHON_DEFAULT: "python"   # whatever is on PATH locally
+    PIP_CACHE_DIR: ".cache/pip"
+    VENV_DIR: ".venv"
+    WORKSPACE: ".workspace"
+    ARTIFACTS_DIR: ".artifacts"
+    # Demonstrate a runtime-tunable setting used in multiple jobs
+    TIP_INPUT_AMOUNT: "100.00"
+    TIP_INPUT_PERCENT: "18"
+
+# Hidden template uses anchors; extends is supported without Docker
+.python_job:
+  before_script:
+    - set -Eeuo pipefail
+    - mkdir -p "$WORKSPACE" "$ARTIFACTS_DIR" "$PIP_CACHE_DIR"
+    - |
+      if [ ! -d "$VENV_DIR" ]; then
+        $PYTHON_DEFAULT -m venv "$VENV_DIR"
+      fi
+    - . "$VENV_DIR"/bin/activate
+    - python -V
+    - python -m pip install --upgrade pip
+  after_script:
+    - 'echo "[after_script] Done: $CI_JOB_NAME at $(date)"'
+
+# ------------------------- Jobs begin ----------------------------
+
+# Prepare: lock files, baseline install, and produce a dotenv for downstream jobs
+prepare:venv:
+  stage: prepare
+  extends: .python_job
+  script:
+    - python -m pip install -r requirements.txt || true
+    - echo "APP_VERSION=$(python -c 'import pathlib,hashlib;print(hashlib.sha256(pathlib.Path(\"calculate_tip.py\").read_bytes()).hexdigest()[:8])')" > tip.env
+    - echo "PREPARED_AT=$(date +%s)" >> tip.env
+  artifacts:
+    paths:
+      - $VENV_DIR
+    reports:
+      dotenv: tip.env
+    expire_in: 1 week
+  cache:
+    key: "pip-main"
+    paths:
+      - $PIP_CACHE_DIR
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+
+lint:ruff-mypy:
+  stage: lint
+  extends: .python_job
+  needs: ["prepare:venv"]
+  variables:
+    # allow_failure demo on mypy
+    MYPY_FLAGS: "--ignore-missing-imports"
+  script:
+    - pip install ruff mypy
+    - ruff check .
+    - mypy . $MYPY_FLAGS
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      - ruff.log
+      - mypy.log
+    expire_in: 1 week
+
+test:unit:
+  stage: test
+  extends: .python_job
+  needs: ["prepare:venv"]
+  parallel:
+    matrix:
+      - TEST_SHARD: ["A", "B"]   # fan-out without Docker; both share FS
+  variables:
+    PYTEST_JUNIT: "reports/junit/test-${TEST_SHARD}.xml"
+  script:
+    - pip install -r requirements-dev.txt || true
+    - mkdir -p reports/junit coverage
+    - |
+      if [ "${TEST_SHARD}" = "A" ]; then
+        pytest -k "not slow" --junitxml="$PYTEST_JUNIT" --cov=. --cov-report=term --cov-report=xml:coverage/coverage-${TEST_SHARD}.xml
+      else
+        pytest -k "slow or not slow" --junitxml="$PYTEST_JUNIT" --cov=. --cov-report=term --cov-report=xml:coverage/coverage-${TEST_SHARD}.xml
+      fi
+  artifacts:
+    when: always
+    paths:
+      - reports/junit/
+      - coverage/
+    reports:
+      junit:
+        - reports/junit/*.xml
+  coverage: '/^TOTAL\s+\d+\s+\d+\s+\d+\s+(\d+%)$/'
+  cache:
+    key: "pip-main"
+    paths:
+      - $PIP_CACHE_DIR
+  retry:
+    max: 2
+    when:
+      - script_failure
+      - stuck_or_timeout_failure
+    # Optionally honor exit_codes in a real runner; local clone runner can filter
+
+package:wheel:
+  stage: package
+  extends: .python_job
+  needs:
+    - job: test:unit
+      artifacts: true
+  script:
+    - pip install build
+    - python -m build --wheel -o dist/
+    - echo "PACKAGE_PATH=$(ls -1 dist/*.whl | head -n1)" >> tip.env
+  artifacts:
+    paths:
+      - dist/
+    reports:
+      dotenv: tip.env   # hand off the built wheel location downstream
+    expire_in: 2 weeks
+  dependencies:
+    - test:unit
+
+integration:compute-tip:
+  stage: integration
+  extends: .python_job
+  needs:
+    - job: package:wheel
+      artifacts: true
+  script:
+    - pip install dist/*.whl || true
+    - |
+      # Run the example: python calculate_tip.py <amount> <percent>
+      TIP=$(python -c "import subprocess,sys; import shlex; \
+      amount=float('${TIP_INPUT_AMOUNT}'); pct=float('${TIP_INPUT_PERCENT}'); \
+      print(round(amount*pct/100.0, 2))")
+      echo "TIP_RESULT=${TIP}" | tee -a tip.env
+  artifacts:
+    reports:
+      dotenv: tip.env
+    paths:
+      - tip.env
+  dependencies:
+    - package:wheel
+  timeout: 10m
+  retry:
+    max: 1
+    when:
+      - script_failure
+
+docs:build:
+  stage: docs
+  extends: .python_job
+  needs: ["integration:compute-tip"]
+  rules:
+    # Only rebuild docs if docs or tip source changed
+    - changes:
+        - docs/**/*
+        - calculate_tip.py
+      when: on_success
+    - when: manual   # still available if you want to force-run
+  script:
+    - pip install -r docs/requirements.txt || true
+    - make -C docs html || sphinx-build -b html docs/ docs/_build/html
+    - cp -r docs/_build/html "$ARTIFACTS_DIR/docs"
+  artifacts:
+    paths:
+      - $ARTIFACTS_DIR/docs
+    expire_in: 1 week
+  dependencies:
+    - integration:compute-tip
+
+summarize:coverage-and-tip:
+  stage: summarize
+  extends: .python_job
+  needs:
+    - job: test:unit
+      artifacts: true
+    - job: integration:compute-tip
+      artifacts: true
+  script:
+    - 'echo "---- Coverage reports present: ----"'
+    - ls -l coverage || true
+    - 'echo "---- TIP RESULT (from dotenv): ----"'
+    - set -a; . tip.env; set +a
+    - echo "APP_VERSION=$APP_VERSION  TIP_RESULT=$TIP_RESULT"
+    - |
+      python - <<'PY'
+      import os, glob, xml.etree.ElementTree as ET
+      tot = []
+      for f in glob.glob("coverage/*.xml"):
+          try:
+              tree = ET.parse(f)
+              cov = tree.getroot().attrib.get('line-rate')
+              if cov:
+                  tot.append(float(cov))
+          except Exception:
+              pass
+      if tot:
+          print(f"Average line-rate across shards: {sum(tot)/len(tot):.3f}")
+      else:
+          print("No coverage XMLs found")
+      PY
+
+  artifacts:
+    when: always
+    paths:
+      - summary.log
+  dependencies:
+    - test:unit
+    - integration:compute-tip
+  allow_failure: false
+
+publish:manual:
+  stage: publish
+  extends: .python_job
+  needs: ["package:wheel"]
+  # Demonstrate a named mutex so only one publish runs at a time locally
+  resource_group: "publish-artifacts"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+    - when: never
+  environment:
+    name: production
+    url: https://example.invalid/calculate_tip
+  script:
+    - echo "Would upload dist/*.whl to package index here (dry-run)"
+    - echo "TIP_RESULT from integration is available if needed."
+  dependencies:
+    - package:wheel
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 4 weeks

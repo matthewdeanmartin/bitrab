@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 class BitrabError(Exception):
     """Any error raised from bitrab"""
 

@@ -14,6 +14,7 @@ def write_yaml(path: Path, data: dict):
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f)
 
+
 # would need non-streaming output.
 # Simple passing test for basic functionality
 # def test_basic_job_execution(tmp_path: Path, capsys):
@@ -64,6 +65,7 @@ def test_variable_substitution_with_dollar_sign(tmp_path: Path, capsys):
         out = job_history.stdout
         assert "$UNIQUE_VAR_123" in err or "$UNIQUE_VAR_123" in out
 
+
 # bug fixed, bad test because of how we are using threading to stream output and it doesn't show up in capsys
 # Bug 4: after_script does not run if main script fails.
 # Failing test: Expects 'after' in output despite failure, but due to bug, it's not executed.
@@ -95,7 +97,6 @@ def test_recursive_includes(tmp_path: Path, capsys):
 
     runner = LocalGitLabRunner(base_path=tmp_path)
     runner.run_pipeline(main_path)
-
 
     # captured = capsys.readouterr().out
     # assert "hello" in captured  # Fails due to bug, job not loaded

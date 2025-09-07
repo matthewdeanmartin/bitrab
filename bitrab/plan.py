@@ -72,11 +72,11 @@ class PipelineProcessor:
         )
 
     def _process_job(
-            self,
-            name: str,
-            job_data: dict[str, Any],
-            default: DefaultConfig,
-            global_vars: dict[str, str],
+        self,
+        name: str,
+        job_data: dict[str, Any],
+        default: DefaultConfig,
+        global_vars: dict[str, str],
     ) -> JobConfig:
         """
         Process a single job configuration.
@@ -172,13 +172,14 @@ class LocalGitLabRunner:
         self.job_executor: JobExecutor | None = None
         self.orchestrator: StageOrchestrator | None = None
 
-    def run_pipeline(self, config_path: Path | None = None,
-                     maximum_degree_of_parallelism: int | None = None) -> None:
+    def run_pipeline(self, config_path: Path | None = None, maximum_degree_of_parallelism: int | None = None, dry_run: bool = False) -> None:
         """
         Run the complete pipeline.
 
         Args:
             config_path: Path to the pipeline configuration file.
+            maximum_degree_of_parallelism: How many jobs can run at same time
+            dry_run: Do we really run jobs
 
         Returns:
             The exit code of the pipeline execution.
@@ -193,9 +194,8 @@ class LocalGitLabRunner:
 
         # Set up execution components
         variable_manager = VariableManager(pipeline.variables)
-        self.job_executor = JobExecutor(variable_manager)
-        self.orchestrator = StageOrchestrator(self.job_executor,
-                                              maximum_degree_of_parallelism=maximum_degree_of_parallelism)
+        self.job_executor = JobExecutor(variable_manager, dry_run=dry_run)
+        self.orchestrator = StageOrchestrator(self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run)
 
         # Execute pipeline
         self.orchestrator.execute_pipeline(pipeline)

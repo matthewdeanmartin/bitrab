@@ -9,20 +9,18 @@ license = "MIT"
 requires-python = ">=3.8"
 dependencies = [
     # Core enables compile, decompile, validate, best effort runner
-    "ruamel.yaml", # required to compile
-    "jsonschema", # required to compile
-    "importlib_resources", # Used by validator
-    "toml", # backwards compat, required to compile
+    "ruamel.yaml", # required to read yaml
+    "jsonschema", # required to validate
+    "importlib_resources", # Used by validator to get schema document
+
     # native libs to speed things up
-    "rtoml",
     "urllib3",
     "orjson",
     "certifi",
     # "rapidyaml==0.9.0", # API too radically different to use yet.
 
     # Extensibility
-    "pluggy", # required to compile
-
+    # "pluggy", # ... not yet.
 
     # Extras
 
@@ -32,11 +30,13 @@ dependencies = [
     "textual", # could be optional
     "colorlog", # could be optional
     "rich", # could be optional - interative/init/tui
-    "watchdog>=3.0.0", # optional
+    # "watchdog>=3.0.0", # optional
 
     # update checker
     "packaging", # could be optional
     # Config
+    "rtoml; python_version < '3.14'",
+    "toml", # backwards compat,
     "tomlkit", # right now only used by init
     "tomli; python_version < '3.11'",
 ]
@@ -132,47 +132,35 @@ bitrab = { workspace = true }
 [tool.uv.workspace]
 members = ["./",
     # App plugins
-    "plugins/bitrab_chat",
-    "plugins/bitrab_issue_tracker",
-    "plugins/bitrab_issue_tracker_gh_sync",
-    # data tags plugins
-    "plugins/bitrab_universal",
-    "plugins/bitrab_to_sqlite"
 ]
 
 [project.scripts]
-bitrab = "bitrab.__main__:main"
-b2gl = "bitrab.__main__:main"
-
-bitrab-tui = "bitrab.tui:main"
-b2gl-tui = "bitrab.tui:main"
-
-bitrab-gui = "bitrab.gui:main"
-b2gl-gui = "bitrab.gui:main"
-
-bitrab-interactive = "bitrab.interactive:main"
-b2gl-interactive = "bitrab.interactive:main"
+bitrab = "bitrab.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "bitrab/**/*.py",
+    "bitrab/schemas/*",
+    "bitrab/py.typed",
+    "/README.md", "LICENSE",
+]
 
-[tool.hatch.build.targets.wheel.sources]
-"schemas" = "bitrab/schemas"
+exclude = [
+
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["bitrab"]
 include = [
     "bitrab/**/*.py",
-    "bitrab/schemas/**/*.json",
+    "bitrab/schemas/*",
     "bitrab/py.typed",
     "/README.md", "LICENSE",
-    "/tests"
 ]
-
-[tool.hatch.build.targets.sdist]
-include = ["/README.md", "LICENSE", "/bitrab", "/tests"]
 
 
 [tool.black]
