@@ -6,9 +6,8 @@ A tool for running GitLab CI pipelines locally.
 from __future__ import annotations
 
 import argparse
-import logging
-
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -289,7 +288,9 @@ Version: {__version__}
     # Global options
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--license", action="store_true", help="Show license information")
-    parser.add_argument("-c", "--config", metavar="PATH", help="Path to GitLab CI configuration file (default: .gitlab-ci.yml)")
+    parser.add_argument(
+        "-c", "--config", metavar="PATH", help="Path to GitLab CI configuration file (default: .gitlab-ci.yml)"
+    )
     parser.add_argument("-q", "--quiet", action="store_true", help="Suppress non-error output")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
@@ -297,7 +298,9 @@ Version: {__version__}
     subparsers = parser.add_subparsers(dest="command", help="Available commands", metavar="COMMAND")
 
     # Run command
-    run_parser = subparsers.add_parser("run", help="Execute the pipeline", description="Execute GitLab CI pipeline locally")
+    run_parser = subparsers.add_parser(
+        "run", help="Execute the pipeline", description="Execute GitLab CI pipeline locally"
+    )
     run_parser.add_argument("--dry-run", action="store_true", help="Show what would be executed without running")
     run_parser.add_argument(
         "--parallel",
@@ -306,11 +309,15 @@ Version: {__version__}
         metavar="N",
         help="Number of parallel jobs per stage (default: number of CPU cores)",
     )
-    run_parser.add_argument("--jobs", nargs="*", metavar="JOB", help="Run only specified jobs (if not specified, run all jobs)")
+    run_parser.add_argument(
+        "--jobs", nargs="*", metavar="JOB", help="Run only specified jobs (if not specified, run all jobs)"
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # List command
-    list_parser = subparsers.add_parser("list", help="List all jobs in the pipeline", description="Display all jobs organized by stages")
+    list_parser = subparsers.add_parser(
+        "list", help="List all jobs in the pipeline", description="Display all jobs organized by stages"
+    )
     list_parser.set_defaults(func=cmd_list)
 
     # Validate command
@@ -319,7 +326,9 @@ Version: {__version__}
         help="Validate pipeline configuration",
         description="Check pipeline configuration for errors and warnings",
     )
-    validate_parser.add_argument("--json", dest="output_json", action="store_true", help="Output validated pipeline configuration as JSON")
+    validate_parser.add_argument(
+        "--json", dest="output_json", action="store_true", help="Output validated pipeline configuration as JSON"
+    )
     validate_parser.set_defaults(func=cmd_validate)
 
     # Lint command
@@ -347,7 +356,9 @@ Version: {__version__}
     debug_parser.set_defaults(func=cmd_debug)
 
     # Clean command
-    clean_parser = subparsers.add_parser("clean", help="Clean up artifacts", description="Remove build artifacts and temporary files (not implemented)")
+    clean_parser = subparsers.add_parser(
+        "clean", help="Clean up artifacts", description="Remove build artifacts and temporary files (not implemented)"
+    )
     clean_parser.set_defaults(func=cmd_clean)
 
     return parser

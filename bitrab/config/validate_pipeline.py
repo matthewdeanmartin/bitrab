@@ -47,7 +47,9 @@ class GitLabCIValidator:
         Args:
             cache_dir: Directory to cache the schema file. If None, uses system temp directory.
         """
-        self.schema_url = "https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json"
+        self.schema_url = (
+            "https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json"
+        )
         self.cache_dir = Path(cache_dir) if cache_dir else Path(tempfile.gettempdir())
         self.cache_file = self.cache_dir / "gitlab_ci_schema.json"
         self.fallback_schema_path = "schemas/gitlab_ci_schema.json"  # Package resource path

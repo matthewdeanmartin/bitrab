@@ -43,9 +43,9 @@ isort: init-build-history
 black: isort init-build-history
     @echo "Formatting code"
     {{venv}} metametameta pep621
-    {{venv}} black bash2gitlab
+    {{venv}} black bitrab
     {{venv}} black test
-    {{venv}} git2md bash2gitlab --ignore __init__.py __pycache__ --output SOURCE.md
+    {{venv}} git2md bitrab --ignore __init__.py __pycache__ --output SOURCE.md
     touch {{STAMP_DIR}}/black
 
 pre-commit: black init-build-history
@@ -58,16 +58,16 @@ ruff-fix:
 
 pylint: black ruff-fix init-build-history
     @echo "Linting with pylint"
-    {{venv}} pylint bash2gitlab --fail-under 9.9 --rcfile=.pylintrc
+    {{venv}} pylint bitrab --fail-under 9.9 --rcfile=.pylintrc
     touch {{STAMP_DIR}}/pylint
 
 bandit: init-build-history
     @echo "Security checks"
-    {{venv}} bandit bash2gitlab -r --quiet
+    {{venv}} bandit bitrab -r --quiet
     touch {{STAMP_DIR}}/bandit
 
 mypy:
-    {{venv}} mypy bash2gitlab --ignore-missing-imports --check-untyped-defs
+    {{venv}} mypy bitrab --ignore-missing-imports --check-untyped-defs
 
 # ---- Tests ----
 # tests can't be expected to pass if dependencies aren't installed.
@@ -76,7 +76,7 @@ mypy:
 test: clean uv-lock install-plugins
     @echo "Running unit tests"
     {{venv}} py.test test -vv -n auto \
-      --cov=bash2gitlab --cov-report=html --cov-fail-under 35 --cov-branch \
+      --cov=bitrab --cov-report=html --cov-fail-under 35 --cov-branch \
       --cov-report=xml --junitxml=junit.xml -o junit_family=legacy \
       --timeout=5 --session-timeout=600
     {{venv}} bash basic_checks.sh
@@ -97,20 +97,20 @@ check: mypy test pylint bandit pre-commit
 mypy-log:
     mkdir -p {{LOGS_DIR}}
     : > {{LOGS_DIR}}/mypy.log
-    {{venv}} mypy bash2gitlab --ignore-missing-imports --check-untyped-defs > {{LOGS_DIR}}/mypy.log 2>&1
+    {{venv}} mypy bitrab --ignore-missing-imports --check-untyped-defs > {{LOGS_DIR}}/mypy.log 2>&1
     touch {{LOGS_DIR}}/mypy.ok
 
 bandit-log:
     mkdir -p {{LOGS_DIR}}
     : > {{LOGS_DIR}}/bandit.log
-    {{venv}} bandit bash2gitlab -r --quiet > {{LOGS_DIR}}/bandit.log 2>&1
+    {{venv}} bandit bitrab -r --quiet > {{LOGS_DIR}}/bandit.log 2>&1
     touch {{LOGS_DIR}}/bandit.ok
 
 pylint-log:
     mkdir -p {{LOGS_DIR}}
     : > {{LOGS_DIR}}/pylint.log
     {{venv}} ruff check --fix > {{LOGS_DIR}}/pylint.log 2>&1
-    {{venv}} pylint bash2gitlab --fail-under 5 >> {{LOGS_DIR}}/pylint.log 2>&1
+    {{venv}} pylint bitrab --fail-under 5 >> {{LOGS_DIR}}/pylint.log 2>&1
     touch {{LOGS_DIR}}/pylint.ok
 
 pre-commit-log:
@@ -145,11 +145,11 @@ check-fast: clean uv-lock install-plugins
 
 # ---- Docs & Markdown / Spelling / Changelog ----
 check-docs:
-    {{venv}} interrogate bash2gitlab --verbose
+    {{venv}} interrogate bitrab --verbose
     {{venv}} pydoctest --config .pydoctest.json | grep -v "__init__" | grep -v "__main__" | grep -v "Unable to parse"
 
 make-docs:
-    pdoc bash2gitlab --html -o docs --force
+    pdoc bitrab --html -o docs --force
 
 check-md:
     {{venv}} linkcheckMarkdown README.md
@@ -157,9 +157,9 @@ check-md:
     {{venv}} mdformat README.md docs/*.md
 
 check-spelling:
-    {{venv}} pylint bash2gitlab --enable C0402 --rcfile=.pylintrc_spell
+    {{venv}} pylint bitrab --enable C0402 --rcfile=.pylintrc_spell
     {{venv}} codespell README.md --ignore-words=private_dictionary.txt
-    {{venv}} codespell bash2gitlab --ignore-words=private_dictionary.txt
+    {{venv}} codespell bitrab --ignore-words=private_dictionary.txt
 
 check-changelog:
     {{venv}} changelogmanager validate

@@ -11,8 +11,8 @@ from typing import Any
 
 import orjson
 
-from bitrab.utils.terminal_colors import Colors
 from bitrab.config.validate_pipeline import GitLabCIValidator, ValidationResult, validate_gitlab_ci_yaml
+from bitrab.utils.terminal_colors import Colors
 
 
 def find_yaml_files(directory: Path) -> list[Path]:
@@ -71,7 +71,9 @@ def write_results_to_output(results: list[ValidationResult], output_path: Path) 
             "valid_files": sum(1 for r in results if r.is_valid),
             "invalid_files": sum(1 for r in results if not r.is_valid),
         },
-        "results": [{"file": str(result.file_path), "is_valid": result.is_valid, "errors": result.errors} for result in results],
+        "results": [
+            {"file": str(result.file_path), "is_valid": result.is_valid, "errors": result.errors} for result in results
+        ],
     }
 
     # Ensure output directory exists
@@ -164,7 +166,9 @@ def run_validate_all(
             results = []
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
                 # Submit all validation tasks
-                future_to_file = {executor.submit(validate_single_file, yaml_file): yaml_file for yaml_file in yaml_files}
+                future_to_file = {
+                    executor.submit(validate_single_file, yaml_file): yaml_file for yaml_file in yaml_files
+                }
 
                 # Collect results as they complete
                 for future in as_completed(future_to_file):
@@ -172,11 +176,17 @@ def run_validate_all(
                     try:
                         result = future.result()
                         results.append(result)
-                        status = f"{Colors.OKGREEN}✓{Colors.ENDC}" if result.is_valid else f"{Colors.FAIL}✗{Colors.ENDC}"
+                        status = (
+                            f"{Colors.OKGREEN}✓{Colors.ENDC}" if result.is_valid else f"{Colors.FAIL}✗{Colors.ENDC}"
+                        )
                         print(f"{status} {yaml_file}")
                     except Exception as e:
                         print(f"{Colors.FAIL}✗ {yaml_file} - Exception: {e}{Colors.ENDC}")
-                        results.append(ValidationResult(file_path=yaml_file, is_valid=False, errors=[f"Processing exception: {str(e)}"]))
+                        results.append(
+                            ValidationResult(
+                                file_path=yaml_file, is_valid=False, errors=[f"Processing exception: {str(e)}"]
+                            )
+                        )
 
         # Sort results by file path for consistent output
         results.sort(key=lambda r: r.file_path)

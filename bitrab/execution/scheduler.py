@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import multiprocessing as mp
 import os
 import sys
-import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any
 
@@ -31,21 +31,26 @@ class StageOrchestrator:
                       os.cpu_count() (falls back to 1 if None).
     """
 
-    def __init__(self, job_executor: JobExecutor, maximum_degree_of_parallelism: int | None = None, dry_run: bool = False):
+    def __init__(
+        self, job_executor: JobExecutor, maximum_degree_of_parallelism: int | None = None, dry_run: bool = False
+    ):
         self.job_executor = job_executor
         cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        self.maximum_degree_of_parallelism = (
+            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        )
 
         # Choose a safe context for multiprocessing on Unix (Windows already uses spawn)
         # Use forkserver on Linux if you prefer; spawn is the most portable/safe.
         if sys.platform == "win32":
             self._mp_ctx = mp.get_context("spawn")
         else:
-            # spawn avoids the fork-in-multithreaded-parent hazard triggering the warning
-            if os.getenv("BITRAB_USE_FORKSERVER"):
-                self._mp_ctx = mp.get_context("forkserver")
-            else:
+
+            if not os.getenv("BITRAB_USE_FORKSERVER"):
+                # spawn avoids the fork-in-multithreaded-parent hazard triggering the warning
                 self._mp_ctx = mp.get_context("spawn")
+            else:
+                self._mp_ctx = mp.get_context("forkserver")  # type: ignore[assignment]
 
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
         """

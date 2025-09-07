@@ -143,7 +143,9 @@ class JobExecutor:
 
         # out of attempts
         if isinstance(last_exc, subprocess.CalledProcessError):
-            raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}") from last_exc
+            raise JobExecutionError(
+                f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}"
+            ) from last_exc
         raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s).") from last_exc
 
     def _execute_scripts(self, scripts: list[str], env: dict[str, str]) -> None:

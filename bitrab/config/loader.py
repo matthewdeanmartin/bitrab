@@ -67,7 +67,9 @@ class ConfigurationLoader:
         except Exception as e:
             raise GitlabRunnerError(f"Failed to load YAML file {file_path}: {e}") from e
 
-    def _process_includes(self, config: dict[str, Any], base_dir: Path, seen_files: set[Path] | None = None) -> dict[str, Any]:
+    def _process_includes(
+        self, config: dict[str, Any], base_dir: Path, seen_files: set[Path] | None = None
+    ) -> dict[str, Any]:
         """
         Recursively process 'include' directives from a GitLab-style YAML config.
 
