@@ -72,6 +72,8 @@ class RunResult:
 
     def check_returncode(self) -> RunResult:
         if self.returncode != 0:
+            print(self.stderr)
+            print(self.stdout)
             raise subprocess.CalledProcessError(self.returncode, "<bash stdin>", self.stdout, self.stderr)
         return self
 

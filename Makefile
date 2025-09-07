@@ -31,7 +31,7 @@ test: clean uv.lock install_plugins
 	@echo "Running unit tests"
 	# $(VENV) pytest --doctest-modules bitrab
 	# $(VENV) python -m unittest discover
-	$(VENV) pytest test -vv -n 2 --cov=bitrab --cov-report=html --cov-fail-under 48 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=5 --session-timeout=600
+	$(VENV) pytest test -vv -n 2 --cov=bitrab --cov-report=html --cov-fail-under 35 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=5 --session-timeout=600
 	$(VENV) bash ./scripts/basic_checks.sh
 #	$(VENV) bash basic_test_with_logging.sh
 

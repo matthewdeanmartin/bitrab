@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import sys
+import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any
 
@@ -34,6 +36,17 @@ class StageOrchestrator:
         cpu_cnt = os.cpu_count() or 1
         self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
 
+        # Choose a safe context for multiprocessing on Unix (Windows already uses spawn)
+        # Use forkserver on Linux if you prefer; spawn is the most portable/safe.
+        if sys.platform == "win32":
+            self._mp_ctx = mp.get_context("spawn")
+        else:
+            # spawn avoids the fork-in-multithreaded-parent hazard triggering the warning
+            if os.getenv("BITRAB_USE_FORKSERVER"):
+                self._mp_ctx = mp.get_context("forkserver")
+            else:
+                self._mp_ctx = mp.get_context("spawn")
+
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
         """
         Execute all jobs in the pipeline, organized by stages.
@@ -62,7 +75,10 @@ class StageOrchestrator:
                 for job in stage_jobs:
                     self.job_executor.execute_job(job)
             else:
-                with ProcessPoolExecutor(max_workers=self.maximum_degree_of_parallelism) as pool:
+                with ProcessPoolExecutor(
+                    max_workers=self.maximum_degree_of_parallelism,
+                    mp_context=self._mp_ctx,
+                ) as pool:
                     futures = {pool.submit(_run_single_job, job, self.job_executor): job for job in stage_jobs}
 
                     for fut in as_completed(futures):

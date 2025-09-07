@@ -10,6 +10,8 @@ from bitrab.execution.shell import RunResult, run_colored
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
 
+FAIL_FAST = False
+
 
 class JobExecutor:
     """
@@ -106,6 +108,8 @@ class JobExecutor:
             except subprocess.CalledProcessError as e:
                 last_exc = e
                 print(f"  ❗ Job step failed with exit code {e.returncode}")
+                if FAIL_FAST:
+                    raise
             except BaseException as e:
                 last_exc = e
                 print(f"  ❗ Job step raised an exception: {e!r}")

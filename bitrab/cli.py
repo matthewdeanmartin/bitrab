@@ -2,6 +2,7 @@
 Bitrab - Local GitLab CI Runner
 A tool for running GitLab CI pipelines locally.
 """
+
 from __future__ import annotations
 
 import argparse
