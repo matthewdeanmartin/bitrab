@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.config.schema API documentation</title>
+<meta name="description" content="Validates input folder and output folder assuming all yaml is pipeline yaml.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.config.schema</code></h1>
+</header>
+<section id="section-intro">
+<p>Validates input folder and output folder assuming all yaml is pipeline yaml.</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.config.schema.find_yaml_files"><code class="name flex">
+<span>def <span class="ident">find_yaml_files</span></span>(<span>directory: Path) ‑> list[pathlib._local.Path]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def find_yaml_files(directory: Path) -&gt; list[Path]:
+    &#34;&#34;&#34;
+    Recursively find all YAML files in the given directory.
+
+    Args:
+        directory: Directory to search for YAML files.
+
+    Returns:
+        List of Path objects for YAML files.
+    &#34;&#34;&#34;
+    yaml_files: list[Path] = []
+    for pattern in [&#34;**/*.yaml&#34;, &#34;**/*.yml&#34;]:
+        # Only include actual files, not directories
+        yaml_files.extend(path for path in directory.glob(pattern) if path.is_file())
+    return sorted(yaml_files)</code></pre>
+</details>
+<div class="desc"><p>Recursively find all YAML files in the given directory.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>directory</code></strong></dt>
+<dd>Directory to search for YAML files.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>List of Path objects for YAML files.</p></div>
+</dd>
+<dt id="bitrab.config.schema.print_validation_summary"><code class="name flex">
+<span>def <span class="ident">print_validation_summary</span></span>(<span>results: list[ValidationResult]) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def print_validation_summary(results: list[ValidationResult]) -&gt; None:
+    &#34;&#34;&#34;
+    Print a colored summary of validation results.
+
+    Args:
+        results: List of validation results.
+    &#34;&#34;&#34;
+    total_files = len(results)
+    valid_files = sum(1 for r in results if r.is_valid)
+    invalid_files = total_files - valid_files
+
+    print(f&#34;\n{Colors.HEADER}{Colors.BOLD}=== VALIDATION SUMMARY ==={Colors.ENDC}&#34;)
+    print(f&#34;Total files processed: {Colors.OKBLUE}{total_files}{Colors.ENDC}&#34;)
+    print(f&#34;Valid files: {Colors.OKGREEN}{valid_files}{Colors.ENDC}&#34;)
+    print(f&#34;Invalid files: {Colors.FAIL}{invalid_files}{Colors.ENDC}&#34;)
+
+    if invalid_files &gt; 0:
+        print(f&#34;\n{Colors.WARNING}{Colors.BOLD}Files with errors:{Colors.ENDC}&#34;)
+        for result in results:
+            if not result.is_valid:
+                print(f&#34;\n{Colors.FAIL}✗ {result.file_path}{Colors.ENDC}&#34;)
+                for error in result.errors:
+                    print(f&#34;  {Colors.FAIL}• {error}{Colors.ENDC}&#34;)
+    else:
+        print(f&#34;\n{Colors.OKGREEN}{Colors.BOLD}✓ All files are valid!{Colors.ENDC}&#34;)</code></pre>
+</details>
+<div class="desc"><p>Print a colored summary of validation results.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>results</code></strong></dt>
+<dd>List of validation results.</dd>
+</dl></div>
+</dd>
+<dt id="bitrab.config.schema.run_validate_all"><code class="name flex">
+<span>def <span class="ident">run_validate_all</span></span>(<span>input_dir: Path, output_path: Path, parallelism: int | None = None) ‑> int</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def run_validate_all(
+    input_dir: Path,
+    output_path: Path,
+    parallelism: int | None = None,
+) -&gt; int:
+    &#34;&#34;&#34;
+    Orchestrate the validation of all YAML files in input directory.
+
+    Args:
+        input_dir: Directory containing YAML files to validate.
+        output_path: Path to write validation results.
+        parallelism: Number of parallel processes (None for auto-detect).
+
+    Returns:
+        Exit code (0 for success, 1 for validation failures, 2 for errors).
+    &#34;&#34;&#34;
+    try:
+        # Validate input directory exists
+        if not input_dir.exists():
+            print(f&#34;{Colors.FAIL}Error: Input directory does not exist: {input_dir}{Colors.ENDC}&#34;)
+            return 2
+
+        if not input_dir.is_dir():
+            print(f&#34;{Colors.FAIL}Error: Input path is not a directory: {input_dir}{Colors.ENDC}&#34;)
+            return 2
+
+        # Find all YAML files
+        yaml_files = find_yaml_files(input_dir)
+
+        if not yaml_files:
+            print(f&#34;{Colors.WARNING}Warning: No YAML files found in {input_dir}{Colors.ENDC}&#34;)
+            return 0
+
+        print(f&#34;{Colors.OKCYAN}Found {len(yaml_files)} YAML files to validate{Colors.ENDC}&#34;)
+
+        # Determine parallelism strategy
+        if len(yaml_files) &lt;= 5:
+            # Serial processing for small number of files
+            print(f&#34;{Colors.OKBLUE}Using serial processing{Colors.ENDC}&#34;)
+            results = []
+            for yaml_file in yaml_files:
+                print(f&#34;Validating: {yaml_file}&#34;)
+                result = validate_single_file(yaml_file)
+                results.append(result)
+        else:
+            # prime the cache or we get n schema downloads and n attempts to save it to disk
+            validator = GitLabCIValidator()
+            validator.get_schema()
+
+            # Parallel processing for larger number of files
+            max_workers = parallelism if parallelism else os.cpu_count()
+            print(f&#34;{Colors.OKBLUE}Using parallel processing with {max_workers} workers{Colors.ENDC}&#34;)
+
+            results = []
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all validation tasks
+                future_to_file = {executor.submit(validate_single_file, yaml_file): yaml_file for yaml_file in yaml_files}
+
+                # Collect results as they complete
+                for future in as_completed(future_to_file):
+                    yaml_file = future_to_file[future]
+                    try:
+                        result = future.result()
+                        results.append(result)
+                        status = f&#34;{Colors.OKGREEN}✓{Colors.ENDC}&#34; if result.is_valid else f&#34;{Colors.FAIL}✗{Colors.ENDC}&#34;
+                        print(f&#34;{status} {yaml_file}&#34;)
+                    except Exception as e:
+                        print(f&#34;{Colors.FAIL}✗ {yaml_file} - Exception: {e}{Colors.ENDC}&#34;)
+                        results.append(ValidationResult(file_path=yaml_file, is_valid=False, errors=[f&#34;Processing exception: {str(e)}&#34;]))
+
+        # Sort results by file path for consistent output
+        results.sort(key=lambda r: r.file_path)
+
+        # Write results to output file
+        # write_results_to_output(results, output_path)
+        # print(f&#34;\n{Colors.OKCYAN}Results written to: {output_path}{Colors.ENDC}&#34;)
+
+        # Print summary
+        print_validation_summary(results)
+
+        # Return appropriate exit code
+        invalid_count = sum(1 for r in results if not r.is_valid)
+        return 1 if invalid_count &gt; 0 else 0
+
+    except Exception as e:
+        print(f&#34;{Colors.FAIL}Error during validation: {e}{Colors.ENDC}&#34;)
+        raise</code></pre>
+</details>
+<div class="desc"><p>Orchestrate the validation of all YAML files in input directory.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>input_dir</code></strong></dt>
+<dd>Directory containing YAML files to validate.</dd>
+<dt><strong><code>output_path</code></strong></dt>
+<dd>Path to write validation results.</dd>
+<dt><strong><code>parallelism</code></strong></dt>
+<dd>Number of parallel processes (None for auto-detect).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Exit code (0 for success, 1 for validation failures, 2 for errors).</p></div>
+</dd>
+<dt id="bitrab.config.schema.validate_single_file"><code class="name flex">
+<span>def <span class="ident">validate_single_file</span></span>(<span>file_path: Path) ‑> <a title="bitrab.config.validate_pipeline.ValidationResult" href="validate_pipeline.html#bitrab.config.validate_pipeline.ValidationResult">ValidationResult</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def validate_single_file(file_path: Path) -&gt; ValidationResult:
+    &#34;&#34;&#34;
+    Validate a single YAML file.
+
+    Args:
+        file_path: Path to the YAML file to validate.
+
+    Returns:
+        ValidationResult containing the validation outcome.
+    &#34;&#34;&#34;
+    try:
+        # Double-check that this is actually a file
+        if not file_path.exists():
+            return ValidationResult(file_path=file_path, is_valid=False, errors=[f&#34;File does not exist: {file_path}&#34;])
+
+        if not file_path.is_file():
+            return ValidationResult(file_path=file_path, is_valid=False, errors=[f&#34;Path is not a file: {file_path}&#34;])
+
+        yaml_content = file_path.read_text(encoding=&#34;utf-8&#34;)
+        is_valid, errors = validate_gitlab_ci_yaml(yaml_content)
+        return ValidationResult(file_path=file_path, is_valid=is_valid, errors=errors)
+    except Exception as e:
+        return ValidationResult(file_path=file_path, is_valid=False, errors=[f&#34;Failed to read file: {str(e)}&#34;])</code></pre>
+</details>
+<div class="desc"><p>Validate a single YAML file.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>file_path</code></strong></dt>
+<dd>Path to the YAML file to validate.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>ValidationResult containing the validation outcome.</p></div>
+</dd>
+<dt id="bitrab.config.schema.write_results_to_output"><code class="name flex">
+<span>def <span class="ident">write_results_to_output</span></span>(<span>results: list[ValidationResult], output_path: Path) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write_results_to_output(results: list[ValidationResult], output_path: Path) -&gt; None:
+    &#34;&#34;&#34;
+    Write validation results to output file in JSON format.
+
+    Args:
+        results: List of validation results.
+        output_path: Path to write the output file.
+    &#34;&#34;&#34;
+    output_data: dict[str, Any] = {
+        &#34;summary&#34;: {
+            &#34;total_files&#34;: len(results),
+            &#34;valid_files&#34;: sum(1 for r in results if r.is_valid),
+            &#34;invalid_files&#34;: sum(1 for r in results if not r.is_valid),
+        },
+        &#34;results&#34;: [{&#34;file&#34;: str(result.file_path), &#34;is_valid&#34;: result.is_valid, &#34;errors&#34;: result.errors} for result in results],
+    }
+
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_path, &#34;w&#34;, encoding=&#34;utf-8&#34;) as f:
+        f.write(orjson.dumps(output_data).decode())</code></pre>
+</details>
+<div class="desc"><p>Write validation results to output file in JSON format.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>results</code></strong></dt>
+<dd>List of validation results.</dd>
+<dt><strong><code>output_path</code></strong></dt>
+<dd>Path to write the output file.</dd>
+</dl></div>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab.config" href="index.html">bitrab.config</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.config.schema.find_yaml_files" href="#bitrab.config.schema.find_yaml_files">find_yaml_files</a></code></li>
+<li><code><a title="bitrab.config.schema.print_validation_summary" href="#bitrab.config.schema.print_validation_summary">print_validation_summary</a></code></li>
+<li><code><a title="bitrab.config.schema.run_validate_all" href="#bitrab.config.schema.run_validate_all">run_validate_all</a></code></li>
+<li><code><a title="bitrab.config.schema.validate_single_file" href="#bitrab.config.schema.validate_single_file">validate_single_file</a></code></li>
+<li><code><a title="bitrab.config.schema.write_results_to_output" href="#bitrab.config.schema.write_results_to_output">write_results_to_output</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

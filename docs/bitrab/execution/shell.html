@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.execution.shell API documentation</title>
+<meta name="description" content="A subprocess/bash runner that supports **streaming** (threads for real-time output)
+*and* a **captured** mode that plays perfectly with pytest and CI …">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.execution.shell</code></h1>
+</header>
+<section id="section-intro">
+<p>A subprocess/bash runner that supports <strong>streaming</strong> (threads for real-time output)
+<em>and</em> a <strong>captured</strong> mode that plays perfectly with pytest and CI.</p>
+<ul>
+<li>Streaming mode: still returns captured stdout/stderr, while also teeing to
+provided targets (default: sys.stdout/sys.stderr). Pytest's <code>capsys</code> can capture
+these writes; but if you want absolute determinism, use captured mode.</li>
+<li>Captured mode: no threads; uses <code>Popen.communicate()</code> and returns stdout/stderr
+as strings without writing to live streams. Ideal for unit tests and CI logs.</li>
+<li>Color handling respects NO_COLOR; can be forced on/off.</li>
+<li>Windows CRLF normalization for scripts fed via stdin.</li>
+<li>Optional <code>check</code> raises on non-zero return code.</li>
+</ul>
+<h2 id="usage">Usage</h2>
+<p>result = run_bash(
+"echo hello &amp;&amp; echo oops &gt;&amp;2",
+mode="capture",
+# or "stream"
+check=False,
+)
+assert result.stdout.strip() == "hello"
+assert "oops" in result.stderr</p>
+<p>In pytest with capsys (streaming):</p>
+<pre><code>def test_streaming(capsys):
+    run_bash("echo hi", mode="stream")
+    captured = capsys.readouterr()
+    assert "hi" in captured.out
+</code></pre>
+<p>Deterministic (captured) tests:</p>
+<pre><code>def test_captured():
+    res = run_bash("printf '%s' foo", mode='capture')
+    assert res.stdout == "foo"
+</code></pre>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.execution.shell.force_subproc_mode"><code class="name flex">
+<span>def <span class="ident">force_subproc_mode</span></span>(<span>mode: str)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@contextmanager
+def force_subproc_mode(mode: str):
+    &#34;&#34;&#34;
+    Temporarily force &#39;stream&#39; or &#39;capture&#39; without changing call sites.
+    Example:
+        with force_subproc_mode(&#34;capture&#34;):
+            run_colored(&#34;echo hi&#34;)
+    &#34;&#34;&#34;
+    if mode not in {&#34;stream&#34;, &#34;capture&#34;}:
+        raise ValueError(&#34;mode must be &#39;stream&#39; or &#39;capture&#39;&#34;)
+    prev = os.getenv(_ENV_MODE)
+    os.environ[_ENV_MODE] = mode
+    try:
+        yield
+    finally:
+        if prev is None:
+            os.environ.pop(_ENV_MODE, None)
+        else:
+            os.environ[_ENV_MODE] = prev</code></pre>
+</details>
+<div class="desc"><p>Temporarily force 'stream' or 'capture' without changing call sites.</p>
+<h2 id="example">Example</h2>
+<p>with force_subproc_mode("capture"):
+run_colored("echo hi")</p></div>
+</dd>
+<dt id="bitrab.execution.shell.merge_env"><code class="name flex">
+<span>def <span class="ident">merge_env</span></span>(<span>env: dict[str, str] | None = None) ‑> dict[str, str]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def merge_env(env: dict[str, str] | None = None) -&gt; dict[str, str]:
+    &#34;&#34;&#34;Return a merged environment where `env` overrides current process env.&#34;&#34;&#34;
+    if env:
+        merged = {**_BASE_ENV, **env}
+    else:
+        merged = _BASE_ENV.copy()
+    return merged</code></pre>
+</details>
+<div class="desc"><p>Return a merged environment where <code>env</code> overrides current process env.</p></div>
+</dd>
+<dt id="bitrab.execution.shell.run_bash"><code class="name flex">
+<span>def <span class="ident">run_bash</span></span>(<span>script: str,<br>*,<br>env: dict[str, str] | None = None,<br>cwd: str | os.PathLike[str] | None = None,<br>mode: str = 'stream',<br>check: bool = True,<br>login_shell: bool = False,<br>force_color: bool | None = None,<br>stdout_target: IO[str] | None = None,<br>stderr_target: IO[str] | None = None) ‑> <a title="bitrab.execution.shell.RunResult" href="#bitrab.execution.shell.RunResult">RunResult</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def run_bash(
+    script: str,
+    *,
+    env: dict[str, str] | None = None,
+    cwd: str | os.PathLike[str] | None = None,
+    mode: str = &#34;stream&#34;,  # &#34;stream&#34; | &#34;capture&#34;
+    check: bool = True,
+    login_shell: bool = False,
+    force_color: bool | None = None,
+    stdout_target: IO[str] | None = None,
+    stderr_target: IO[str] | None = None,
+) -&gt; RunResult:
+    &#34;&#34;&#34;Run a bash *script string* via stdin.
+
+    Parameters
+    ----------
+    script : str
+        Bash script content to execute. `set -eo pipefail` will be prepended.
+    env : dict[str, str] | None
+        Environment vars to merge over process env.
+    cwd : str | os.PathLike[str] | None
+        Working directory for the subprocess.
+    mode : {&#34;stream&#34;, &#34;capture&#34;}
+        - &#34;stream&#34;: real-time tee to `stdout_target`/`stderr_target` (default sys.std*),
+          while also capturing and returning the full text.
+        - &#34;capture&#34;: do not tee; only return captured text.
+    check : bool
+        If True, raise `CalledProcessError` on non-zero exit.
+    login_shell : bool
+        If True, add `-l` to bash (reads profile/bashrc). Off by default because it&#39;s slow.
+    force_color : bool | None
+        Force-enable/disable ANSI color regardless of NO_COLOR. If None, respect NO_COLOR.
+    stdout_target / stderr_target : IO[str] | None
+        Streams to receive live output in streaming mode. Defaults to sys.stdout/sys.stderr.
+
+    Returns:
+    -------
+    RunResult
+        Includes return code and full stdout/stderr text.
+    &#34;&#34;&#34;
+    env_merged = merge_env(env)
+
+    # Normalize line endings for Git-Bash on Windows when feeding via stdin
+    if os.name == &#34;nt&#34;:
+        script = script.replace(&#34;\r\n&#34;, &#34;\n&#34;)
+
+    colors = _colors_enabled(force_color)
+    g, r, reset = (GREEN, RED, RESET) if colors else (&#34;&#34;, &#34;&#34;, &#34;&#34;)
+
+    bash = _pick_bash(login_shell or bool(os.environ.get(&#34;bitrab_RUN_LOAD_BASHRC&#34;)))
+
+    # Always prepend robust flags
+    robust_script_content = f&#34;set -eo pipefail\n{script}&#34;
+
+    if mode not in {&#34;stream&#34;, &#34;capture&#34;}:
+        raise ValueError(&#34;mode must be &#39;stream&#39; or &#39;capture&#39;&#34;)
+
+    if mode == &#34;capture&#34;:
+        # No threads, simpler deterministic behavior for tests/CI
+        with subprocess.Popen(  # nosec
+            bash,
+            env=env_merged,
+            cwd=str(cwd) if cwd is not None else None,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ) as proc:
+            out, err = proc.communicate(robust_script_content)
+            rc = proc.returncode
+        result = RunResult(rc, out, err)
+        if check:
+            result.check_returncode()
+        return result
+
+    # Streaming mode: threads + tee to targets while capturing
+    out_buf = _Buffer(stdout_target or sys.stdout)
+    err_buf = _Buffer(stderr_target or sys.stderr)
+
+    def _stream(pipe: IO[str], color: str, buf: _Buffer) -&gt; None:
+        try:
+            for line in iter(pipe.readline, &#34;&#34;):
+                if not line:
+                    break
+                buf.write(f&#34;{color}{line}{reset}&#34;)
+                buf.flush()
+        finally:
+            try:
+                pipe.close()
+            except Exception:  # nosec: clean up
+                pass
+
+    with subprocess.Popen(  # nosec
+        bash,
+        env=env_merged,
+        cwd=str(cwd) if cwd is not None else None,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,  # line buffered
+    ) as proc:
+        if not (proc.stdout is not None and proc.stderr is not None and proc.stdin is not None):
+            raise BitrabError(&#34;proc properties are None&#34;)
+
+        t_out = threading.Thread(target=_stream, args=(proc.stdout, g, out_buf), daemon=True)
+        t_err = threading.Thread(target=_stream, args=(proc.stderr, r, err_buf), daemon=True)
+        t_out.start()
+        t_err.start()
+
+        proc.stdin.write(robust_script_content)
+        proc.stdin.close()
+
+        t_out.join()
+        t_err.join()
+        rc = proc.wait()
+
+    result = RunResult(rc, out_buf.getvalue(), err_buf.getvalue())
+    if check:
+        result.check_returncode()
+    return result</code></pre>
+</details>
+<div class="desc"><p>Run a bash <em>script string</em> via stdin.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>script</code></strong> :&ensp;<code>str</code></dt>
+<dd>Bash script content to execute. <code>set -eo pipefail</code> will be prepended.</dd>
+<dt><strong><code>env</code></strong> :&ensp;<code>dict[str, str] | None</code></dt>
+<dd>Environment vars to merge over process env.</dd>
+<dt><strong><code>cwd</code></strong> :&ensp;<code>str | os.PathLike[str] | None</code></dt>
+<dd>Working directory for the subprocess.</dd>
+<dt><strong><code>mode</code></strong> :&ensp;<code>{"stream", "capture"}</code></dt>
+<dd>
+<ul>
+<li>"stream": real-time tee to <code>stdout_target</code>/<code>stderr_target</code> (default sys.std*),
+while also capturing and returning the full text.</li>
+<li>"capture": do not tee; only return captured text.</li>
+</ul>
+</dd>
+<dt><strong><code>check</code></strong> :&ensp;<code>bool</code></dt>
+<dd>If True, raise <code>CalledProcessError</code> on non-zero exit.</dd>
+<dt><strong><code>login_shell</code></strong> :&ensp;<code>bool</code></dt>
+<dd>If True, add <code>-l</code> to bash (reads profile/bashrc). Off by default because it's slow.</dd>
+<dt><strong><code>force_color</code></strong> :&ensp;<code>bool | None</code></dt>
+<dd>Force-enable/disable ANSI color regardless of NO_COLOR. If None, respect NO_COLOR.</dd>
+</dl>
+<p>stdout_target / stderr_target : IO[str] | None
+Streams to receive live output in streaming mode. Defaults to sys.stdout/sys.stderr.</p>
+<h2 id="returns">Returns:</h2>
+<p>RunResult
+Includes return code and full stdout/stderr text.</p></div>
+</dd>
+<dt id="bitrab.execution.shell.run_colored"><code class="name flex">
+<span>def <span class="ident">run_colored</span></span>(<span>script: str, env=None, cwd=None, mode: str | None = None) ‑> <a title="bitrab.execution.shell.RunResult" href="#bitrab.execution.shell.RunResult">RunResult</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def run_colored(script: str, env=None, cwd=None, mode: str | None = None) -&gt; RunResult:
+    &#34;&#34;&#34;
+    Backward-compatible wrapper. Keeps streaming default in dev,
+    but auto-switches to capture in pytest/CI, unless overridden via BITRAB_SUBPROC_MODE.
+    Returns the int returncode and raises on non-zero (as before).
+    &#34;&#34;&#34;
+    if mode is None:
+        mode = _auto_mode()  # &#34;stream&#34; or &#34;capture&#34;
+    # Respect NO_COLOR automatically; users can force with force_color if desired
+    result = run_bash(
+        script,
+        env=env,
+        cwd=cwd,
+        mode=mode,
+        check=True,  # old behavior: raise on non-zero
+        force_color=None,  # respect NO_COLOR by default
+        # You can pass stdout_target/stderr_target here if you want custom tee targets
+    )
+    return result</code></pre>
+</details>
+<div class="desc"><p>Backward-compatible wrapper. Keeps streaming default in dev,
+but auto-switches to capture in pytest/CI, unless overridden via BITRAB_SUBPROC_MODE.
+Returns the int returncode and raises on non-zero (as before).</p></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="bitrab.execution.shell.RunResult"><code class="flex name class">
+<span>class <span class="ident">RunResult</span></span>
+<span>(</span><span>returncode: int, stdout: str, stderr: str)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class RunResult:
+    returncode: int
+    stdout: str
+    stderr: str
+
+    def check_returncode(self) -&gt; RunResult:
+        if self.returncode != 0:
+            print(self.stderr)
+            print(self.stdout)
+            raise subprocess.CalledProcessError(self.returncode, &#34;&lt;bash stdin&gt;&#34;, self.stdout, self.stderr)
+        return self</code></pre>
+</details>
+<div class="desc"><p>RunResult(returncode: 'int', stdout: 'str', stderr: 'str')</p></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.execution.shell.RunResult.returncode"><code class="name">var <span class="ident">returncode</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.shell.RunResult.stderr"><code class="name">var <span class="ident">stderr</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.shell.RunResult.stdout"><code class="name">var <span class="ident">stdout</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.execution.shell.RunResult.check_returncode"><code class="name flex">
+<span>def <span class="ident">check_returncode</span></span>(<span>self) ‑> <a title="bitrab.execution.shell.RunResult" href="#bitrab.execution.shell.RunResult">RunResult</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def check_returncode(self) -&gt; RunResult:
+    if self.returncode != 0:
+        print(self.stderr)
+        print(self.stdout)
+        raise subprocess.CalledProcessError(self.returncode, &#34;&lt;bash stdin&gt;&#34;, self.stdout, self.stderr)
+    return self</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab.execution" href="index.html">bitrab.execution</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.execution.shell.force_subproc_mode" href="#bitrab.execution.shell.force_subproc_mode">force_subproc_mode</a></code></li>
+<li><code><a title="bitrab.execution.shell.merge_env" href="#bitrab.execution.shell.merge_env">merge_env</a></code></li>
+<li><code><a title="bitrab.execution.shell.run_bash" href="#bitrab.execution.shell.run_bash">run_bash</a></code></li>
+<li><code><a title="bitrab.execution.shell.run_colored" href="#bitrab.execution.shell.run_colored">run_colored</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="bitrab.execution.shell.RunResult" href="#bitrab.execution.shell.RunResult">RunResult</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.execution.shell.RunResult.check_returncode" href="#bitrab.execution.shell.RunResult.check_returncode">check_returncode</a></code></li>
+<li><code><a title="bitrab.execution.shell.RunResult.returncode" href="#bitrab.execution.shell.RunResult.returncode">returncode</a></code></li>
+<li><code><a title="bitrab.execution.shell.RunResult.stderr" href="#bitrab.execution.shell.RunResult.stderr">stderr</a></code></li>
+<li><code><a title="bitrab.execution.shell.RunResult.stdout" href="#bitrab.execution.shell.RunResult.stdout">stdout</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

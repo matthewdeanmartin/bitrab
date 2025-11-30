@@ -1,0 +1,1469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.best_effort_runner API documentation</title>
+<meta name="description" content="Super limited local pipeline runner.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.best_effort_runner</code></h1>
+</header>
+<section id="section-intro">
+<p>Super limited local pipeline runner.</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.best_effort_runner.best_efforts_run"><code class="name flex">
+<span>def <span class="ident">best_efforts_run</span></span>(<span>config_path: Path) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def best_efforts_run(config_path: Path) -&gt; None:
+    &#34;&#34;&#34;Main entry point for the best-efforts-run command.&#34;&#34;&#34;
+    runner = LocalGitLabRunner()
+    runner.run_pipeline(config_path)</code></pre>
+</details>
+<div class="desc"><p>Main entry point for the best-efforts-run command.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.merge_env"><code class="name flex">
+<span>def <span class="ident">merge_env</span></span>(<span>env=None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def merge_env(env=None):
+    &#34;&#34;&#34;
+    Merge os.environ and an env dict into a new dict.
+    Values from env override os.environ on conflict.
+
+    Args:
+        env: Optional dict of environment variables.
+
+    Returns:
+        A merged dict suitable for subprocess calls.
+    &#34;&#34;&#34;
+    if env:
+        return {**BASE_ENV, **env}
+    return BASE_ENV</code></pre>
+</details>
+<div class="desc"><p>Merge os.environ and an env dict into a new dict.
+Values from env override os.environ on conflict.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>env</code></strong></dt>
+<dd>Optional dict of environment variables.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A merged dict suitable for subprocess calls.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.run_colored"><code class="name flex">
+<span>def <span class="ident">run_colored</span></span>(<span>script: str, env=None, cwd=None) ‑> int</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def run_colored(script: str, env=None, cwd=None) -&gt; int:
+    &#34;&#34;&#34;
+    Run a script in a subprocess with colored output for stdout and stderr.
+
+    Args:
+        script: The script to execute.
+        env: Optional environment variables for the subprocess.
+        cwd: Optional working directory for the subprocess.
+
+    Returns:
+        The return code of the subprocess.
+
+    Raises:
+        subprocess.CalledProcessError: If the subprocess exits with a non-zero code.
+    &#34;&#34;&#34;
+    env = merge_env(env)
+
+    # Disable colors if NO_COLOR is set
+    if os.getenv(&#34;NO_COLOR&#34;):
+        g, r, reset = &#34;&#34;, &#34;&#34;, &#34;&#34;
+    else:
+        g, r, reset = GREEN, RED, RESET
+
+    # Determine the bash executable based on the operating system
+    if os.name == &#34;nt&#34;:
+        bash = [r&#34;C:\Program Files\Git\bin\bash.exe&#34;]
+    else:
+        bash = [&#34;bash&#34;]
+
+    if os.environ.get(&#34;bitrab_RUN_LOAD_BASHRC&#34;):
+        bash.append(&#34;-l&#34;)
+    # Start the subprocess
+    with subprocess.Popen(  # nosec
+        # , &#34;-l&#34;  # -l loads .bashrc and make it really, really slow.
+        bash,  # bash reads script from stdin
+        env=env,
+        cwd=cwd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,  # to prevent \r
+        bufsize=1,  # line-buffered
+    ) as process:
+
+        def stream(pipe, color, target):
+            &#34;&#34;&#34;
+            Stream output from a pipe to a target with optional color.
+
+            Args:
+                pipe: The pipe to read from.
+                color: The color to apply to the output.
+                target: The target to write the output to.
+            &#34;&#34;&#34;
+            for line in iter(pipe.readline, &#34;&#34;):  # text mode here, so sentinel is &#34;&#34;
+                if not line:
+                    break
+                target.write(f&#34;{color}{line}{reset}&#34;)
+                target.flush()
+            pipe.close()
+
+        # Start threads to stream stdout and stderr in parallel
+        threads = [
+            threading.Thread(target=stream, args=(process.stdout, g, sys.stdout)),
+            threading.Thread(target=stream, args=(process.stderr, r, sys.stderr)),
+        ]
+        for t in threads:
+            t.start()
+
+        # Feed the script and close stdin
+
+        if os.name == &#34;nt&#34;:
+            script = script.replace(&#34;\r\n&#34;, &#34;\n&#34;)
+
+        if process.stdin:
+            # without this it will keep going on errors
+            robust_script_content = f&#34;set -eo pipefail\n{script}&#34;
+            process.stdin.write(robust_script_content)
+            process.stdin.close()
+
+        # Wait for process to finish
+        for t in threads:
+            t.join()
+
+        process.wait()
+
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, script)
+
+        return process.returncode</code></pre>
+</details>
+<div class="desc"><p>Run a script in a subprocess with colored output for stdout and stderr.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>script</code></strong></dt>
+<dd>The script to execute.</dd>
+<dt><strong><code>env</code></strong></dt>
+<dd>Optional environment variables for the subprocess.</dd>
+<dt><strong><code>cwd</code></strong></dt>
+<dd>Optional working directory for the subprocess.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>The return code of the subprocess.</p>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>subprocess.CalledProcessError</code></dt>
+<dd>If the subprocess exits with a non-zero code.</dd>
+</dl></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="bitrab.best_effort_runner.ConfigurationLoader"><code class="flex name class">
+<span>class <span class="ident">ConfigurationLoader</span></span>
+<span>(</span><span>base_path: Path | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ConfigurationLoader:
+    &#34;&#34;&#34;
+    Loads and processes GitLab CI configuration files.
+
+    Attributes:
+        base_path: The base path for resolving configuration files.
+        yaml: YAML parser instance.
+    &#34;&#34;&#34;
+
+    def __init__(self, base_path: Path | None = None):
+        if not base_path:
+            self.base_path = Path.cwd()
+        else:
+            self.base_path = base_path
+        self.yaml = YAML(typ=&#34;safe&#34;)
+
+    def load_config(self, config_path: Path | None = None) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;
+        Load the main configuration file and process includes.
+
+        Args:
+            config_path: Path to the configuration file.
+
+        Returns:
+            The loaded and processed configuration.
+
+        Raises:
+            GitLabCIError: If the configuration file is not found or fails to load.
+        &#34;&#34;&#34;
+        if config_path is None:
+            config_path = self.base_path / &#34;.gitlab-ci.yml&#34;
+
+        if not config_path.exists():
+            raise GitlabRunnerError(f&#34;Configuration file not found: {config_path}&#34;)
+
+        config = self._load_yaml_file(config_path)
+        config = self._process_includes(config, config_path.parent)
+
+        return config
+
+    def _load_yaml_file(self, file_path: Path) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;
+        Load a single YAML file.
+
+        Args:
+            file_path: Path to the YAML file.
+
+        Returns:
+            The loaded YAML content.
+
+        Raises:
+            GitLabCIError: If the file fails to load.
+        &#34;&#34;&#34;
+        try:
+            with open(file_path, encoding=&#34;utf-8&#34;) as f:
+                return self.yaml.load(f) or {}
+        except Exception as e:
+            raise GitlabRunnerError(f&#34;Failed to load YAML file {file_path}: {e}&#34;) from e
+
+    def _process_includes(self, config: dict[str, Any], base_dir: Path, seen_files: set[Path] | None = None) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;
+        Recursively process &#39;include&#39; directives from a GitLab-style YAML config.
+
+        Args:
+            config: The configuration dictionary to process.
+            base_dir: The base path to resolve relative includes.
+            seen_files: Tracks already-included files to avoid infinite recursion.
+
+        Returns:
+            The merged configuration.
+        &#34;&#34;&#34;
+        seen_files = seen_files or set()
+
+        includes = config.pop(&#34;include&#34;, [])
+        if isinstance(includes, (str, dict)):
+            includes = [includes]
+
+        merged_config: dict[str, Any] = {}
+
+        for include in includes:
+            if isinstance(include, str):
+                include_path = (base_dir / include).resolve()
+            elif isinstance(include, dict) and &#34;local&#34; in include:
+                include_path = (base_dir / include[&#34;local&#34;]).resolve()
+            else:
+                continue  # Unsupported include type
+
+            if include_path in seen_files:
+                continue  # Skip already processed files to prevent recursion
+
+            seen_files.add(include_path)
+            included_config = self._load_yaml_file(include_path)
+            included_config = self._process_includes(included_config, include_path.parent, seen_files)
+            merged_config = self._merge_configs(merged_config, included_config)
+
+        # The current config overrides any previously merged includes
+        merged_config = self._merge_configs(merged_config, config)
+        return merged_config
+
+    def _merge_configs(self, base: dict[str, Any], overlay: dict[str, Any]) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;
+        Merge two configuration dictionaries.
+
+        Args:
+            base: The base configuration.
+            overlay: The overlay configuration.
+
+        Returns:
+            The merged configuration.
+        &#34;&#34;&#34;
+        result = base.copy()
+        for key, value in overlay.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = self._merge_configs(result[key], value)
+            else:
+                result[key] = value
+        return result</code></pre>
+</details>
+<div class="desc"><p>Loads and processes GitLab CI configuration files.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>base_path</code></strong></dt>
+<dd>The base path for resolving configuration files.</dd>
+<dt><strong><code>yaml</code></strong></dt>
+<dd>YAML parser instance.</dd>
+</dl></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.ConfigurationLoader.load_config"><code class="name flex">
+<span>def <span class="ident">load_config</span></span>(<span>self, config_path: Path | None = None) ‑> dict[str, typing.Any]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_config(self, config_path: Path | None = None) -&gt; dict[str, Any]:
+    &#34;&#34;&#34;
+    Load the main configuration file and process includes.
+
+    Args:
+        config_path: Path to the configuration file.
+
+    Returns:
+        The loaded and processed configuration.
+
+    Raises:
+        GitLabCIError: If the configuration file is not found or fails to load.
+    &#34;&#34;&#34;
+    if config_path is None:
+        config_path = self.base_path / &#34;.gitlab-ci.yml&#34;
+
+    if not config_path.exists():
+        raise GitlabRunnerError(f&#34;Configuration file not found: {config_path}&#34;)
+
+    config = self._load_yaml_file(config_path)
+    config = self._process_includes(config, config_path.parent)
+
+    return config</code></pre>
+</details>
+<div class="desc"><p>Load the main configuration file and process includes.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>config_path</code></strong></dt>
+<dd>Path to the configuration file.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>The loaded and processed configuration.</p>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>GitLabCIError</code></dt>
+<dd>If the configuration file is not found or fails to load.</dd>
+</dl></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.best_effort_runner.DefaultConfig"><code class="flex name class">
+<span>class <span class="ident">DefaultConfig</span></span>
+<span>(</span><span>before_script: list[str] = &lt;factory&gt;,<br>after_script: list[str] = &lt;factory&gt;,<br>variables: dict[str, str] = &lt;factory&gt;)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class DefaultConfig:
+    &#34;&#34;&#34;
+    Default configuration that can be inherited by jobs.
+
+    Attributes:
+        before_script: Default scripts to run before job scripts.
+        after_script: Default scripts to run after job scripts.
+        variables: Default environment variables for jobs.
+    &#34;&#34;&#34;
+
+    before_script: list[str] = field(default_factory=list)
+    after_script: list[str] = field(default_factory=list)
+    variables: dict[str, str] = field(default_factory=dict)</code></pre>
+</details>
+<div class="desc"><p>Default configuration that can be inherited by jobs.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>before_script</code></strong></dt>
+<dd>Default scripts to run before job scripts.</dd>
+<dt><strong><code>after_script</code></strong></dt>
+<dd>Default scripts to run after job scripts.</dd>
+<dt><strong><code>variables</code></strong></dt>
+<dd>Default environment variables for jobs.</dd>
+</dl></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.DefaultConfig.after_script"><code class="name">var <span class="ident">after_script</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.DefaultConfig.before_script"><code class="name">var <span class="ident">before_script</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.DefaultConfig.variables"><code class="name">var <span class="ident">variables</span> : dict[str, str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.best_effort_runner.GitlabRunnerError"><code class="flex name class">
+<span>class <span class="ident">GitlabRunnerError</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class GitlabRunnerError(BitrabError):
+    &#34;&#34;&#34;Base exception for GitLab CI runner errors.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Base exception for GitLab CI runner errors.</p></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="bitrab.exceptions.BitrabError" href="exceptions.html#bitrab.exceptions.BitrabError">BitrabError</a></li>
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="bitrab.best_effort_runner.JobExecutionError" href="#bitrab.best_effort_runner.JobExecutionError">JobExecutionError</a></li>
+</ul>
+</dd>
+<dt id="bitrab.best_effort_runner.JobConfig"><code class="flex name class">
+<span>class <span class="ident">JobConfig</span></span>
+<span>(</span><span>name: str,<br>stage: str = 'test',<br>script: list[str] = &lt;factory&gt;,<br>variables: dict[str, str] = &lt;factory&gt;,<br>before_script: list[str] = &lt;factory&gt;,<br>after_script: list[str] = &lt;factory&gt;)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class JobConfig:
+    &#34;&#34;&#34;
+    Configuration for a single job.
+
+    Attributes:
+        name: The name of the job.
+        stage: The stage the job belongs to.
+        script: The main script to execute for the job.
+        variables: Environment variables specific to the job.
+        before_script: Scripts to run before the main script.
+        after_script: Scripts to run after the main script.
+    &#34;&#34;&#34;
+
+    name: str
+    stage: str = &#34;test&#34;
+    script: list[str] = field(default_factory=list)
+    variables: dict[str, str] = field(default_factory=dict)
+    before_script: list[str] = field(default_factory=list)
+    after_script: list[str] = field(default_factory=list)</code></pre>
+</details>
+<div class="desc"><p>Configuration for a single job.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>name</code></strong></dt>
+<dd>The name of the job.</dd>
+<dt><strong><code>stage</code></strong></dt>
+<dd>The stage the job belongs to.</dd>
+<dt><strong><code>script</code></strong></dt>
+<dd>The main script to execute for the job.</dd>
+<dt><strong><code>variables</code></strong></dt>
+<dd>Environment variables specific to the job.</dd>
+<dt><strong><code>before_script</code></strong></dt>
+<dd>Scripts to run before the main script.</dd>
+<dt><strong><code>after_script</code></strong></dt>
+<dd>Scripts to run after the main script.</dd>
+</dl></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.JobConfig.after_script"><code class="name">var <span class="ident">after_script</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.JobConfig.before_script"><code class="name">var <span class="ident">before_script</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.JobConfig.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.JobConfig.script"><code class="name">var <span class="ident">script</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.JobConfig.stage"><code class="name">var <span class="ident">stage</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.JobConfig.variables"><code class="name">var <span class="ident">variables</span> : dict[str, str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.best_effort_runner.JobExecutionError"><code class="flex name class">
+<span>class <span class="ident">JobExecutionError</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class JobExecutionError(GitlabRunnerError):
+    &#34;&#34;&#34;Raised when a job fails to execute successfully.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Raised when a job fails to execute successfully.</p></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="bitrab.best_effort_runner.GitlabRunnerError" href="#bitrab.best_effort_runner.GitlabRunnerError">GitlabRunnerError</a></li>
+<li><a title="bitrab.exceptions.BitrabError" href="exceptions.html#bitrab.exceptions.BitrabError">BitrabError</a></li>
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
+</dd>
+<dt id="bitrab.best_effort_runner.JobExecutor"><code class="flex name class">
+<span>class <span class="ident">JobExecutor</span></span>
+<span>(</span><span>variable_manager: <a title="bitrab.best_effort_runner.VariableManager" href="#bitrab.best_effort_runner.VariableManager">VariableManager</a>)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class JobExecutor:
+    &#34;&#34;&#34;
+    Executes individual jobs.
+
+    Attributes:
+        variable_manager: The VariableManager instance for managing variables.
+    &#34;&#34;&#34;
+
+    def __init__(self, variable_manager: VariableManager):
+        self.variable_manager = variable_manager
+
+    def execute_job(self, job: JobConfig) -&gt; None:
+        &#34;&#34;&#34;
+        Execute a single job.
+
+        Args:
+            job: The job configuration.
+
+        Raises:
+            JobExecutionError: If the job fails to execute successfully.
+        &#34;&#34;&#34;
+        print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
+
+        env = self.variable_manager.prepare_environment(job)
+
+        try:
+            # Don&#39;t have a way for variable declared in before to exist in middle or after.
+            # Execute before_script
+            if job.before_script:
+                print(&#34;  📋 Running before_script...&#34;)
+                self._execute_scripts(job.before_script, env)
+
+            # Execute main script
+            if job.script:
+                print(&#34;  🚀 Running script...&#34;)
+                self._execute_scripts(job.script, env)
+
+        except subprocess.CalledProcessError as e:
+            raise JobExecutionError(f&#34;Job {job.name} failed with exit code {e.returncode}&#34;) from e
+        finally:
+            # Execute after_script
+            if job.after_script:
+                print(&#34;  📋 Running after_script...&#34;)
+                self._execute_scripts(job.after_script, env)
+
+        print(f&#34;✅ Job {job.name} completed successfully&#34;)
+
+    def _execute_scripts(self, scripts: list[str], env: dict[str, str]) -&gt; None:
+        &#34;&#34;&#34;
+        Execute a list of script commands.
+
+        Args:
+            scripts: The list of scripts to execute.
+            env: The environment variables for the scripts.
+
+        Raises:
+            subprocess.CalledProcessError: If a script exits with a non-zero code.
+        &#34;&#34;&#34;
+        lines = []
+        for script in scripts:
+            if not isinstance(script, str):
+                raise BitrabError(f&#34;{script} is not a string&#34;)
+            if not script.strip():
+                continue
+
+            # Substitute variables in the script
+            script = self.variable_manager.substitute_variables(script, env)
+            lines.append(script)
+
+        full_script = &#34;\n&#34;.join(lines)
+        print(f&#34;    $ {full_script}&#34;)
+
+        returncode = run_colored(
+            full_script,
+            env=env,
+            cwd=Path.cwd(),
+        )
+
+        if returncode != 0:
+            raise subprocess.CalledProcessError(returncode, full_script)</code></pre>
+</details>
+<div class="desc"><p>Executes individual jobs.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>variable_manager</code></strong></dt>
+<dd>The VariableManager instance for managing variables.</dd>
+</dl></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.JobExecutor.execute_job"><code class="name flex">
+<span>def <span class="ident">execute_job</span></span>(<span>self,<br>job: <a title="bitrab.best_effort_runner.JobConfig" href="#bitrab.best_effort_runner.JobConfig">JobConfig</a>) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def execute_job(self, job: JobConfig) -&gt; None:
+    &#34;&#34;&#34;
+    Execute a single job.
+
+    Args:
+        job: The job configuration.
+
+    Raises:
+        JobExecutionError: If the job fails to execute successfully.
+    &#34;&#34;&#34;
+    print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
+
+    env = self.variable_manager.prepare_environment(job)
+
+    try:
+        # Don&#39;t have a way for variable declared in before to exist in middle or after.
+        # Execute before_script
+        if job.before_script:
+            print(&#34;  📋 Running before_script...&#34;)
+            self._execute_scripts(job.before_script, env)
+
+        # Execute main script
+        if job.script:
+            print(&#34;  🚀 Running script...&#34;)
+            self._execute_scripts(job.script, env)
+
+    except subprocess.CalledProcessError as e:
+        raise JobExecutionError(f&#34;Job {job.name} failed with exit code {e.returncode}&#34;) from e
+    finally:
+        # Execute after_script
+        if job.after_script:
+            print(&#34;  📋 Running after_script...&#34;)
+            self._execute_scripts(job.after_script, env)
+
+    print(f&#34;✅ Job {job.name} completed successfully&#34;)</code></pre>
+</details>
+<div class="desc"><p>Execute a single job.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>job</code></strong></dt>
+<dd>The job configuration.</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code><a title="bitrab.best_effort_runner.JobExecutionError" href="#bitrab.best_effort_runner.JobExecutionError">JobExecutionError</a></code></dt>
+<dd>If the job fails to execute successfully.</dd>
+</dl></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.best_effort_runner.LocalGitLabRunner"><code class="flex name class">
+<span>class <span class="ident">LocalGitLabRunner</span></span>
+<span>(</span><span>base_path: Path | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class LocalGitLabRunner:
+    &#34;&#34;&#34;
+    Main runner class that orchestrates the entire pipeline execution.
+
+    Attributes:
+        base_path: The base path for resolving configuration files.
+        loader: The ConfigurationLoader instance for loading configurations.
+        processor: The PipelineProcessor instance for processing configurations.
+    &#34;&#34;&#34;
+
+    def __init__(self, base_path: Path | None = None):
+        if not base_path:
+            self.base_path = Path.cwd()
+        else:
+            self.base_path = base_path
+        self.loader = ConfigurationLoader(base_path)
+        self.processor = PipelineProcessor()
+
+    def run_pipeline(self, config_path: Path | None = None) -&gt; None:
+        &#34;&#34;&#34;
+        Run the complete pipeline.
+
+        Args:
+            config_path: Path to the pipeline configuration file.
+
+        Returns:
+            The exit code of the pipeline execution.
+
+        Raises:
+            GitLabCIError: If there is an error in the pipeline configuration.
+            Exception: For unexpected errors.
+        &#34;&#34;&#34;
+        # Load and process configuration
+        raw_config = self.loader.load_config(config_path)
+        pipeline = self.processor.process_config(raw_config)
+
+        # Set up execution components
+        variable_manager = VariableManager(pipeline.variables)
+        job_executor = JobExecutor(variable_manager)
+        orchestrator = StageOrchestrator(job_executor)
+
+        # Execute pipeline
+        orchestrator.execute_pipeline(pipeline)</code></pre>
+</details>
+<div class="desc"><p>Main runner class that orchestrates the entire pipeline execution.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>base_path</code></strong></dt>
+<dd>The base path for resolving configuration files.</dd>
+<dt><strong><code>loader</code></strong></dt>
+<dd>The ConfigurationLoader instance for loading configurations.</dd>
+<dt><strong><code>processor</code></strong></dt>
+<dd>The PipelineProcessor instance for processing configurations.</dd>
+</dl></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.LocalGitLabRunner.run_pipeline"><code class="name flex">
+<span>def <span class="ident">run_pipeline</span></span>(<span>self, config_path: Path | None = None) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def run_pipeline(self, config_path: Path | None = None) -&gt; None:
+    &#34;&#34;&#34;
+    Run the complete pipeline.
+
+    Args:
+        config_path: Path to the pipeline configuration file.
+
+    Returns:
+        The exit code of the pipeline execution.
+
+    Raises:
+        GitLabCIError: If there is an error in the pipeline configuration.
+        Exception: For unexpected errors.
+    &#34;&#34;&#34;
+    # Load and process configuration
+    raw_config = self.loader.load_config(config_path)
+    pipeline = self.processor.process_config(raw_config)
+
+    # Set up execution components
+    variable_manager = VariableManager(pipeline.variables)
+    job_executor = JobExecutor(variable_manager)
+    orchestrator = StageOrchestrator(job_executor)
+
+    # Execute pipeline
+    orchestrator.execute_pipeline(pipeline)</code></pre>
+</details>
+<div class="desc"><p>Run the complete pipeline.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>config_path</code></strong></dt>
+<dd>Path to the pipeline configuration file.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>The exit code of the pipeline execution.</p>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>GitLabCIError</code></dt>
+<dd>If there is an error in the pipeline configuration.</dd>
+<dt><code>Exception</code></dt>
+<dd>For unexpected errors.</dd>
+</dl></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.best_effort_runner.PipelineConfig"><code class="flex name class">
+<span>class <span class="ident">PipelineConfig</span></span>
+<span>(</span><span>stages: list[str] = &lt;factory&gt;,<br>variables: dict[str, str] = &lt;factory&gt;,<br>default: <a title="bitrab.best_effort_runner.DefaultConfig" href="#bitrab.best_effort_runner.DefaultConfig">DefaultConfig</a> = &lt;factory&gt;,<br>jobs: list[<a title="bitrab.best_effort_runner.JobConfig" href="#bitrab.best_effort_runner.JobConfig">JobConfig</a>] = &lt;factory&gt;)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class PipelineConfig:
+    &#34;&#34;&#34;
+    Complete pipeline configuration.
+
+    Attributes:
+        stages: List of pipeline stages.
+        variables: Global environment variables for the pipeline.
+        default: Default configuration for jobs.
+        jobs: List of job configurations.
+    &#34;&#34;&#34;
+
+    stages: list[str] = field(default_factory=lambda: [&#34;test&#34;])
+    variables: dict[str, str] = field(default_factory=dict)
+    default: DefaultConfig = field(default_factory=DefaultConfig)
+    jobs: list[JobConfig] = field(default_factory=list)</code></pre>
+</details>
+<div class="desc"><p>Complete pipeline configuration.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>stages</code></strong></dt>
+<dd>List of pipeline stages.</dd>
+<dt><strong><code>variables</code></strong></dt>
+<dd>Global environment variables for the pipeline.</dd>
+<dt><strong><code>default</code></strong></dt>
+<dd>Default configuration for jobs.</dd>
+<dt><strong><code>jobs</code></strong></dt>
+<dd>List of job configurations.</dd>
+</dl></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.PipelineConfig.default"><code class="name">var <span class="ident">default</span> : <a title="bitrab.best_effort_runner.DefaultConfig" href="#bitrab.best_effort_runner.DefaultConfig">DefaultConfig</a></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.PipelineConfig.jobs"><code class="name">var <span class="ident">jobs</span> : list[<a title="bitrab.best_effort_runner.JobConfig" href="#bitrab.best_effort_runner.JobConfig">JobConfig</a>]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.PipelineConfig.stages"><code class="name">var <span class="ident">stages</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.PipelineConfig.variables"><code class="name">var <span class="ident">variables</span> : dict[str, str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.best_effort_runner.PipelineProcessor"><code class="flex name class">
+<span>class <span class="ident">PipelineProcessor</span></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class PipelineProcessor:
+    &#34;&#34;&#34;
+    Processes raw configuration into structured pipeline configuration.
+
+    Attributes:
+        RESERVED_KEYWORDS: Reserved keywords in GitLab CI configuration.
+    &#34;&#34;&#34;
+
+    RESERVED_KEYWORDS = {
+        &#34;stages&#34;,
+        &#34;variables&#34;,
+        &#34;default&#34;,
+        &#34;include&#34;,
+        &#34;image&#34;,
+        &#34;services&#34;,
+        &#34;before_script&#34;,
+        &#34;after_script&#34;,
+        &#34;cache&#34;,
+        &#34;artifacts&#34;,
+    }
+
+    def process_config(self, raw_config: dict[str, Any]) -&gt; PipelineConfig:
+        &#34;&#34;&#34;
+        Process raw configuration into structured pipeline config.
+
+        Args:
+            raw_config: The raw configuration dictionary.
+
+        Returns:
+            A structured PipelineConfig object.
+        &#34;&#34;&#34;
+        # Extract global configuration
+        stages = raw_config.get(&#34;stages&#34;, [&#34;test&#34;])
+        global_variables = raw_config.get(&#34;variables&#34;, {})
+        default_config = self._process_default_config(raw_config.get(&#34;default&#34;, {}))
+
+        # Process jobs
+        jobs = []
+        for name, job_data in raw_config.items():
+            if name not in self.RESERVED_KEYWORDS and isinstance(job_data, dict):
+                job = self._process_job(name, job_data, default_config, global_variables)
+                jobs.append(job)
+
+        return PipelineConfig(stages=stages, variables=global_variables, default=default_config, jobs=jobs)
+
+    def _process_default_config(self, default_data: dict[str, Any]) -&gt; DefaultConfig:
+        &#34;&#34;&#34;
+        Process default configuration block.
+
+        Args:
+            default_data: The default configuration dictionary.
+
+        Returns:
+            A DefaultConfig object.
+        &#34;&#34;&#34;
+        return DefaultConfig(
+            before_script=self._ensure_list(default_data.get(&#34;before_script&#34;, [])),
+            after_script=self._ensure_list(default_data.get(&#34;after_script&#34;, [])),
+            variables=default_data.get(&#34;variables&#34;, {}),
+        )
+
+    def _process_job(self, name: str, job_data: dict[str, Any], default: DefaultConfig, global_vars: dict[str, str]) -&gt; JobConfig:
+        &#34;&#34;&#34;
+        Process a single job configuration.
+
+        Args:
+            name: The name of the job.
+            job_data: The job configuration dictionary.
+            default: The default configuration.
+            global_vars: Global environment variables.
+
+        Returns:
+            A JobConfig object.
+        &#34;&#34;&#34;
+        # Merge variables with precedence: job &gt; global &gt; default
+        variables = {}
+        variables.update(default.variables)
+        variables.update(global_vars)
+        variables.update(job_data.get(&#34;variables&#34;, {}))
+
+        # Merge scripts with default
+        before_script = default.before_script + self._ensure_list(job_data.get(&#34;before_script&#34;, []))
+        after_script = self._ensure_list(job_data.get(&#34;after_script&#34;, [])) + default.after_script
+
+        return JobConfig(
+            name=name,
+            stage=job_data.get(&#34;stage&#34;, &#34;test&#34;),
+            script=self._ensure_list(job_data.get(&#34;script&#34;, [])),
+            variables=variables,
+            before_script=before_script,
+            after_script=after_script,
+        )
+
+    def _ensure_list(self, value: Union[str, list[str]]) -&gt; list[str]:
+        &#34;&#34;&#34;
+        Ensure a value is a list of strings.
+
+        Args:
+            value: The value to ensure.
+
+        Returns:
+            A list of strings.
+        &#34;&#34;&#34;
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            return value
+        return []</code></pre>
+</details>
+<div class="desc"><p>Processes raw configuration into structured pipeline configuration.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>RESERVED_KEYWORDS</code></strong></dt>
+<dd>Reserved keywords in GitLab CI configuration.</dd>
+</dl></div>
+<h3>Class variables</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.PipelineProcessor.RESERVED_KEYWORDS"><code class="name">var <span class="ident">RESERVED_KEYWORDS</span></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.PipelineProcessor.process_config"><code class="name flex">
+<span>def <span class="ident">process_config</span></span>(<span>self, raw_config: dict[str, Any]) ‑> <a title="bitrab.best_effort_runner.PipelineConfig" href="#bitrab.best_effort_runner.PipelineConfig">PipelineConfig</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def process_config(self, raw_config: dict[str, Any]) -&gt; PipelineConfig:
+    &#34;&#34;&#34;
+    Process raw configuration into structured pipeline config.
+
+    Args:
+        raw_config: The raw configuration dictionary.
+
+    Returns:
+        A structured PipelineConfig object.
+    &#34;&#34;&#34;
+    # Extract global configuration
+    stages = raw_config.get(&#34;stages&#34;, [&#34;test&#34;])
+    global_variables = raw_config.get(&#34;variables&#34;, {})
+    default_config = self._process_default_config(raw_config.get(&#34;default&#34;, {}))
+
+    # Process jobs
+    jobs = []
+    for name, job_data in raw_config.items():
+        if name not in self.RESERVED_KEYWORDS and isinstance(job_data, dict):
+            job = self._process_job(name, job_data, default_config, global_variables)
+            jobs.append(job)
+
+    return PipelineConfig(stages=stages, variables=global_variables, default=default_config, jobs=jobs)</code></pre>
+</details>
+<div class="desc"><p>Process raw configuration into structured pipeline config.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>raw_config</code></strong></dt>
+<dd>The raw configuration dictionary.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A structured PipelineConfig object.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.best_effort_runner.StageOrchestrator"><code class="flex name class">
+<span>class <span class="ident">StageOrchestrator</span></span>
+<span>(</span><span>job_executor: <a title="bitrab.best_effort_runner.JobExecutor" href="#bitrab.best_effort_runner.JobExecutor">JobExecutor</a>)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class StageOrchestrator:
+    &#34;&#34;&#34;
+    Orchestrates job execution by stages.
+
+    Attributes:
+        job_executor: The JobExecutor instance for executing jobs.
+    &#34;&#34;&#34;
+
+    def __init__(self, job_executor: JobExecutor):
+        self.job_executor = job_executor
+
+    def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
+        &#34;&#34;&#34;
+        Execute all jobs in the pipeline, organized by stages.
+
+        Args:
+            pipeline: The pipeline configuration.
+        &#34;&#34;&#34;
+        print(&#34;🚀 Starting GitLab CI pipeline execution&#34;)
+        print(f&#34;📋 Stages: {&#39;, &#39;.join(pipeline.stages)}&#34;)
+
+        jobs_by_stage = self._organize_jobs_by_stage(pipeline)
+
+        for stage in pipeline.stages:
+            stage_jobs = jobs_by_stage.get(stage, [])
+            if not stage_jobs:
+                print(f&#34;⏭️  Skipping empty stage: {stage}&#34;)
+                continue
+
+            print(f&#34;\n🎯 Executing stage: {stage}&#34;)
+
+            for job in stage_jobs:
+                self.job_executor.execute_job(job)
+
+        print(&#34;\n🎉 Pipeline completed successfully!&#34;)
+
+    def _organize_jobs_by_stage(self, pipeline: PipelineConfig) -&gt; dict[str, list[JobConfig]]:
+        &#34;&#34;&#34;
+        Organize jobs by their stages.
+
+        Args:
+            pipeline: The pipeline configuration.
+
+        Returns:
+            A dictionary mapping stages to lists of jobs.
+        &#34;&#34;&#34;
+        jobs_by_stage: dict[str, Any] = {}
+
+        for job in pipeline.jobs:
+            stage = job.stage
+            if stage not in jobs_by_stage:
+                jobs_by_stage[stage] = []
+            jobs_by_stage[stage].append(job)
+
+        return jobs_by_stage</code></pre>
+</details>
+<div class="desc"><p>Orchestrates job execution by stages.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>job_executor</code></strong></dt>
+<dd>The JobExecutor instance for executing jobs.</dd>
+</dl></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.StageOrchestrator.execute_pipeline"><code class="name flex">
+<span>def <span class="ident">execute_pipeline</span></span>(<span>self,<br>pipeline: <a title="bitrab.best_effort_runner.PipelineConfig" href="#bitrab.best_effort_runner.PipelineConfig">PipelineConfig</a>) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
+    &#34;&#34;&#34;
+    Execute all jobs in the pipeline, organized by stages.
+
+    Args:
+        pipeline: The pipeline configuration.
+    &#34;&#34;&#34;
+    print(&#34;🚀 Starting GitLab CI pipeline execution&#34;)
+    print(f&#34;📋 Stages: {&#39;, &#39;.join(pipeline.stages)}&#34;)
+
+    jobs_by_stage = self._organize_jobs_by_stage(pipeline)
+
+    for stage in pipeline.stages:
+        stage_jobs = jobs_by_stage.get(stage, [])
+        if not stage_jobs:
+            print(f&#34;⏭️  Skipping empty stage: {stage}&#34;)
+            continue
+
+        print(f&#34;\n🎯 Executing stage: {stage}&#34;)
+
+        for job in stage_jobs:
+            self.job_executor.execute_job(job)
+
+    print(&#34;\n🎉 Pipeline completed successfully!&#34;)</code></pre>
+</details>
+<div class="desc"><p>Execute all jobs in the pipeline, organized by stages.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>pipeline</code></strong></dt>
+<dd>The pipeline configuration.</dd>
+</dl></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.best_effort_runner.VariableManager"><code class="flex name class">
+<span>class <span class="ident">VariableManager</span></span>
+<span>(</span><span>base_variables: dict[str, str] | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class VariableManager:
+    &#34;&#34;&#34;
+    Manages variable substitution and environment preparation.
+
+    Attributes:
+        base_variables: Base environment variables.
+        gitlab_ci_vars: Simulated GitLab CI built-in variables.
+    &#34;&#34;&#34;
+
+    def __init__(self, base_variables: dict[str, str] | None = None):
+        self.base_variables = base_variables or {}
+        self.gitlab_ci_vars = self._get_gitlab_ci_variables()
+
+    def _get_gitlab_ci_variables(self) -&gt; dict[str, str]:
+        &#34;&#34;&#34;
+        Get GitLab CI built-in variables that we can simulate.
+
+        Returns:
+            A dictionary of simulated GitLab CI variables.
+        &#34;&#34;&#34;
+        return {
+            &#34;CI&#34;: &#34;true&#34;,
+            &#34;CI_PROJECT_DIR&#34;: str(Path.cwd()),
+            &#34;CI_PROJECT_NAME&#34;: Path.cwd().name,
+            &#34;CI_JOB_STAGE&#34;: &#34;&#34;,  # Will be set per job
+        }
+
+    def prepare_environment(self, job: JobConfig) -&gt; dict[str, str]:
+        &#34;&#34;&#34;
+        Prepare environment variables for job execution.
+
+        Args:
+            job: The job configuration.
+
+        Returns:
+            A dictionary of prepared environment variables.
+        &#34;&#34;&#34;
+        env = os.environ.copy()
+
+        # Apply variables in order: built-in -&gt; base -&gt; job
+        env.update(self.gitlab_ci_vars)
+        env.update(self.base_variables)
+        env.update(job.variables)
+
+        # Set job-specific variables
+        env[&#34;CI_JOB_STAGE&#34;] = job.stage
+        env[&#34;CI_JOB_NAME&#34;] = job.name
+
+        return env
+
+    def substitute_variables(self, text: str, variables: dict[str, str]) -&gt; str:
+        &#34;&#34;&#34;
+        Perform basic variable substitution in text.
+
+        Args:
+            text: The text to substitute variables in.
+            variables: The variables to use for substitution.
+
+        Returns:
+            The text with variables substituted.
+        &#34;&#34;&#34;
+        # Simple substitution - replace $VAR and ${VAR} patterns
+
+        def replace_var(match):
+            var_name = match.group(1) or match.group(2)
+            return variables.get(var_name, match.group(0))
+
+        # Match $VAR or ${VAR}
+        pattern = r&#34;\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)&#34;
+        # Fails on echo &#34;FOO&#34;BAR&#34;
+        return re.sub(pattern, replace_var, text)</code></pre>
+</details>
+<div class="desc"><p>Manages variable substitution and environment preparation.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>base_variables</code></strong></dt>
+<dd>Base environment variables.</dd>
+<dt><strong><code>gitlab_ci_vars</code></strong></dt>
+<dd>Simulated GitLab CI built-in variables.</dd>
+</dl></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.best_effort_runner.VariableManager.prepare_environment"><code class="name flex">
+<span>def <span class="ident">prepare_environment</span></span>(<span>self,<br>job: <a title="bitrab.best_effort_runner.JobConfig" href="#bitrab.best_effort_runner.JobConfig">JobConfig</a>) ‑> dict[str, str]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def prepare_environment(self, job: JobConfig) -&gt; dict[str, str]:
+    &#34;&#34;&#34;
+    Prepare environment variables for job execution.
+
+    Args:
+        job: The job configuration.
+
+    Returns:
+        A dictionary of prepared environment variables.
+    &#34;&#34;&#34;
+    env = os.environ.copy()
+
+    # Apply variables in order: built-in -&gt; base -&gt; job
+    env.update(self.gitlab_ci_vars)
+    env.update(self.base_variables)
+    env.update(job.variables)
+
+    # Set job-specific variables
+    env[&#34;CI_JOB_STAGE&#34;] = job.stage
+    env[&#34;CI_JOB_NAME&#34;] = job.name
+
+    return env</code></pre>
+</details>
+<div class="desc"><p>Prepare environment variables for job execution.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>job</code></strong></dt>
+<dd>The job configuration.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A dictionary of prepared environment variables.</p></div>
+</dd>
+<dt id="bitrab.best_effort_runner.VariableManager.substitute_variables"><code class="name flex">
+<span>def <span class="ident">substitute_variables</span></span>(<span>self, text: str, variables: dict[str, str]) ‑> str</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def substitute_variables(self, text: str, variables: dict[str, str]) -&gt; str:
+    &#34;&#34;&#34;
+    Perform basic variable substitution in text.
+
+    Args:
+        text: The text to substitute variables in.
+        variables: The variables to use for substitution.
+
+    Returns:
+        The text with variables substituted.
+    &#34;&#34;&#34;
+    # Simple substitution - replace $VAR and ${VAR} patterns
+
+    def replace_var(match):
+        var_name = match.group(1) or match.group(2)
+        return variables.get(var_name, match.group(0))
+
+    # Match $VAR or ${VAR}
+    pattern = r&#34;\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)&#34;
+    # Fails on echo &#34;FOO&#34;BAR&#34;
+    return re.sub(pattern, replace_var, text)</code></pre>
+</details>
+<div class="desc"><p>Perform basic variable substitution in text.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>text</code></strong></dt>
+<dd>The text to substitute variables in.</dd>
+<dt><strong><code>variables</code></strong></dt>
+<dd>The variables to use for substitution.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>The text with variables substituted.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab" href="index.html">bitrab</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.best_efforts_run" href="#bitrab.best_effort_runner.best_efforts_run">best_efforts_run</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.merge_env" href="#bitrab.best_effort_runner.merge_env">merge_env</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.run_colored" href="#bitrab.best_effort_runner.run_colored">run_colored</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.ConfigurationLoader" href="#bitrab.best_effort_runner.ConfigurationLoader">ConfigurationLoader</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.ConfigurationLoader.load_config" href="#bitrab.best_effort_runner.ConfigurationLoader.load_config">load_config</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.DefaultConfig" href="#bitrab.best_effort_runner.DefaultConfig">DefaultConfig</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.DefaultConfig.after_script" href="#bitrab.best_effort_runner.DefaultConfig.after_script">after_script</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.DefaultConfig.before_script" href="#bitrab.best_effort_runner.DefaultConfig.before_script">before_script</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.DefaultConfig.variables" href="#bitrab.best_effort_runner.DefaultConfig.variables">variables</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.GitlabRunnerError" href="#bitrab.best_effort_runner.GitlabRunnerError">GitlabRunnerError</a></code></h4>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.JobConfig" href="#bitrab.best_effort_runner.JobConfig">JobConfig</a></code></h4>
+<ul class="two-column">
+<li><code><a title="bitrab.best_effort_runner.JobConfig.after_script" href="#bitrab.best_effort_runner.JobConfig.after_script">after_script</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.JobConfig.before_script" href="#bitrab.best_effort_runner.JobConfig.before_script">before_script</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.JobConfig.name" href="#bitrab.best_effort_runner.JobConfig.name">name</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.JobConfig.script" href="#bitrab.best_effort_runner.JobConfig.script">script</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.JobConfig.stage" href="#bitrab.best_effort_runner.JobConfig.stage">stage</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.JobConfig.variables" href="#bitrab.best_effort_runner.JobConfig.variables">variables</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.JobExecutionError" href="#bitrab.best_effort_runner.JobExecutionError">JobExecutionError</a></code></h4>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.JobExecutor" href="#bitrab.best_effort_runner.JobExecutor">JobExecutor</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.JobExecutor.execute_job" href="#bitrab.best_effort_runner.JobExecutor.execute_job">execute_job</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.LocalGitLabRunner" href="#bitrab.best_effort_runner.LocalGitLabRunner">LocalGitLabRunner</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.LocalGitLabRunner.run_pipeline" href="#bitrab.best_effort_runner.LocalGitLabRunner.run_pipeline">run_pipeline</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.PipelineConfig" href="#bitrab.best_effort_runner.PipelineConfig">PipelineConfig</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.PipelineConfig.default" href="#bitrab.best_effort_runner.PipelineConfig.default">default</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.PipelineConfig.jobs" href="#bitrab.best_effort_runner.PipelineConfig.jobs">jobs</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.PipelineConfig.stages" href="#bitrab.best_effort_runner.PipelineConfig.stages">stages</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.PipelineConfig.variables" href="#bitrab.best_effort_runner.PipelineConfig.variables">variables</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.PipelineProcessor" href="#bitrab.best_effort_runner.PipelineProcessor">PipelineProcessor</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.PipelineProcessor.RESERVED_KEYWORDS" href="#bitrab.best_effort_runner.PipelineProcessor.RESERVED_KEYWORDS">RESERVED_KEYWORDS</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.PipelineProcessor.process_config" href="#bitrab.best_effort_runner.PipelineProcessor.process_config">process_config</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.StageOrchestrator" href="#bitrab.best_effort_runner.StageOrchestrator">StageOrchestrator</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.StageOrchestrator.execute_pipeline" href="#bitrab.best_effort_runner.StageOrchestrator.execute_pipeline">execute_pipeline</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.best_effort_runner.VariableManager" href="#bitrab.best_effort_runner.VariableManager">VariableManager</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.best_effort_runner.VariableManager.prepare_environment" href="#bitrab.best_effort_runner.VariableManager.prepare_environment">prepare_environment</a></code></li>
+<li><code><a title="bitrab.best_effort_runner.VariableManager.substitute_variables" href="#bitrab.best_effort_runner.VariableManager.substitute_variables">substitute_variables</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

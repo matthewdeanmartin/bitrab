@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.cli API documentation</title>
+<meta name="description" content="Bitrab - Local GitLab CI Runner
+A tool for running GitLab CI pipelines locally.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.cli</code></h1>
+</header>
+<section id="section-intro">
+<p>Bitrab - Local GitLab CI Runner
+A tool for running GitLab CI pipelines locally.</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.cli.cmd_clean"><code class="name flex">
+<span>def <span class="ident">cmd_clean</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_clean(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;Clean up artifacts and temporary files.&#34;&#34;&#34;
+    print(&#34;🧹 Clean Pipeline Artifacts&#34;)
+    print(&#34;⚠️  Cleanup not yet implemented&#34;)
+    print(&#34;   This would remove build artifacts, cache files, etc.&#34;)</code></pre>
+</details>
+<div class="desc"><p>Clean up artifacts and temporary files.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_debug"><code class="name flex">
+<span>def <span class="ident">cmd_debug</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_debug(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;Debug pipeline configuration and execution environment.&#34;&#34;&#34;
+    config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
+
+    print(&#34;🔧 Debug Information&#34;)
+    print(f&#34;   Config file: {config_path.absolute()}&#34;)
+    print(f&#34;   Config exists: {config_path.exists()}&#34;)
+    print(f&#34;   Working directory: {Path.cwd()}&#34;)
+
+    if config_path.exists():
+        raw_config, pipeline_config = load_and_process_config(config_path)
+        print(f&#34;   Jobs found: {len(pipeline_config.jobs)}&#34;)
+        print(f&#34;   Stages: {pipeline_config.stages}&#34;)
+        print(f&#34;   Global variables: {len(pipeline_config.variables)}&#34;)</code></pre>
+</details>
+<div class="desc"><p>Debug pipeline configuration and execution environment.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_graph"><code class="name flex">
+<span>def <span class="ident">cmd_graph</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_graph(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;Generate a visual dependency graph of the pipeline.&#34;&#34;&#34;
+    print(&#34;📊 Pipeline Dependency Graph&#34;)
+    print(&#34;⚠️  Graph generation not yet implemented&#34;)
+    print(&#34;   This would create a visual representation of job dependencies&#34;)
+    sys.exit(1)</code></pre>
+</details>
+<div class="desc"><p>Generate a visual dependency graph of the pipeline.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_lint"><code class="name flex">
+<span>def <span class="ident">cmd_lint</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_lint(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;Lint the pipeline configuration using GitLab&#39;s API.&#34;&#34;&#34;
+    print(&#34;🔍 GitLab CI Lint&#34;)
+    print(&#34;⚠️  Server-side linting not yet implemented&#34;)
+    print(&#34;   This would validate your .gitlab-ci.yml against GitLab&#39;s official linter&#34;)
+    print(&#34;   For now, use &#39;bitrab validate&#39; for basic local validation&#34;)
+    sys.exit(1)</code></pre>
+</details>
+<div class="desc"><p>Lint the pipeline configuration using GitLab's API.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_list"><code class="name flex">
+<span>def <span class="ident">cmd_list</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_list(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;List all jobs in the pipeline.&#34;&#34;&#34;
+    config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
+
+    if not config_path.exists():
+        print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
+        sys.exit(1)
+
+    _, pipeline_config = load_and_process_config(config_path)
+
+    print(&#34;📋 Pipeline Jobs:&#34;)
+    print(f&#34;   Stages: {&#39;, &#39;.join(pipeline_config.stages)}&#34;)
+    print()
+
+    # Group jobs by stage
+    jobs_by_stage: dict[str, list[Any]] = {}
+    for job in pipeline_config.jobs:
+        jobs_by_stage.setdefault(job.stage, []).append(job)
+
+    for stage in pipeline_config.stages:
+        stage_jobs = jobs_by_stage.get(stage, [])
+        if stage_jobs:
+            print(f&#34;🎯 Stage: {stage}&#34;)
+            for job in stage_jobs:
+                retry_info = &#34;&#34;
+                if job.retry_max &gt; 0:
+                    retry_info = f&#34; (retry: {job.retry_max})&#34;
+                print(f&#34;   • {job.name}{retry_info}&#34;)
+            print()
+        else:
+            print(f&#34;⏭️  Stage: {stage} (no jobs)&#34;)
+            print()</code></pre>
+</details>
+<div class="desc"><p>List all jobs in the pipeline.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_run"><code class="name flex">
+<span>def <span class="ident">cmd_run</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_run(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;Execute the pipeline or specific jobs.&#34;&#34;&#34;
+    config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
+
+    if not config_path.exists():
+        print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        runner = LocalGitLabRunner(base_path=config_path.parent)
+
+        if args.jobs:
+            print(f&#34;🎯 Running specific jobs: {&#39;, &#39;.join(args.jobs)}&#34;)
+            # TODO: Implement job filtering in runner
+            print(&#34;⚠️  Job filtering not yet implemented - running full pipeline&#34;)
+
+        runner.run_pipeline(config_path=config_path, maximum_degree_of_parallelism=args.parallel, dry_run=args.dry_run)
+
+    except (BitrabError, GitlabRunnerError) as e:
+        print(f&#34;❌ Execution error: {e}&#34;, file=sys.stderr)
+        if DEBUG:
+            sys.exit(1)
+        else:
+            raise
+    except KeyboardInterrupt:
+        print(&#34;\n🛑 Pipeline execution interrupted by user&#34;, file=sys.stderr)
+        sys.exit(130)
+    except Exception as e:
+        print(f&#34;❌ Unexpected error: {e}&#34;, file=sys.stderr)
+        if DEBUG:
+            sys.exit(1)
+        else:
+            raise</code></pre>
+</details>
+<div class="desc"><p>Execute the pipeline or specific jobs.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_validate"><code class="name flex">
+<span>def <span class="ident">cmd_validate</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_validate(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;Validate the pipeline configuration.&#34;&#34;&#34;
+    config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
+
+    if not config_path.exists():
+        print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        raw_config, pipeline_config = load_and_process_config(config_path)
+
+        # Basic validation
+        errors = []
+        warnings = []
+
+        # Check for empty pipeline
+        if not pipeline_config.jobs:
+            errors.append(&#34;No jobs defined in pipeline&#34;)
+
+        # Check job stages exist
+        defined_stages = set(pipeline_config.stages)
+        for job in pipeline_config.jobs:
+            if job.stage not in defined_stages:
+                warnings.append(f&#34;Job &#39;{job.name}&#39; uses undefined stage &#39;{job.stage}&#39;&#34;)
+
+        # Check for jobs without scripts
+        for job in pipeline_config.jobs:
+            if not job.script and not job.before_script and not job.after_script:
+                warnings.append(f&#34;Job &#39;{job.name}&#39; has no scripts to execute&#34;)
+
+        # Report results
+        if errors:
+            print(&#34;❌ Validation failed:&#34;)
+            for error in errors:
+                print(f&#34;   • {error}&#34;)
+            sys.exit(1)
+
+        if warnings:
+            print(&#34;⚠️  Validation passed with warnings:&#34;)
+            for warning in warnings:
+                print(f&#34;   • {warning}&#34;)
+
+        print(&#34;✅ Configuration is valid&#34;)
+        print(f&#34;   📊 Found {len(pipeline_config.jobs)} jobs across {len(pipeline_config.stages)} stages&#34;)
+
+        if args.output_json:
+            # Output pipeline config as JSON for further processing
+            pipeline_dict = {
+                &#34;stages&#34;: pipeline_config.stages,
+                &#34;variables&#34;: pipeline_config.variables,
+                &#34;jobs&#34;: [
+                    {
+                        &#34;name&#34;: job.name,
+                        &#34;stage&#34;: job.stage,
+                        &#34;script&#34;: job.script,
+                        &#34;variables&#34;: job.variables,
+                        &#34;before_script&#34;: job.before_script,
+                        &#34;after_script&#34;: job.after_script,
+                        &#34;retry_max&#34;: job.retry_max,
+                        &#34;retry_when&#34;: job.retry_when,
+                        &#34;retry_exit_codes&#34;: job.retry_exit_codes,
+                    }
+                    for job in pipeline_config.jobs
+                ],
+            }
+            print(&#34;\n📄 Pipeline configuration (JSON):&#34;)
+            print(json.dumps(pipeline_dict, indent=2))
+
+    except Exception as e:
+        print(f&#34;❌ Validation error: {e}&#34;, file=sys.stderr)
+        sys.exit(1)</code></pre>
+</details>
+<div class="desc"><p>Validate the pipeline configuration.</p></div>
+</dd>
+<dt id="bitrab.cli.create_parser"><code class="name flex">
+<span>def <span class="ident">create_parser</span></span>(<span>) ‑> argparse.ArgumentParser</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def create_parser() -&gt; argparse.ArgumentParser:
+    &#34;&#34;&#34;Create and configure the argument parser.&#34;&#34;&#34;
+    parser = argparse.ArgumentParser(
+        prog=&#34;bitrab&#34;,
+        description=&#34;Local GitLab CI Runner - Execute GitLab CI pipelines locally&#34;,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f&#34;&#34;&#34;
+Examples:
+  bitrab run                          # Run .gitlab-ci.yml
+  bitrab run -c my-ci.yml             # Run specific config file
+  bitrab run --dry-run                # Show what would be executed
+  bitrab run --jobs build test        # Run specific jobs (if implemented)
+  bitrab run --parallel 4             # Use 4 parallel workers
+  bitrab list                         # List all jobs
+  bitrab validate                     # Validate configuration
+  bitrab validate --json              # Output pipeline as JSON
+
+Version: {__version__}
+&#34;&#34;&#34;,
+    )
+
+    # Global options
+    parser.add_argument(&#34;--version&#34;, action=&#34;version&#34;, version=f&#34;%(prog)s {__version__}&#34;)
+    parser.add_argument(&#34;--license&#34;, action=&#34;store_true&#34;, help=&#34;Show license information&#34;)
+    parser.add_argument(&#34;-c&#34;, &#34;--config&#34;, metavar=&#34;PATH&#34;, help=&#34;Path to GitLab CI configuration file (default: .gitlab-ci.yml)&#34;)
+    parser.add_argument(&#34;-q&#34;, &#34;--quiet&#34;, action=&#34;store_true&#34;, help=&#34;Suppress non-error output&#34;)
+    parser.add_argument(&#34;-v&#34;, &#34;--verbose&#34;, action=&#34;store_true&#34;, help=&#34;Enable verbose output&#34;)
+
+    # Subcommands
+    subparsers = parser.add_subparsers(dest=&#34;command&#34;, help=&#34;Available commands&#34;, metavar=&#34;COMMAND&#34;)
+
+    # Run command
+    run_parser = subparsers.add_parser(&#34;run&#34;, help=&#34;Execute the pipeline&#34;, description=&#34;Execute GitLab CI pipeline locally&#34;)
+    run_parser.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Show what would be executed without running&#34;)
+    run_parser.add_argument(
+        &#34;--parallel&#34;,
+        &#34;-j&#34;,
+        type=int,
+        metavar=&#34;N&#34;,
+        help=&#34;Number of parallel jobs per stage (default: number of CPU cores)&#34;,
+    )
+    run_parser.add_argument(&#34;--jobs&#34;, nargs=&#34;*&#34;, metavar=&#34;JOB&#34;, help=&#34;Run only specified jobs (if not specified, run all jobs)&#34;)
+    run_parser.set_defaults(func=cmd_run)
+
+    # List command
+    list_parser = subparsers.add_parser(&#34;list&#34;, help=&#34;List all jobs in the pipeline&#34;, description=&#34;Display all jobs organized by stages&#34;)
+    list_parser.set_defaults(func=cmd_list)
+
+    # Validate command
+    validate_parser = subparsers.add_parser(
+        &#34;validate&#34;,
+        help=&#34;Validate pipeline configuration&#34;,
+        description=&#34;Check pipeline configuration for errors and warnings&#34;,
+    )
+    validate_parser.add_argument(&#34;--json&#34;, dest=&#34;output_json&#34;, action=&#34;store_true&#34;, help=&#34;Output validated pipeline configuration as JSON&#34;)
+    validate_parser.set_defaults(func=cmd_validate)
+
+    # Lint command
+    lint_parser = subparsers.add_parser(
+        &#34;lint&#34;,
+        help=&#34;Lint configuration using GitLab API&#34;,
+        description=&#34;Validate configuration against GitLab&#39;s official linter (not implemented)&#34;,
+    )
+    lint_parser.set_defaults(func=cmd_lint)
+
+    # Graph command
+    graph_parser = subparsers.add_parser(
+        &#34;graph&#34;,
+        help=&#34;Generate pipeline dependency graph&#34;,
+        description=&#34;Create visual representation of job dependencies (not implemented)&#34;,
+    )
+    graph_parser.set_defaults(func=cmd_graph)
+
+    # Debug command
+    debug_parser = subparsers.add_parser(
+        &#34;debug&#34;,
+        help=&#34;Debug pipeline configuration&#34;,
+        description=&#34;Show debug information about pipeline and environment&#34;,
+    )
+    debug_parser.set_defaults(func=cmd_debug)
+
+    # Clean command
+    clean_parser = subparsers.add_parser(&#34;clean&#34;, help=&#34;Clean up artifacts&#34;, description=&#34;Remove build artifacts and temporary files (not implemented)&#34;)
+    clean_parser.set_defaults(func=cmd_clean)
+
+    return parser</code></pre>
+</details>
+<div class="desc"><p>Create and configure the argument parser.</p></div>
+</dd>
+<dt id="bitrab.cli.load_and_process_config"><code class="name flex">
+<span>def <span class="ident">load_and_process_config</span></span>(<span>config_path: Path) ‑> tuple[dict, typing.Any]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_and_process_config(config_path: Path) -&gt; tuple[dict, Any]:
+    &#34;&#34;&#34;Load and process configuration, returning raw config and pipeline config.&#34;&#34;&#34;
+    try:
+        loader = ConfigurationLoader()
+        processor = PipelineProcessor()
+
+        raw_config = loader.load_config(config_path)
+        pipeline_config = processor.process_config(raw_config)
+
+        return raw_config, pipeline_config
+    except (BitrabError, GitlabRunnerError) as e:
+        print(f&#34;❌ Configuration error: {e}&#34;, file=sys.stderr)
+        if DEBUG:
+            sys.exit(1)
+        else:
+            raise
+    except Exception as e:
+        print(f&#34;❌ Unexpected error loading config: {e}&#34;, file=sys.stderr)
+        if DEBUG:
+            sys.exit(1)
+        else:
+            raise</code></pre>
+</details>
+<div class="desc"><p>Load and process configuration, returning raw config and pipeline config.</p></div>
+</dd>
+<dt id="bitrab.cli.main"><code class="name flex">
+<span>def <span class="ident">main</span></span>(<span>) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def main() -&gt; None:
+    &#34;&#34;&#34;Main entry point.&#34;&#34;&#34;
+    parser = create_parser()
+    args = parser.parse_args()
+
+    # Handle license display
+    if args.license:
+        print(__license__)
+        sys.exit(0)
+
+    # Configure logging
+    setup_logging(args.verbose, args.quiet)
+
+    # Handle no command (default to run)
+    if not args.command:
+        args.command = &#34;run&#34;
+        args.func = cmd_run
+        # Set defaults for run command
+        args.dry_run = False
+        args.parallel = None
+        args.jobs = None
+
+    # Execute the command
+    try:
+        args.func(args)
+    except AttributeError:
+        parser.print_help()
+        sys.exit(1)</code></pre>
+</details>
+<div class="desc"><p>Main entry point.</p></div>
+</dd>
+<dt id="bitrab.cli.setup_logging"><code class="name flex">
+<span>def <span class="ident">setup_logging</span></span>(<span>verbose: bool, quiet: bool) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setup_logging(verbose: bool, quiet: bool) -&gt; None:
+    &#34;&#34;&#34;Configure logging based on verbosity flags.&#34;&#34;&#34;
+    if quiet:
+        level = logging.ERROR
+    elif verbose:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+
+    logging.basicConfig(level=level, format=&#34;%(levelname)s: %(message)s&#34;)</code></pre>
+</details>
+<div class="desc"><p>Configure logging based on verbosity flags.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab" href="index.html">bitrab</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.cli.cmd_clean" href="#bitrab.cli.cmd_clean">cmd_clean</a></code></li>
+<li><code><a title="bitrab.cli.cmd_debug" href="#bitrab.cli.cmd_debug">cmd_debug</a></code></li>
+<li><code><a title="bitrab.cli.cmd_graph" href="#bitrab.cli.cmd_graph">cmd_graph</a></code></li>
+<li><code><a title="bitrab.cli.cmd_lint" href="#bitrab.cli.cmd_lint">cmd_lint</a></code></li>
+<li><code><a title="bitrab.cli.cmd_list" href="#bitrab.cli.cmd_list">cmd_list</a></code></li>
+<li><code><a title="bitrab.cli.cmd_run" href="#bitrab.cli.cmd_run">cmd_run</a></code></li>
+<li><code><a title="bitrab.cli.cmd_validate" href="#bitrab.cli.cmd_validate">cmd_validate</a></code></li>
+<li><code><a title="bitrab.cli.create_parser" href="#bitrab.cli.create_parser">create_parser</a></code></li>
+<li><code><a title="bitrab.cli.load_and_process_config" href="#bitrab.cli.load_and_process_config">load_and_process_config</a></code></li>
+<li><code><a title="bitrab.cli.main" href="#bitrab.cli.main">main</a></code></li>
+<li><code><a title="bitrab.cli.setup_logging" href="#bitrab.cli.setup_logging">setup_logging</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

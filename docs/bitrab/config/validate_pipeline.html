@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.config.validate_pipeline API documentation</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.config.validate_pipeline</code></h1>
+</header>
+<section id="section-intro">
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.config.validate_pipeline.validate_gitlab_ci_yaml"><code class="name flex">
+<span>def <span class="ident">validate_gitlab_ci_yaml</span></span>(<span>yaml_content: str, cache_dir: str | None = None) ‑> tuple[bool, list[str]]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def validate_gitlab_ci_yaml(yaml_content: str, cache_dir: str | None = None) -&gt; tuple[bool, list[str]]:
+    &#34;&#34;&#34;
+    Convenience function to validate GitLab CI YAML configuration.
+
+    Args:
+        yaml_content: YAML configuration as string.
+        cache_dir: Optional directory for caching schema.
+
+    Returns:
+        tuple of (is_valid, list_of_error_messages).
+    &#34;&#34;&#34;
+    validator = GitLabCIValidator(cache_dir=cache_dir)
+    return validator.validate_ci_config(yaml_content)</code></pre>
+</details>
+<div class="desc"><p>Convenience function to validate GitLab CI YAML configuration.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>yaml_content</code></strong></dt>
+<dd>YAML configuration as string.</dd>
+<dt><strong><code>cache_dir</code></strong></dt>
+<dd>Optional directory for caching schema.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tuple of (is_valid, list_of_error_messages).</p></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="bitrab.config.validate_pipeline.GitLabCIValidator"><code class="flex name class">
+<span>class <span class="ident">GitLabCIValidator</span></span>
+<span>(</span><span>cache_dir: str | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class GitLabCIValidator:
+    &#34;&#34;&#34;Validates GitLab CI YAML files against the official schema.&#34;&#34;&#34;
+
+    def __init__(self, cache_dir: str | None = None):
+        &#34;&#34;&#34;
+        Initialize the validator.
+
+        Args:
+            cache_dir: Directory to cache the schema file. If None, uses system temp directory.
+        &#34;&#34;&#34;
+        self.schema_url = &#34;https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json&#34;
+        self.cache_dir = Path(cache_dir) if cache_dir else Path(tempfile.gettempdir())
+        self.cache_file = self.cache_dir / &#34;gitlab_ci_schema.json&#34;
+        self.fallback_schema_path = &#34;schemas/gitlab_ci_schema.json&#34;  # Package resource path
+        self.yaml = ruamel.yaml.YAML(typ=&#34;rt&#34;)
+
+    def _fetch_schema_from_url(self) -&gt; dict[str, Any] | None:
+        &#34;&#34;&#34;
+        Fetch the schema from GitLab&#39;s repository.
+
+        Returns:
+            Schema dictionary if successful, None otherwise.
+        &#34;&#34;&#34;
+        try:
+            with urllib.request.urlopen(self.schema_url, timeout=5) as response:  # nosec
+                schema_data = response.read().decode(&#34;utf-8&#34;)
+                return json.loads(schema_data)
+        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, OSError) as e:
+            logger.warning(f&#34;Failed to fetch schema from URL: {e}&#34;)
+            return None
+
+    def _load_schema_from_cache(self) -&gt; dict[str, Any] | None:
+        &#34;&#34;&#34;
+        Load the schema from cache file if it is 7 days old or newer.
+
+        Returns:
+            Schema dictionary if successful and fresh, None otherwise.
+        &#34;&#34;&#34;
+        try:
+            if self.cache_file.exists():
+                mtime = self.cache_file.stat().st_mtime
+                age_seconds = time.time() - mtime
+                seven_days = 7 * 24 * 60 * 60
+                if age_seconds &gt; seven_days:
+                    logger.debug(&#34;Cache file is older than 7 days, ignoring.&#34;)
+                    return None
+
+                with open(self.cache_file, encoding=&#34;utf-8&#34;) as f:
+                    return json.loads(f.read())
+        except (OSError, json.JSONDecodeError) as e:
+            logger.debug(f&#34;Failed to load schema from cache: {e}&#34;)
+        return None
+
+    def _save_schema_to_cache(self, schema: dict[str, Any]) -&gt; None:
+        &#34;&#34;&#34;
+        Save the schema to cache file.
+
+        Args:
+            schema: Schema dictionary to cache.
+        &#34;&#34;&#34;
+        try:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            with open(self.cache_file, &#34;w&#34;, encoding=&#34;utf-8&#34;) as f:
+                f.write(json.dumps(schema).decode())
+        except OSError as e:
+            logger.warning(f&#34;Failed to save schema to cache: {e}&#34;)
+
+    def _load_fallback_schema(self) -&gt; dict[str, Any] | None:
+        &#34;&#34;&#34;
+        Load the fallback schema from package resources.
+
+        Returns:
+            Schema dictionary if successful, None otherwise.
+        &#34;&#34;&#34;
+        try:
+            # Try modern importlib.resources approach (Python 3.9+) or importlib_resources backport
+            if files is not None:
+                try:
+                    package_files = files(__package__ or __name__.split(&#34;.&#34;, maxsplit=1)[0])
+                    schema_file = package_files / self.fallback_schema_path
+                    if schema_file.is_file():
+                        schema_data = schema_file.read_text(encoding=&#34;utf-8&#34;)
+                        return json.loads(schema_data)
+                except (FileNotFoundError, AttributeError, TypeError):
+                    pass
+
+            # Fallback: try to load from relative path
+            try:
+                current_dir = Path(__file__).parent if &#34;__file__&#34; in globals() else Path.cwd()
+                fallback_file = current_dir / self.fallback_schema_path
+                if fallback_file.exists():
+                    with open(fallback_file, encoding=&#34;utf-8&#34;) as f:
+                        return json.loads(f.read())
+            except (OSError, FileNotFoundError):
+                pass
+
+        except (json.JSONDecodeError, Exception) as e:
+            logger.warning(f&#34;Failed to load Gitlab JSON schema from package resource: {e}&#34;)
+
+        return None
+
+    @cache  # noqa: B019
+    def get_schema(self) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;
+        Get the GitLab CI schema, trying URL first, then cache, then fallback.
+
+        Returns:
+            Schema dictionary.
+
+        Raises:
+            RuntimeError: If no schema could be loaded from any source.
+        &#34;&#34;&#34;
+        # Check cache
+        schema = self._load_schema_from_cache()
+        if schema:
+            logger.debug(&#34;Using cached gitlab schema&#34;)
+            return schema
+
+        # Try to fetch from URL first
+        schema = self._fetch_schema_from_url()
+        if schema:
+            logger.debug(&#34;Using schema from URL&#34;)
+            self._save_schema_to_cache(schema)
+            return schema
+
+        # Fall back to package resource
+        schema = self._load_fallback_schema()
+        if schema:
+            logger.debug(&#34;Using gitlab schema from package&#34;)
+            return schema
+
+        raise RuntimeError(&#34;Could not load schema from URL, cache, or fallback resource&#34;)
+
+    def yaml_to_json(self, yaml_content: str) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;
+        Convert YAML content to JSON-compatible dictionary.
+
+        Args:
+            yaml_content: YAML string content.
+
+        Returns:
+            Dictionary representation of the YAML.
+
+        Raises:
+            ruamel.yaml.YAMLError: If YAML parsing fails.
+        &#34;&#34;&#34;
+        return self.yaml.load(yaml_content)
+
+    def validate_ci_config(self, yaml_content: str) -&gt; tuple[bool, list[str]]:
+        &#34;&#34;&#34;
+        Validate GitLab CI YAML configuration against the schema.
+
+        Args:
+            yaml_content: YAML configuration as string.
+
+        Returns:
+            tuple of (is_valid, list_of_error_messages).
+        &#34;&#34;&#34;
+        if &#34;pragma&#34; in yaml_content.lower() and &#34;do-not-validate-schema&#34; in yaml_content.lower():
+            logger.debug(&#34;Skipping validation found do-not-validate-schema Pragma&#34;)
+            return True, []
+
+        try:
+            # Convert YAML to JSON-compatible dict
+            config_dict = self.yaml_to_json(yaml_content)
+
+            # Get the schema
+            schema = self.get_schema()
+
+            # Validate against schema
+            validator = jsonschema.Draft7Validator(schema)
+            errors = []
+
+            for error in validator.iter_errors(config_dict):
+                error_path = &#34; -&gt; &#34;.join(str(p) for p in error.absolute_path) if error.absolute_path else &#34;root&#34;
+                error_msg = f&#34;Path &#39;{error_path}&#39;: {error.message}&#34;
+                errors.append(error_msg)
+
+            is_valid = len(errors) == 0
+            return is_valid, errors
+
+        except ruamel.yaml.YAMLError as e:
+            return False, [f&#34;YAML parsing error: {str(e)}&#34;]
+        except Exception as e:
+            return False, [f&#34;Validation error: {str(e)}&#34;]</code></pre>
+</details>
+<div class="desc"><p>Validates GitLab CI YAML files against the official schema.</p>
+<p>Initialize the validator.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cache_dir</code></strong></dt>
+<dd>Directory to cache the schema file. If None, uses system temp directory.</dd>
+</dl></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.config.validate_pipeline.GitLabCIValidator.get_schema"><code class="name flex">
+<span>def <span class="ident">get_schema</span></span>(<span>self) ‑> dict[str, typing.Any]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@cache  # noqa: B019
+def get_schema(self) -&gt; dict[str, Any]:
+    &#34;&#34;&#34;
+    Get the GitLab CI schema, trying URL first, then cache, then fallback.
+
+    Returns:
+        Schema dictionary.
+
+    Raises:
+        RuntimeError: If no schema could be loaded from any source.
+    &#34;&#34;&#34;
+    # Check cache
+    schema = self._load_schema_from_cache()
+    if schema:
+        logger.debug(&#34;Using cached gitlab schema&#34;)
+        return schema
+
+    # Try to fetch from URL first
+    schema = self._fetch_schema_from_url()
+    if schema:
+        logger.debug(&#34;Using schema from URL&#34;)
+        self._save_schema_to_cache(schema)
+        return schema
+
+    # Fall back to package resource
+    schema = self._load_fallback_schema()
+    if schema:
+        logger.debug(&#34;Using gitlab schema from package&#34;)
+        return schema
+
+    raise RuntimeError(&#34;Could not load schema from URL, cache, or fallback resource&#34;)</code></pre>
+</details>
+<div class="desc"><p>Get the GitLab CI schema, trying URL first, then cache, then fallback.</p>
+<h2 id="returns">Returns</h2>
+<p>Schema dictionary.</p>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>RuntimeError</code></dt>
+<dd>If no schema could be loaded from any source.</dd>
+</dl></div>
+</dd>
+<dt id="bitrab.config.validate_pipeline.GitLabCIValidator.validate_ci_config"><code class="name flex">
+<span>def <span class="ident">validate_ci_config</span></span>(<span>self, yaml_content: str) ‑> tuple[bool, list[str]]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def validate_ci_config(self, yaml_content: str) -&gt; tuple[bool, list[str]]:
+    &#34;&#34;&#34;
+    Validate GitLab CI YAML configuration against the schema.
+
+    Args:
+        yaml_content: YAML configuration as string.
+
+    Returns:
+        tuple of (is_valid, list_of_error_messages).
+    &#34;&#34;&#34;
+    if &#34;pragma&#34; in yaml_content.lower() and &#34;do-not-validate-schema&#34; in yaml_content.lower():
+        logger.debug(&#34;Skipping validation found do-not-validate-schema Pragma&#34;)
+        return True, []
+
+    try:
+        # Convert YAML to JSON-compatible dict
+        config_dict = self.yaml_to_json(yaml_content)
+
+        # Get the schema
+        schema = self.get_schema()
+
+        # Validate against schema
+        validator = jsonschema.Draft7Validator(schema)
+        errors = []
+
+        for error in validator.iter_errors(config_dict):
+            error_path = &#34; -&gt; &#34;.join(str(p) for p in error.absolute_path) if error.absolute_path else &#34;root&#34;
+            error_msg = f&#34;Path &#39;{error_path}&#39;: {error.message}&#34;
+            errors.append(error_msg)
+
+        is_valid = len(errors) == 0
+        return is_valid, errors
+
+    except ruamel.yaml.YAMLError as e:
+        return False, [f&#34;YAML parsing error: {str(e)}&#34;]
+    except Exception as e:
+        return False, [f&#34;Validation error: {str(e)}&#34;]</code></pre>
+</details>
+<div class="desc"><p>Validate GitLab CI YAML configuration against the schema.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>yaml_content</code></strong></dt>
+<dd>YAML configuration as string.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tuple of (is_valid, list_of_error_messages).</p></div>
+</dd>
+<dt id="bitrab.config.validate_pipeline.GitLabCIValidator.yaml_to_json"><code class="name flex">
+<span>def <span class="ident">yaml_to_json</span></span>(<span>self, yaml_content: str) ‑> dict[str, typing.Any]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def yaml_to_json(self, yaml_content: str) -&gt; dict[str, Any]:
+    &#34;&#34;&#34;
+    Convert YAML content to JSON-compatible dictionary.
+
+    Args:
+        yaml_content: YAML string content.
+
+    Returns:
+        Dictionary representation of the YAML.
+
+    Raises:
+        ruamel.yaml.YAMLError: If YAML parsing fails.
+    &#34;&#34;&#34;
+    return self.yaml.load(yaml_content)</code></pre>
+</details>
+<div class="desc"><p>Convert YAML content to JSON-compatible dictionary.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>yaml_content</code></strong></dt>
+<dd>YAML string content.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Dictionary representation of the YAML.</p>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>ruamel.yaml.YAMLError</code></dt>
+<dd>If YAML parsing fails.</dd>
+</dl></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.config.validate_pipeline.ValidationResult"><code class="flex name class">
+<span>class <span class="ident">ValidationResult</span></span>
+<span>(</span><span>file_path: Path, is_valid: bool, errors: list[str])</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class ValidationResult:
+    &#34;&#34;&#34;Result of validating a single YAML file.&#34;&#34;&#34;
+
+    file_path: Path
+    is_valid: bool
+    errors: list[str]
+
+    def __post_init__(self) -&gt; None:
+        &#34;&#34;&#34;Ensure file_path is a Path object.&#34;&#34;&#34;
+        if not isinstance(self.file_path, Path):
+            self.file_path = Path(self.file_path)</code></pre>
+</details>
+<div class="desc"><p>Result of validating a single YAML file.</p></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.config.validate_pipeline.ValidationResult.errors"><code class="name">var <span class="ident">errors</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.config.validate_pipeline.ValidationResult.file_path"><code class="name">var <span class="ident">file_path</span> : pathlib._local.Path</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.config.validate_pipeline.ValidationResult.is_valid"><code class="name">var <span class="ident">is_valid</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab.config" href="index.html">bitrab.config</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.config.validate_pipeline.validate_gitlab_ci_yaml" href="#bitrab.config.validate_pipeline.validate_gitlab_ci_yaml">validate_gitlab_ci_yaml</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="bitrab.config.validate_pipeline.GitLabCIValidator" href="#bitrab.config.validate_pipeline.GitLabCIValidator">GitLabCIValidator</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.config.validate_pipeline.GitLabCIValidator.get_schema" href="#bitrab.config.validate_pipeline.GitLabCIValidator.get_schema">get_schema</a></code></li>
+<li><code><a title="bitrab.config.validate_pipeline.GitLabCIValidator.validate_ci_config" href="#bitrab.config.validate_pipeline.GitLabCIValidator.validate_ci_config">validate_ci_config</a></code></li>
+<li><code><a title="bitrab.config.validate_pipeline.GitLabCIValidator.yaml_to_json" href="#bitrab.config.validate_pipeline.GitLabCIValidator.yaml_to_json">yaml_to_json</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.config.validate_pipeline.ValidationResult" href="#bitrab.config.validate_pipeline.ValidationResult">ValidationResult</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.config.validate_pipeline.ValidationResult.errors" href="#bitrab.config.validate_pipeline.ValidationResult.errors">errors</a></code></li>
+<li><code><a title="bitrab.config.validate_pipeline.ValidationResult.file_path" href="#bitrab.config.validate_pipeline.ValidationResult.file_path">file_path</a></code></li>
+<li><code><a title="bitrab.config.validate_pipeline.ValidationResult.is_valid" href="#bitrab.config.validate_pipeline.ValidationResult.is_valid">is_valid</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>
