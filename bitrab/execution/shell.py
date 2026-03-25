@@ -15,7 +15,7 @@ Usage:
 
     result = run_bash(
         "echo hello && echo oops >&2",
-        mode="capture",               # or "stream"
+        mode="capture",  # or "stream"
         check=False,
     )
     assert result.stdout.strip() == "hello"
@@ -31,14 +31,14 @@ In pytest with capsys (streaming):
 Deterministic (captured) tests:
 
     def test_captured():
-        res = run_bash("printf '%s' foo", mode='capture')
+        res = run_bash("printf '%s' foo", mode="capture")
         assert res.stdout == "foo"
-
 """
 
 from __future__ import annotations
 
 import os
+import re
 import subprocess  # nosec
 import sys
 import threading
@@ -52,6 +52,7 @@ from bitrab.exceptions import BitrabError
 GREEN = "\033[92m"
 RED = "\033[91m"
 RESET = "\033[0m"
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _colors_enabled(force: bool | None) -> bool:
@@ -59,7 +60,6 @@ def _colors_enabled(force: bool | None) -> bool:
         return True
     if force is False:
         return False
-    # default: respect NO_COLOR
     return not bool(os.getenv("NO_COLOR"))
 
 
@@ -70,6 +70,14 @@ class RunResult:
     stdout: str
     stderr: str
 
+    @property
+    def stdout_clean(self) -> str:
+        return ANSI_ESCAPE_RE.sub("", self.stdout)
+
+    @property
+    def stderr_clean(self) -> str:
+        return ANSI_ESCAPE_RE.sub("", self.stderr)
+
     def check_returncode(self) -> RunResult:
         if self.returncode != 0:
             print(self.stderr)
@@ -79,16 +87,12 @@ class RunResult:
 
 
 # ---------- Env merge ----------
-_BASE_ENV = os.environ.copy()
-
-
 def merge_env(env: dict[str, str] | None = None) -> dict[str, str]:
     """Return a merged environment where `env` overrides current process env."""
+    current_env = os.environ.copy()
     if env:
-        merged = {**_BASE_ENV, **env}
-    else:
-        merged = _BASE_ENV.copy()
-    return merged
+        return {**current_env, **env}
+    return current_env
 
 
 # ---------- Core runner ----------
@@ -112,7 +116,7 @@ class _Buffer:
         return "".join(self._buf)
 
 
-_DEF_BASH_WINDOWS = r"C:\\Program Files\\Git\\bin\\bash.exe"
+_DEF_BASH_WINDOWS = r"C:\Program Files\Git\bin\bash.exe"
 
 
 def _pick_bash(login_shell: bool) -> list[str]:
@@ -130,44 +134,16 @@ def run_bash(
     *,
     env: dict[str, str] | None = None,
     cwd: str | os.PathLike[str] | None = None,
-    mode: str = "stream",  # "stream" | "capture"
+    mode: str = "stream",
     check: bool = True,
     login_shell: bool = False,
     force_color: bool | None = None,
     stdout_target: IO[str] | None = None,
     stderr_target: IO[str] | None = None,
 ) -> RunResult:
-    """Run a bash *script string* via stdin.
-
-    Parameters
-    ----------
-    script : str
-        Bash script content to execute. `set -eo pipefail` will be prepended.
-    env : dict[str, str] | None
-        Environment vars to merge over process env.
-    cwd : str | os.PathLike[str] | None
-        Working directory for the subprocess.
-    mode : {"stream", "capture"}
-        - "stream": real-time tee to `stdout_target`/`stderr_target` (default sys.std*),
-          while also capturing and returning the full text.
-        - "capture": do not tee; only return captured text.
-    check : bool
-        If True, raise `CalledProcessError` on non-zero exit.
-    login_shell : bool
-        If True, add `-l` to bash (reads profile/bashrc). Off by default because it's slow.
-    force_color : bool | None
-        Force-enable/disable ANSI color regardless of NO_COLOR. If None, respect NO_COLOR.
-    stdout_target / stderr_target : IO[str] | None
-        Streams to receive live output in streaming mode. Defaults to sys.stdout/sys.stderr.
-
-    Returns:
-    -------
-    RunResult
-        Includes return code and full stdout/stderr text.
-    """
+    """Run a bash script via stdin."""
     env_merged = merge_env(env)
 
-    # Normalize line endings for Git-Bash on Windows when feeding via stdin
     if os.name == "nt":
         script = script.replace("\r\n", "\n")
 
@@ -175,15 +151,12 @@ def run_bash(
     g, r, reset = (GREEN, RED, RESET) if colors else ("", "", "")
 
     bash = _pick_bash(login_shell or bool(os.environ.get("bitrab_RUN_LOAD_BASHRC")))
-
-    # Always prepend robust flags
     robust_script_content = f"set -eo pipefail\n{script}"
 
     if mode not in {"stream", "capture"}:
         raise ValueError("mode must be 'stream' or 'capture'")
 
     if mode == "capture":
-        # No threads, simpler deterministic behavior for tests/CI
         with subprocess.Popen(  # nosec
             bash,
             env=env_merged,
@@ -200,16 +173,16 @@ def run_bash(
             result.check_returncode()
         return result
 
-    # Streaming mode: threads + tee to targets while capturing
     out_buf = _Buffer(stdout_target or sys.stdout)
     err_buf = _Buffer(stderr_target or sys.stderr)
 
     def _stream(pipe: IO[str], color: str, buf: _Buffer) -> None:
         try:
-            for line in iter(pipe.readline, ""):
-                if not line:
+            while True:
+                chunk = pipe.read(1)
+                if not chunk:
                     break
-                buf.write(f"{color}{line}{reset}")
+                buf.write(f"{color}{chunk}{reset}")
                 buf.flush()
         finally:
             try:
@@ -225,7 +198,7 @@ def run_bash(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        bufsize=1,  # line buffered
+        bufsize=0,
     ) as proc:
         if not (proc.stdout is not None and proc.stderr is not None and proc.stdin is not None):
             raise BitrabError("proc properties are None")
@@ -248,15 +221,13 @@ def run_bash(
     return result
 
 
-# Optional: env var knob (document for CI/pytest usage)
-_ENV_MODE = "BITRAB_SUBPROC_MODE"  # "stream" or "capture"
+_ENV_MODE = "BITRAB_SUBPROC_MODE"
 
 
 def _auto_mode() -> str:
     mode = os.getenv(_ENV_MODE)
     if mode in {"stream", "capture"}:
         return mode
-    # Auto: be nice to tests/CI
     if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("CI"):
         return "capture"
     return "stream"
@@ -266,32 +237,22 @@ def run_colored(script: str, env=None, cwd=None, mode: str | None = None) -> Run
     """
     Backward-compatible wrapper. Keeps streaming default in dev,
     but auto-switches to capture in pytest/CI, unless overridden via BITRAB_SUBPROC_MODE.
-    Returns the int returncode and raises on non-zero (as before).
     """
     if mode is None:
-        mode = _auto_mode()  # "stream" or "capture"
-    # Respect NO_COLOR automatically; users can force with force_color if desired
-    result = run_bash(
+        mode = _auto_mode()
+    return run_bash(
         script,
         env=env,
         cwd=cwd,
         mode=mode,
-        check=True,  # old behavior: raise on non-zero
-        force_color=None,  # respect NO_COLOR by default
-        # You can pass stdout_target/stderr_target here if you want custom tee targets
+        check=True,
+        force_color=None,
     )
-    return result
 
 
-# Optional helpers (useful in tests or specific blocks)
 @contextmanager
 def force_subproc_mode(mode: str):
-    """
-    Temporarily force 'stream' or 'capture' without changing call sites.
-    Example:
-        with force_subproc_mode("capture"):
-            run_colored("echo hi")
-    """
+    """Temporarily force 'stream' or 'capture' without changing call sites."""
     if mode not in {"stream", "capture"}:
         raise ValueError("mode must be 'stream' or 'capture'")
     prev = os.getenv(_ENV_MODE)

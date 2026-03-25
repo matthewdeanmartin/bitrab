@@ -90,15 +90,20 @@ class PipelineProcessor:
         Returns:
             A JobConfig object.
         """
-        # Merge variables with precedence: job > global > default
+        # Merge variables with precedence: job > default > global
         variables: dict[str, str] = {}
-        variables.update(default.variables)
         variables.update(global_vars)
+        variables.update(default.variables)
         variables.update(job_data.get("variables", {}))
 
-        # Merge scripts with default
-        before_script = default.before_script + self._ensure_list(job_data.get("before_script", []))
-        after_script = self._ensure_list(job_data.get("after_script", [])) + default.after_script
+        # Scripts: job overrides default
+        before_script = self._ensure_list(job_data.get("before_script", []))
+        if not before_script:
+            before_script = default.before_script
+
+        after_script = self._ensure_list(job_data.get("after_script", []))
+        if not after_script:
+            after_script = default.after_script
 
         # GitLab-aligned retry parsing
         retry_cfg = job_data.get("retry", 0)
@@ -196,7 +201,7 @@ class LocalGitLabRunner:
 
         # Set up execution components
         variable_manager = VariableManager(pipeline.variables)
-        self.job_executor = JobExecutor(variable_manager, dry_run=dry_run)
+        self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
         self.orchestrator = StageOrchestrator(
             self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run
         )

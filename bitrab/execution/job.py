@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from bitrab.exceptions import BitrabError, JobExecutionError
-from bitrab.execution.shell import RunResult, run_colored
+from bitrab.execution.shell import RunResult, run_bash
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
 
@@ -21,12 +21,14 @@ class JobExecutor:
         variable_manager: The VariableManager instance for managing variables.
     """
 
-    def __init__(self, variable_manager: VariableManager, dry_run: bool = False):
+    def __init__(self, variable_manager: VariableManager, dry_run: bool = False, project_dir: Path | None = None):
         self.variable_manager = variable_manager
         self.job_history: list[RunResult] = []
         self.dry_run = dry_run
+        self.project_dir = project_dir or Path.cwd()
 
     # ---- retry helpers ----
+
     @staticmethod
     def _env_delay_seconds() -> int:
         try:
@@ -65,12 +67,13 @@ class JobExecutor:
         # exponential (default)
         return float(base) * (2 ** (attempt_index - 1))
 
-    def execute_job(self, job: JobConfig) -> None:
+    def execute_job(self, job: JobConfig, job_dir: Path | None = None) -> None:
         """
         Execute a single job.
 
         Args:
             job: The job configuration.
+            job_dir: Optional override for the execution directory.
 
         Raises:
             JobExecutionError: If the job fails to execute successfully.
@@ -78,6 +81,7 @@ class JobExecutor:
         print(f"🔧 Running job: {job.name} (stage: {job.stage})")
 
         env = self.variable_manager.prepare_environment(job)
+        execution_dir = job_dir or self.project_dir
 
         max_attempts = 1 + max(0, int(job.retry_max))
         attempt = 0
@@ -96,11 +100,11 @@ class JobExecutor:
             try:
                 if job.before_script:
                     print("  📋 Running before_script...")
-                    self._execute_scripts(job.before_script, env)
+                    self._execute_scripts(job.before_script, env, execution_dir)
 
                 if job.script:
                     print("  🚀 Running script...")
-                    self._execute_scripts(job.script, env)
+                    self._execute_scripts(job.script, env, execution_dir)
 
                 print(f"✅ Job {job.name} completed successfully")
                 return
@@ -117,7 +121,7 @@ class JobExecutor:
                 if job.after_script:
                     print("  📋 Running after_script...")
                     try:
-                        self._execute_scripts(job.after_script, env)
+                        self._execute_scripts(job.after_script, env, execution_dir)
                     except subprocess.CalledProcessError as e2:
                         last_exc = last_exc or e2
                         print(f"  ❗ after_script failed with exit code {e2.returncode}")
@@ -148,13 +152,14 @@ class JobExecutor:
             ) from last_exc
         raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s).") from last_exc
 
-    def _execute_scripts(self, scripts: list[str], env: dict[str, str]) -> None:
+    def _execute_scripts(self, scripts: list[str], env: dict[str, str], cwd: Path | None = None) -> None:
         """
         Execute a list of script commands.
 
         Args:
             scripts: The list of scripts to execute.
             env: The environment variables for the scripts.
+            cwd: Optional working directory.
 
         Raises:
             subprocess.CalledProcessError: If a script exits with a non-zero code.
@@ -171,15 +176,18 @@ class JobExecutor:
         full_script = "\n".join(lines)
         print(f"    $ {full_script}")
 
+        target_cwd = cwd or self.project_dir
+
         if self.dry_run:
             print("Not running...")
             print(full_script)
             result = RunResult(0, "", "")
         else:
-            result = run_colored(
+            result = run_bash(
                 full_script,
                 env=env,
-                cwd=Path.cwd(),
+                cwd=target_cwd,
+                check=False,
             )
         self.job_history.append(result)
 

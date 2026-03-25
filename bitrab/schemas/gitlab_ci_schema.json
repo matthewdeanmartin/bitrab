@@ -13,7 +13,7 @@
       "markdownDescription": "Specification for pipeline configuration. Must be declared at the top of a configuration file, in a header section separated from the rest of the configuration with `---`. [Learn More](https://docs.gitlab.com/ci/yaml/#spec).",
       "properties": {
         "inputs": {
-          "$ref": "#/definitions/inputParameters"
+          "$ref": "#/definitions/configInputs"
         }
       },
       "additionalProperties": false
@@ -259,6 +259,7 @@
           "enum": [
             "none",
             "developer",
+            "maintainer",
             "all"
           ]
         },
@@ -378,6 +379,10 @@
               "$ref": "#/definitions/string_file_list",
               "markdownDescription": "Path to file or list of files with cyclonedx report(s). [Learn More](https://docs.gitlab.com/ci/yaml/artifacts_reports/#artifactsreportscyclonedx)."
             },
+            "sarif": {
+              "$ref": "#/definitions/string_file_list",
+              "markdownDescription": "Path to file or list of files with SARIF 2.1.0 security report(s). [Learn More](https://docs.gitlab.com/ci/yaml/artifacts_reports/#artifactsreportssarif)."
+            },
             "load_performance": {
               "$ref": "#/definitions/string_file_list",
               "markdownDescription": "Path to file or list of files with load performance testing report(s). [Learn More](https://docs.gitlab.com/ci/yaml/artifacts_reports/#artifactsreportsload_performance)."
@@ -403,57 +408,221 @@
         }
       ]
     },
-    "inputParameters": {
+    "baseInput": {
       "type": "object",
-      "markdownDescription": "Define parameters that can be populated in reusable CI/CD configuration files when added to a pipeline. [Learn More](https://docs.gitlab.com/ci/inputs/).",
+      "properties": {
+        "type": {
+          "type": "string",
+          "markdownDescription": "Input type. Defaults to 'string' when not specified.",
+          "enum": [
+            "array",
+            "boolean",
+            "number",
+            "string"
+          ],
+          "default": "string"
+        },
+        "description": {
+          "type": "string",
+          "markdownDescription": "Human-readable explanation of the parameter.",
+          "maxLength": 1024
+        },
+        "options": {
+          "type": "array",
+          "markdownDescription": "List of allowed values for this input.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          }
+        },
+        "regex": {
+          "type": "string",
+          "markdownDescription": "Regular expression that string values must match."
+        },
+        "default": {
+          "markdownDescription": "Default value for this input."
+        }
+      }
+    },
+    "configInputs": {
+      "type": "object",
+      "markdownDescription": "Define input parameters for reusable CI/CD configuration. Config inputs can optionally specify defaults. [Learn More](https://docs.gitlab.com/ci/inputs/).",
       "patternProperties": {
         ".*": {
-          "markdownDescription": "**Input Configuration**\n\nAvailable properties:\n- `type`: string (default), array, boolean, or number\n- `description`: Human-readable explanation of the parameter (supports Markdown)\n- `options`: List of allowed values\n- `default`: Value to use when not specified (makes input optional)\n- `regex`: Pattern that string values must match",
           "oneOf": [
             {
-              "type": "object",
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "markdownDescription": "Force a specific input type. Defaults to 'string' when not specified. [Learn More](https://docs.gitlab.com/ci/inputs/#input-types).",
-                  "enum": [
-                    "array",
-                    "boolean",
-                    "number",
-                    "string"
-                  ],
-                  "default": "string"
+              "allOf": [
+                {
+                  "$ref": "#/definitions/baseInput"
                 },
-                "description": {
-                  "type": "string",
-                  "markdownDescription": "Give a description to a specific input. The description does not affect the input, but can help people understand the input details or expected values. Supports markdown.",
-                  "maxLength": 1024
-                },
-                "options": {
-                  "type": "array",
-                  "markdownDescription": "Specify a list of allowed values for an input.",
-                  "items": {
-                    "oneOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "boolean"
+                {
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "markdownDescription": "Conditional rules for this input.",
+                      "items": {
+                        "type": "object"
                       }
-                    ]
+                    }
                   }
                 },
-                "regex": {
-                  "type": "string",
-                  "markdownDescription": "Specify a regular expression that the input must match. Only impacts inputs with a `type` of `string`."
-                },
-                "default": {
-                  "markdownDescription": "Define default values for inputs when not specified. When you specify a default, the inputs are no longer mandatory."
+                {
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "string"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "default": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "number"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "default": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "boolean"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "default": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "array"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "default": {
+                            "oneOf": [
+                              {
+                                "type": "array"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "not": {
+                          "required": [
+                            "type"
+                          ]
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "default": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
-              },
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "jobInputs": {
+      "type": "object",
+      "markdownDescription": "Define input parameters for a job. Job inputs must always include a `default` value. [Learn More](https://docs.gitlab.com/ci/yaml/#inputs).",
+      "maxProperties": 50,
+      "patternProperties": {
+        ".*": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/baseInput"
+            },
+            {
+              "required": [
+                "default"
+              ]
+            },
+            {
               "allOf": [
                 {
                   "if": {
@@ -463,15 +632,15 @@
                           "string"
                         ]
                       }
-                    }
+                    },
+                    "required": [
+                      "type"
+                    ]
                   },
                   "then": {
                     "properties": {
                       "default": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
+                        "type": "string"
                       }
                     }
                   }
@@ -484,15 +653,15 @@
                           "number"
                         ]
                       }
-                    }
+                    },
+                    "required": [
+                      "type"
+                    ]
                   },
                   "then": {
                     "properties": {
                       "default": {
-                        "type": [
-                          "number",
-                          "null"
-                        ]
+                        "type": "number"
                       }
                     }
                   }
@@ -505,15 +674,15 @@
                           "boolean"
                         ]
                       }
-                    }
+                    },
+                    "required": [
+                      "type"
+                    ]
                   },
                   "then": {
                     "properties": {
                       "default": {
-                        "type": [
-                          "boolean",
-                          "null"
-                        ]
+                        "type": "boolean"
                       }
                     }
                   }
@@ -526,28 +695,36 @@
                           "array"
                         ]
                       }
+                    },
+                    "required": [
+                      "type"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "default": {
+                        "type": "array"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "not": {
+                      "required": [
+                        "type"
+                      ]
                     }
                   },
                   "then": {
                     "properties": {
                       "default": {
-                        "oneOf": [
-                          {
-                            "type": "array"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": "string"
                       }
                     }
                   }
                 }
-              ],
-              "additionalProperties": false
-            },
-            {
-              "type": "null"
+              ]
             }
           ]
         }
@@ -891,12 +1068,8 @@
                 ]
               },
               "command": {
-                "type": "array",
                 "markdownDescription": "Command or script that should be used as the container's command. It will be translated to arguments passed to Docker after the image's name. The syntax is similar to Dockerfile's CMD directive, where each shell token is a separate string in the array. [Learn More](https://docs.gitlab.com/ci/services/#available-settings-for-services)",
-                "minItems": 1,
-                "items": {
-                  "type": "string"
-                }
+                "$ref": "#/definitions/script"
               },
               "alias": {
                 "type": "string",
@@ -1084,6 +1257,22 @@
                 }
               ]
             },
+            "gitlab_secrets_manager": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Source of the secret. Defaults to the current project if not given. For fetching a secret from a group, provide group/<full_path_of_the_group>"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            },
             "file": {
               "type": "boolean",
               "default": true,
@@ -1113,6 +1302,11 @@
             {
               "required": [
                 "aws_secrets_manager"
+              ]
+            },
+            {
+              "required": [
+                "gitlab_secrets_manager"
               ]
             }
           ],
@@ -1695,7 +1889,16 @@
               "type": "object",
               "properties": {
                 "files": {
-                  "markdownDescription": "Use the `cache:key:files` keyword to generate a new key when one or two specific files change. [Learn More](https://docs.gitlab.com/ci/yaml/#cachekeyfiles)",
+                  "markdownDescription": "Use the `cache:key:files` keyword to generate a new cache key when specified file content changes. Cache keys remain stable across branches with identical file content. [Learn More](https://docs.gitlab.com/ci/yaml/#cachekeyfiles)",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 2
+                },
+                "files_commits": {
+                  "markdownDescription": "Use the `cache:key:files_commits` keyword to generate a new cache key when the latest commit changes for the specified files. [Learn More](https://docs.gitlab.com/ci/yaml/#cachekeyfiles_commits)",
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -1704,7 +1907,7 @@
                   "maxItems": 2
                 },
                 "prefix": {
-                  "markdownDescription": "Use `cache:key:prefix` to combine a prefix with the SHA computed for `cache:key:files`. [Learn More](https://docs.gitlab.com/ci/yaml/#cachekeyprefix)",
+                  "markdownDescription": "Use `cache:key:prefix` to combine a prefix with the SHA computed for `cache:key:files` or `cache:key:files_commits`. [Learn More](https://docs.gitlab.com/ci/yaml/#cachekeyprefix)",
                   "type": "string"
                 }
               }
@@ -2076,6 +2279,9 @@
         "identity": {
           "$ref": "#/definitions/identity"
         },
+        "inputs": {
+          "$ref": "#/definitions/jobInputs"
+        },
         "secrets": {
           "$ref": "#/definitions/secrets"
         },
@@ -2325,14 +2531,7 @@
                 },
                 "deployment_tier": {
                   "type": "string",
-                  "description": "Explicitly specifies the tier of the deployment environment if non-standard environment name is used.",
-                  "enum": [
-                    "production",
-                    "staging",
-                    "testing",
-                    "development",
-                    "other"
-                  ]
+                  "description": "Explicitly specifies the tier of the deployment environment if non-standard environment name is used."
                 }
               },
               "required": [
@@ -2828,15 +3027,24 @@
       "additionalProperties": false
     },
     "step": {
-      "description": "Any of these step use cases are valid.",
+      "description": "Any of these function use cases are valid.",
       "oneOf": [
         {
-          "description": "Run a referenced step.",
+          "description": "Run a referenced function.",
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "name",
-            "step"
+            "name"
+          ],
+          "oneOf": [
+            {
+              "required": ["step"],
+              "not": {"required": ["func"]}
+            },
+            {
+                "required": ["func"],
+                "not": {"required": ["step"]}
+            }
           ],
           "properties": {
             "name": {
@@ -2849,70 +3057,10 @@
               "$ref": "#/definitions/stepNamedValues"
             },
             "step": {
-              "oneOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "$ref": "#/definitions/stepGitReference"
-                },
-                {
-                  "$ref": "#/definitions/stepOciReference"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "description": "Run a sequence of steps.",
-          "oneOf": [
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "run"
-              ],
-              "properties": {
-                "env": {
-                  "$ref": "#/definitions/stepNamedStrings"
-                },
-                "run": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/step"
-                  }
-                },
-                "outputs": {
-                  "$ref": "#/definitions/stepNamedValues"
-                },
-                "delegate": {
-                  "type": "string"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "description": "Run an action.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "name",
-            "action"
-          ],
-          "properties": {
-            "name": {
-              "$ref": "#/definitions/stepName"
+              "$ref": "#/definitions/stepFuncReference"
             },
-            "env": {
-              "$ref": "#/definitions/stepNamedStrings"
-            },
-            "inputs": {
-              "$ref": "#/definitions/stepNamedValues"
-            },
-            "action": {
-              "type": "string",
-              "minLength": 1
+            "func": {
+              "$ref": "#/definitions/stepFuncReference"
             }
           }
         },
@@ -2934,23 +3082,6 @@
             "script": {
               "type": "string",
               "minLength": 1
-            }
-          }
-        },
-        {
-          "description": "Exec a binary.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "exec"
-          ],
-          "properties": {
-            "env": {
-              "$ref": "#/definitions/stepNamedStrings"
-            },
-            "exec": {
-              "description": "Exec is a command to run.",
-              "$ref": "#/definitions/stepExec"
             }
           }
         }
@@ -2987,7 +3118,7 @@
     },
     "stepGitReference": {
       "type": "object",
-      "description": "GitReference is a reference to a step in a Git repository.",
+      "description": "GitReference is a reference to a function in a Git repository.",
       "additionalProperties": false,
       "required": [
         "git"
@@ -3019,7 +3150,7 @@
     },
     "stepOciReference": {
       "type": "object",
-      "description": "OCIReference is a reference to a step hosted in an OCI repository.",
+      "description": "OCIReference is a reference to a function hosted in an OCI repository.",
       "additionalProperties": false,
       "required": [
         "oci"
@@ -3037,65 +3168,44 @@
             "registry": {
               "type": "string",
               "description": "The <host>[:<port>] of the container registry server.",
-              "examples": [
-                "registry.gitlab.com"
-              ]
+                            "examples": ["registry.gitlab.com"]
             },
             "repository": {
               "type": "string",
               "description": "A path within the registry containing related OCI images. Typically the namespace, project, and image name.",
-              "examples": [
-                "my_group/my_project/image"
-              ]
+              "examples": ["my_group/my_project/image"]
             },
             "tag": {
               "type": "string",
               "description": "A pointer to the image manifest hosted in the OCI repository.",
-              "examples": [
-                "latest",
-                "1",
-                "1.5",
-                "1.5.0"
-              ]
+              "examples": ["latest", "1", "1.5", "1.5.0"]
             },
             "dir": {
               "type": "string",
-              "description": "A directory inside the OCI image where the step can be found.",
-              "examples": [
-                "/my_steps/hello_world"
-              ]
+              "description": "A directory inside the OCI image where the function can be found.",
+              "examples": ["/my_steps/hello_world"]
             },
             "file": {
               "type": "string",
-              "description": "The name of the file that defines the step, defaults to step.yml.",
-              "examples": [
-                "step.yml"
-              ]
+              "description": "The name of the file that defines the function, defaults to func.yml.",
+              "examples": ["func.yml"]
             }
           }
         }
       }
     },
-    "stepExec": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "command"
-      ],
-      "properties": {
-        "command": {
-          "type": "array",
-          "description": "Command are the parameters to the system exec API. It does not invoke a shell.",
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1
+    "stepFuncReference": {
+      "oneOf": [
+        {
+          "type": "string"
         },
-        "work_dir": {
-          "type": "string",
-          "description": "WorkDir is the working directly in which `command` will be exec'ed."
+        {
+          "$ref": "#/definitions/stepGitReference"
+        },
+        {
+          "$ref": "#/definitions/stepOciReference"
         }
-      }
+      ]
     }
   }
 }

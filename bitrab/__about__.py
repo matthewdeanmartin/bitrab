@@ -5,6 +5,7 @@ __all__ = [
     "__version__",
     "__description__",
     "__readme__",
+    "__credits__",
     "__keywords__",
     "__license__",
     "__requires_python__",
@@ -15,6 +16,7 @@ __title__ = "bitrab"
 __version__ = "0.1.0"
 __description__ = "Compile bash to gitlab pipeline yaml"
 __readme__ = "README.md"
+__credits__ = [{"name": "Matthew Martin", "email": "matthewdeanmartin@gmail.com"}]
 __keywords__ = ["bash", "gitlab"]
 __license__ = "MIT"
 __requires_python__ = ">=3.8"

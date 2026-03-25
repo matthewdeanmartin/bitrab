@@ -124,3 +124,43 @@ def test_run_colored_stream_writes_to_std_streams(monkeypatch, capsys):
 def test_run_colored_raises_on_nonzero():
     with pytest.raises(subprocess.CalledProcessError):
         run_colored("exit 9", mode="capture")
+
+
+def test_env_not_stale():
+    # Verify that changes to os.environ AFTER module import are respected
+    os.environ["BITRAB_STALE_TEST"] = "FRESH"
+    try:
+        res = run_bash("echo $BITRAB_STALE_TEST", mode="capture")
+        assert res.stdout.strip() == "FRESH"
+    finally:
+        os.environ.pop("BITRAB_STALE_TEST", None)
+
+
+def test_streaming_not_delayed():
+    # Verify that output is not delayed by readline() buffering
+    import time
+
+    script = 'printf "A"; sleep 0.5; printf "B\n"'
+
+    class Monitor:
+        def __init__(self):
+            self.writes = []
+
+        def write(self, s):
+            self.writes.append((time.time(), s))
+
+        def flush(self):
+            pass
+
+    monitor = Monitor()
+    run_bash(script, mode="stream", stdout_target=monitor)
+
+    # We should have at least two writes at different times if it's streaming
+    assert len(monitor.writes) >= 2
+    # The first write should be "A" and happen before the second write
+    # Depending on how read(1) interacts with ANSI codes, we might have multiple writes for "A"
+    # because of the GREEN/RESET colors.
+    # But importantly, some writes should happen BEFORE the sleep is over.
+    first_write_time = monitor.writes[0][0]
+    last_write_time = monitor.writes[-1][0]
+    assert last_write_time - first_write_time >= 0.4

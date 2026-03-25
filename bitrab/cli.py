@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from bitrab.config.loader import ConfigurationLoader
+from bitrab.config.validate_pipeline import GitLabCIValidator
 from bitrab.exceptions import BitrabError, GitlabRunnerError
 from bitrab.plan import LocalGitLabRunner, PipelineProcessor
 
@@ -160,9 +161,21 @@ def cmd_validate(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
+        # 1. Official Schema Validation
+        print(f"🔍 Validating {config_path} against GitLab CI schema...")
+        validator = GitLabCIValidator()
+        yaml_content = config_path.read_text(encoding="utf-8")
+        is_valid, schema_errors = validator.validate_ci_config(yaml_content)
+
+        if not is_valid:
+            print("❌ Schema validation failed:")
+            for error in schema_errors:
+                print(f"   • {error}")
+            sys.exit(1)
+
+        # 2. Structural/Semantic Validation
         raw_config, pipeline_config = load_and_process_config(config_path)
 
-        # Basic validation
         errors = []
         warnings = []
 
@@ -183,7 +196,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
         # Report results
         if errors:
-            print("❌ Validation failed:")
+            print("❌ Semantic validation failed:")
             for error in errors:
                 print(f"   • {error}")
             sys.exit(1)
@@ -221,6 +234,8 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
     except Exception as e:
         print(f"❌ Validation error: {e}", file=sys.stderr)
+        if DEBUG:
+            raise
         sys.exit(1)
 
 

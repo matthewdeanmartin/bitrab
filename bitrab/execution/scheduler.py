@@ -2,22 +2,23 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
 from typing import Any
 
-from bitrab.execution.job import JobExecutor
+from bitrab.execution.job import JobExecutor, RunResult
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 
 
-def _run_single_job(job: JobConfig, executor: JobExecutor) -> None:
+def _run_single_job(job: JobConfig, executor: JobExecutor, job_dir: Path | None = None) -> list[RunResult]:
     """
     Module-level helper so it's picklable by multiprocessing on all platforms.
-    Executes a single job using the provided JobExecutor instance.
+    Executes a single job and returns the job history from that execution.
     """
-    # If your JobExecutor can't be pickled, consider passing enough config to
-    # rebuild it here instead of passing an instance.
-    executor.execute_job(job)
+    executor.execute_job(job, job_dir=job_dir)
+    return executor.job_history
 
 
 class StageOrchestrator:
@@ -76,20 +77,27 @@ class StageOrchestrator:
             # If it isn't, change _run_single_job to reconstruct the executor from config.
             failures: list[tuple[JobConfig, BaseException]] = []
 
-            if self.maximum_degree_of_parallelism == 1:
+            if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
                 for job in stage_jobs:
-                    self.job_executor.execute_job(job)
+                    job_dir = self.job_executor.project_dir / ".bitrab" / self._sanitize_job_name(job.name)
+                    job_dir.mkdir(parents=True, exist_ok=True)
+                    self.job_executor.execute_job(job, job_dir=job_dir)
             else:
                 with ProcessPoolExecutor(
                     max_workers=self.maximum_degree_of_parallelism,
                     mp_context=self._mp_ctx,
                 ) as pool:
-                    futures = {pool.submit(_run_single_job, job, self.job_executor): job for job in stage_jobs}
+                    futures = {}
+                    for job in stage_jobs:
+                        job_dir = self.job_executor.project_dir / ".bitrab" / self._sanitize_job_name(job.name)
+                        job_dir.mkdir(parents=True, exist_ok=True)
+                        futures[pool.submit(_run_single_job, job, self.job_executor, job_dir)] = job
 
                     for fut in as_completed(futures):
                         job = futures[fut]
                         try:
-                            fut.result()  # propagate errors
+                            history = fut.result()
+                            self.job_executor.job_history.extend(history)
                             print(f"✅ Job completed: {job.name}")
                         except BaseException as exc:  # catch all to surface any worker failures
                             failures.append((job, exc))
@@ -102,6 +110,11 @@ class StageOrchestrator:
                     raise failures[0][1]
 
         print("\n🎉 Pipeline completed successfully!")
+
+    def _sanitize_job_name(self, name: str) -> str:
+        """Replace characters that are invalid in filenames with underscores."""
+        # Common invalid characters on Windows and Unix: / \ : * ? " < > |
+        return re.sub(r'[\\/:*?"<>|]', "_", name)
 
     def _organize_jobs_by_stage(self, pipeline: PipelineConfig) -> dict[str, list[JobConfig]]:
         """

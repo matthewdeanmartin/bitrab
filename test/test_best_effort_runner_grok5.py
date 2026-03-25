@@ -61,8 +61,8 @@ def test_variable_substitution_with_dollar_sign(tmp_path: Path, capsys):
 
     # captured = capsys.readouterr().out
     for job_history in runner.job_executor.job_history:
-        err = job_history.stderr
-        out = job_history.stdout
+        err = job_history.stderr_clean
+        out = job_history.stdout_clean
         assert "$UNIQUE_VAR_123" in err or "$UNIQUE_VAR_123" in out
 
 
@@ -78,10 +78,9 @@ def test_after_script_runs_on_failure(tmp_path: Path, capsys):
         with pytest.raises(JobExecutionError):
             runner.run_pipeline(config_path, maximum_degree_of_parallelism=1)
 
-        for job_history in runner.job_executor.job_history:
-            err = job_history.stderr
-            out = job_history.stdout
-            assert "after" in err or "after" in out  # Fails due to bug, after_script not run
+        full_out = "".join(h.stdout_clean for h in runner.job_executor.job_history)
+        full_err = "".join(h.stderr_clean for h in runner.job_executor.job_history)
+        assert "after" in full_out or "after" in full_err
 
 
 # Bug 5: Includes are not processed recursively.
@@ -98,9 +97,6 @@ def test_recursive_includes(tmp_path: Path, capsys):
     runner = LocalGitLabRunner(base_path=tmp_path)
     runner.run_pipeline(main_path)
 
-    # captured = capsys.readouterr().out
-    # assert "hello" in captured  # Fails due to bug, job not loaded
-    for job_history in runner.job_executor.job_history:
-        err = job_history.stderr
-        out = job_history.stdout
-        assert "hello" in err or "hello" in out
+    full_out = "".join(h.stdout_clean for h in runner.job_executor.job_history)
+    full_err = "".join(h.stderr_clean for h in runner.job_executor.job_history)
+    assert "hello" in full_out or "hello" in full_err
