@@ -39,14 +39,24 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess  # nosec
 import sys
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import IO
+from typing import IO, Protocol, runtime_checkable
 
-from bitrab.exceptions import BitrabError
+from bitrab.exceptions import BitrabError, JobTimeoutError
+
+
+@runtime_checkable
+class TextWriter(Protocol):
+    """Minimal write/flush interface for job output targets."""
+
+    def write(self, s: str) -> object: ...
+    def flush(self) -> object: ...
+
 
 # ---------- Color helpers ----------
 GREEN = "\033[92m"
@@ -99,7 +109,7 @@ def merge_env(env: dict[str, str] | None = None) -> dict[str, str]:
 class _Buffer:
     """A very small helper to collect text while also acting like a file-like object."""
 
-    def __init__(self, target: IO[str] | None = None) -> None:
+    def __init__(self, target: TextWriter | None = None) -> None:
         self._buf: list[str] = []
         self._target = target
 
@@ -116,12 +126,31 @@ class _Buffer:
         return "".join(self._buf)
 
 
-_DEF_BASH_WINDOWS = r"C:\Program Files\Git\bin\bash.exe"
+_BASH_WINDOWS_CANDIDATES = [
+    r"C:\Program Files\Git\bin\bash.exe",
+    r"C:\Program Files (x86)\Git\bin\bash.exe",
+    r"C:\msys64\usr\bin\bash.exe",
+    r"C:\msys\usr\bin\bash.exe",
+]
+
+
+def _find_bash_windows() -> str:
+    """Find bash on Windows: env override → PATH → common locations → fallback."""
+    override = os.environ.get("BITRAB_BASH_PATH")
+    if override:
+        return override
+    on_path = shutil.which("bash")
+    if on_path:
+        return on_path
+    for candidate in _BASH_WINDOWS_CANDIDATES:
+        if os.path.isfile(candidate):
+            return candidate
+    return _BASH_WINDOWS_CANDIDATES[0]
 
 
 def _pick_bash(login_shell: bool) -> list[str]:
     if os.name == "nt":
-        cmd = [_DEF_BASH_WINDOWS]
+        cmd = [_find_bash_windows()]
     else:
         cmd = ["bash"]
     if login_shell:
@@ -138,8 +167,9 @@ def run_bash(
     check: bool = True,
     login_shell: bool = False,
     force_color: bool | None = None,
-    stdout_target: IO[str] | None = None,
-    stderr_target: IO[str] | None = None,
+    stdout_target: TextWriter | None = None,
+    stderr_target: TextWriter | None = None,
+    timeout: float | None = None,
 ) -> RunResult:
     """Run a bash script via stdin."""
     env_merged = merge_env(env)
@@ -166,7 +196,12 @@ def run_bash(
             stderr=subprocess.PIPE,
             text=True,
         ) as proc:
-            out, err = proc.communicate(robust_script_content)
+            try:
+                out, err = proc.communicate(robust_script_content, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                raise JobTimeoutError(f"Job timed out after {timeout}s")
             rc = proc.returncode
         result = RunResult(rc, out, err)
         if check:
@@ -177,18 +212,32 @@ def run_bash(
     err_buf = _Buffer(stderr_target or sys.stderr)
 
     def _stream(pipe: IO[str], color: str, buf: _Buffer) -> None:
+        # Read char-by-char for true streaming (no line-buffering delay).
+        # Accumulate into a line and flush the whole line at once so that
+        # downstream consumers (e.g. QueueWriter → TUI) receive coherent lines
+        # rather than individual characters.
         try:
+            pending: list[str] = []
             while True:
-                chunk = pipe.read(1)
-                if not chunk:
+                ch = pipe.read(1)
+                if not ch:
+                    # EOF: flush any remaining partial line
+                    if pending:
+                        buf.write(f"{color}{''.join(pending)}{reset}")
+                        buf.flush()
                     break
-                buf.write(f"{color}{chunk}{reset}")
-                buf.flush()
+                pending.append(ch)
+                if ch == "\n":
+                    buf.write(f"{color}{''.join(pending)}{reset}")
+                    buf.flush()
+                    pending = []
         finally:
             try:
                 pipe.close()
             except Exception:  # nosec: clean up
                 pass
+
+    _process_killed_by_timeout = False
 
     with subprocess.Popen(  # nosec
         bash,
@@ -211,9 +260,29 @@ def run_bash(
         proc.stdin.write(robust_script_content)
         proc.stdin.close()
 
+        cancel_timer = threading.Event()
+        if timeout is not None:
+            def _kill_on_timeout() -> None:
+                nonlocal _process_killed_by_timeout
+                if not cancel_timer.wait(timeout):
+                    _process_killed_by_timeout = True
+                    try:
+                        proc.kill()
+                    except OSError:
+                        pass
+
+            t_kill = threading.Thread(target=_kill_on_timeout, daemon=True)
+            t_kill.start()
+
         t_out.join()
         t_err.join()
         rc = proc.wait()
+
+        if timeout is not None:
+            cancel_timer.set()
+
+    if _process_killed_by_timeout:
+        raise JobTimeoutError(f"Job timed out after {timeout}s")
 
     result = RunResult(rc, out_buf.getvalue(), err_buf.getvalue())
     if check:

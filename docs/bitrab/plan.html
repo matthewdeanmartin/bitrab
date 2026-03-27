@@ -93,17 +93,23 @@ el.replaceWith(d);
         self.job_executor: JobExecutor | None = None
         self.orchestrator: StageOrchestrator | None = None
 
-    def run_pipeline(self, config_path: Path | None = None, maximum_degree_of_parallelism: int | None = None, dry_run: bool = False) -&gt; None:
+    def run_pipeline(
+        self,
+        config_path: Path | None = None,
+        maximum_degree_of_parallelism: int | None = None,
+        dry_run: bool = False,
+        use_tui: bool = False,
+        ci_mode: bool = False,
+    ) -&gt; None:
         &#34;&#34;&#34;
         Run the complete pipeline.
 
         Args:
             config_path: Path to the pipeline configuration file.
-            maximum_degree_of_parallelism: How many jobs can run at same time
-            dry_run: Do we really run jobs
-
-        Returns:
-            The exit code of the pipeline execution.
+            maximum_degree_of_parallelism: How many jobs can run at same time.
+            dry_run: Do we really run jobs.
+            use_tui: Use Textual TUI with per-job tabs.
+            ci_mode: CI mode - jobs write to files, output printed after each stage.
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
@@ -115,11 +121,27 @@ el.replaceWith(d);
 
         # Set up execution components
         variable_manager = VariableManager(pipeline.variables)
-        self.job_executor = JobExecutor(variable_manager, dry_run=dry_run)
-        self.orchestrator = StageOrchestrator(self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run)
+        self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-        # Execute pipeline
-        self.orchestrator.execute_pipeline(pipeline)</code></pre>
+        if use_tui or ci_mode:
+            from bitrab.tui.orchestrator import TUIOrchestrator
+
+            tui_orchestrator = TUIOrchestrator(
+                self.job_executor,
+                maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+            )
+            if use_tui:
+                from bitrab.tui.app import PipelineApp
+
+                app = PipelineApp(pipeline, tui_orchestrator)
+                exit_code = app.run()
+                if exit_code:
+                    raise RuntimeError(&#34;Pipeline failed — see TUI output for details&#34;)
+            else:
+                tui_orchestrator.execute_pipeline_ci(pipeline)
+        else:
+            self.orchestrator = StageOrchestrator(self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run)
+            self.orchestrator.execute_pipeline(pipeline)</code></pre>
 </details>
 <div class="desc"><p>Main runner class that orchestrates the entire pipeline execution.</p>
 <h2 id="attributes">Attributes</h2>
@@ -134,24 +156,30 @@ el.replaceWith(d);
 <h3>Methods</h3>
 <dl>
 <dt id="bitrab.plan.LocalGitLabRunner.run_pipeline"><code class="name flex">
-<span>def <span class="ident">run_pipeline</span></span>(<span>self,<br>config_path: Path | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False) ‑> None</span>
+<span>def <span class="ident">run_pipeline</span></span>(<span>self,<br>config_path: Path | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>use_tui: bool = False,<br>ci_mode: bool = False) ‑> None</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def run_pipeline(self, config_path: Path | None = None, maximum_degree_of_parallelism: int | None = None, dry_run: bool = False) -&gt; None:
+<pre><code class="python">def run_pipeline(
+    self,
+    config_path: Path | None = None,
+    maximum_degree_of_parallelism: int | None = None,
+    dry_run: bool = False,
+    use_tui: bool = False,
+    ci_mode: bool = False,
+) -&gt; None:
     &#34;&#34;&#34;
     Run the complete pipeline.
 
     Args:
         config_path: Path to the pipeline configuration file.
-        maximum_degree_of_parallelism: How many jobs can run at same time
-        dry_run: Do we really run jobs
-
-    Returns:
-        The exit code of the pipeline execution.
+        maximum_degree_of_parallelism: How many jobs can run at same time.
+        dry_run: Do we really run jobs.
+        use_tui: Use Textual TUI with per-job tabs.
+        ci_mode: CI mode - jobs write to files, output printed after each stage.
 
     Raises:
         GitLabCIError: If there is an error in the pipeline configuration.
@@ -163,11 +191,27 @@ el.replaceWith(d);
 
     # Set up execution components
     variable_manager = VariableManager(pipeline.variables)
-    self.job_executor = JobExecutor(variable_manager, dry_run=dry_run)
-    self.orchestrator = StageOrchestrator(self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run)
+    self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-    # Execute pipeline
-    self.orchestrator.execute_pipeline(pipeline)</code></pre>
+    if use_tui or ci_mode:
+        from bitrab.tui.orchestrator import TUIOrchestrator
+
+        tui_orchestrator = TUIOrchestrator(
+            self.job_executor,
+            maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+        )
+        if use_tui:
+            from bitrab.tui.app import PipelineApp
+
+            app = PipelineApp(pipeline, tui_orchestrator)
+            exit_code = app.run()
+            if exit_code:
+                raise RuntimeError(&#34;Pipeline failed — see TUI output for details&#34;)
+        else:
+            tui_orchestrator.execute_pipeline_ci(pipeline)
+    else:
+        self.orchestrator = StageOrchestrator(self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run)
+        self.orchestrator.execute_pipeline(pipeline)</code></pre>
 </details>
 <div class="desc"><p>Run the complete pipeline.</p>
 <h2 id="args">Args</h2>
@@ -175,12 +219,14 @@ el.replaceWith(d);
 <dt><strong><code>config_path</code></strong></dt>
 <dd>Path to the pipeline configuration file.</dd>
 <dt><strong><code>maximum_degree_of_parallelism</code></strong></dt>
-<dd>How many jobs can run at same time</dd>
+<dd>How many jobs can run at same time.</dd>
 <dt><strong><code>dry_run</code></strong></dt>
-<dd>Do we really run jobs</dd>
+<dd>Do we really run jobs.</dd>
+<dt><strong><code>use_tui</code></strong></dt>
+<dd>Use Textual TUI with per-job tabs.</dd>
+<dt><strong><code>ci_mode</code></strong></dt>
+<dd>CI mode - jobs write to files, output printed after each stage.</dd>
 </dl>
-<h2 id="returns">Returns</h2>
-<p>The exit code of the pipeline execution.</p>
 <h2 id="raises">Raises</h2>
 <dl>
 <dt><code>GitLabCIError</code></dt>
@@ -279,15 +325,20 @@ el.replaceWith(d);
         Returns:
             A JobConfig object.
         &#34;&#34;&#34;
-        # Merge variables with precedence: job &gt; global &gt; default
+        # Merge variables with precedence: job &gt; default &gt; global
         variables: dict[str, str] = {}
-        variables.update(default.variables)
         variables.update(global_vars)
+        variables.update(default.variables)
         variables.update(job_data.get(&#34;variables&#34;, {}))
 
-        # Merge scripts with default
-        before_script = default.before_script + self._ensure_list(job_data.get(&#34;before_script&#34;, []))
-        after_script = self._ensure_list(job_data.get(&#34;after_script&#34;, [])) + default.after_script
+        # Scripts: job overrides default
+        before_script = self._ensure_list(job_data.get(&#34;before_script&#34;, []))
+        if not before_script:
+            before_script = default.before_script
+
+        after_script = self._ensure_list(job_data.get(&#34;after_script&#34;, []))
+        if not after_script:
+            after_script = default.after_script
 
         # GitLab-aligned retry parsing
         retry_cfg = job_data.get(&#34;retry&#34;, 0)

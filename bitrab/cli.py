@@ -15,7 +15,7 @@ from typing import Any
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.config.validate_pipeline import GitLabCIValidator
 from bitrab.exceptions import BitrabError, GitlabRunnerError
-from bitrab.plan import LocalGitLabRunner, PipelineProcessor
+from bitrab.plan import LocalGitLabRunner, PipelineProcessor, filter_pipeline
 
 # emoji support
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
@@ -85,6 +85,8 @@ def load_and_process_config(config_path: Path) -> tuple[dict, Any]:
 
 def cmd_run(args: argparse.Namespace) -> None:
     """Execute the pipeline or specific jobs."""
+    from bitrab.tui.ci_mode import is_ci_mode, should_use_tui
+
     config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
 
     if not config_path.exists():
@@ -94,12 +96,21 @@ def cmd_run(args: argparse.Namespace) -> None:
     try:
         runner = LocalGitLabRunner(base_path=config_path.parent)
 
-        if args.jobs:
-            print(f"🎯 Running specific jobs: {', '.join(args.jobs)}")
-            # TODO: Implement job filtering in runner
-            print("⚠️  Job filtering not yet implemented - running full pipeline")
+        job_filter: list[str] | None = args.jobs if args.jobs else None
+        stage_filter: list[str] | None = args.stage if args.stage else None
 
-        runner.run_pipeline(config_path=config_path, maximum_degree_of_parallelism=args.parallel, dry_run=args.dry_run)
+        use_tui = should_use_tui(args)
+        ci_mode = is_ci_mode() and not use_tui
+
+        runner.run_pipeline(
+            config_path=config_path,
+            maximum_degree_of_parallelism=args.parallel,
+            dry_run=args.dry_run,
+            use_tui=use_tui,
+            ci_mode=ci_mode,
+            job_filter=job_filter,
+            stage_filter=stage_filter,
+        )
 
     except (BitrabError, GitlabRunnerError) as e:
         print(f"❌ Execution error: {e}", file=sys.stderr)
@@ -303,9 +314,7 @@ Version: {__version__}
     # Global options
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--license", action="store_true", help="Show license information")
-    parser.add_argument(
-        "-c", "--config", metavar="PATH", help="Path to GitLab CI configuration file (default: .gitlab-ci.yml)"
-    )
+    parser.add_argument("-c", "--config", metavar="PATH", help="Path to GitLab CI configuration file (default: .gitlab-ci.yml)")
     parser.add_argument("-q", "--quiet", action="store_true", help="Suppress non-error output")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
@@ -313,9 +322,7 @@ Version: {__version__}
     subparsers = parser.add_subparsers(dest="command", help="Available commands", metavar="COMMAND")
 
     # Run command
-    run_parser = subparsers.add_parser(
-        "run", help="Execute the pipeline", description="Execute GitLab CI pipeline locally"
-    )
+    run_parser = subparsers.add_parser("run", help="Execute the pipeline", description="Execute GitLab CI pipeline locally")
     run_parser.add_argument("--dry-run", action="store_true", help="Show what would be executed without running")
     run_parser.add_argument(
         "--parallel",
@@ -324,15 +331,17 @@ Version: {__version__}
         metavar="N",
         help="Number of parallel jobs per stage (default: number of CPU cores)",
     )
+    run_parser.add_argument("--jobs", nargs="*", metavar="JOB", help="Run only specified jobs (if not specified, run all jobs)")
+    run_parser.add_argument("--stage", nargs="*", metavar="STAGE", help="Run only jobs in specified stages (if not specified, run all stages)")
     run_parser.add_argument(
-        "--jobs", nargs="*", metavar="JOB", help="Run only specified jobs (if not specified, run all jobs)"
+        "--no-tui",
+        action="store_true",
+        help="Disable Textual TUI, use plain streaming output",
     )
     run_parser.set_defaults(func=cmd_run)
 
     # List command
-    list_parser = subparsers.add_parser(
-        "list", help="List all jobs in the pipeline", description="Display all jobs organized by stages"
-    )
+    list_parser = subparsers.add_parser("list", help="List all jobs in the pipeline", description="Display all jobs organized by stages")
     list_parser.set_defaults(func=cmd_list)
 
     # Validate command
@@ -341,9 +350,7 @@ Version: {__version__}
         help="Validate pipeline configuration",
         description="Check pipeline configuration for errors and warnings",
     )
-    validate_parser.add_argument(
-        "--json", dest="output_json", action="store_true", help="Output validated pipeline configuration as JSON"
-    )
+    validate_parser.add_argument("--json", dest="output_json", action="store_true", help="Output validated pipeline configuration as JSON")
     validate_parser.set_defaults(func=cmd_validate)
 
     # Lint command
@@ -371,9 +378,7 @@ Version: {__version__}
     debug_parser.set_defaults(func=cmd_debug)
 
     # Clean command
-    clean_parser = subparsers.add_parser(
-        "clean", help="Clean up artifacts", description="Remove build artifacts and temporary files (not implemented)"
-    )
+    clean_parser = subparsers.add_parser("clean", help="Clean up artifacts", description="Remove build artifacts and temporary files (not implemented)")
     clean_parser.set_defaults(func=cmd_clean)
 
     return parser
@@ -400,6 +405,8 @@ def main() -> None:
         args.dry_run = False
         args.parallel = None
         args.jobs = None
+        args.stage = None
+        args.no_tui = False
 
     # Execute the command
     try:

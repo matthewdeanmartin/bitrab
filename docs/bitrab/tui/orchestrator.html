@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.tui.orchestrator API documentation</title>
+<meta name="description" content="TUI-aware pipeline orchestrator …">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.tui.orchestrator</code></h1>
+</header>
+<section id="section-intro">
+<p>TUI-aware pipeline orchestrator.</p>
+<p>Runs jobs in parallel via ProcessPoolExecutor, routing output through a
+multiprocessing.Manager().Queue() so the Textual app can display per-job logs.</p>
+<p>For CI mode (no TUI), jobs write to per-job log files and the files are printed
+to stdout after each stage completes.</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="bitrab.tui.orchestrator.QueueWriter"><code class="flex name class">
+<span>class <span class="ident">QueueWriter</span></span>
+<span>(</span><span>queue: Any, job_name: str)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class QueueWriter:
+    &#34;&#34;&#34;File-like object that puts text into a multiprocessing Manager Queue.
+
+    Must be at module level (not nested) to be picklable under spawn context.
+    &#34;&#34;&#34;
+
+    def __init__(self, queue: Any, job_name: str) -&gt; None:
+        self._queue = queue
+        self._job_name = job_name
+
+    def write(self, s: str) -&gt; None:
+        &#34;&#34;&#34;Write text to the queue.&#34;&#34;&#34;
+        if s:
+            self._queue.put((self._job_name, s))
+
+    def flush(self) -&gt; None:
+        &#34;&#34;&#34;No-op flush to satisfy IO protocol.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>File-like object that puts text into a multiprocessing Manager Queue.</p>
+<p>Must be at module level (not nested) to be picklable under spawn context.</p></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.tui.orchestrator.QueueWriter.flush"><code class="name flex">
+<span>def <span class="ident">flush</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def flush(self) -&gt; None:
+    &#34;&#34;&#34;No-op flush to satisfy IO protocol.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>No-op flush to satisfy IO protocol.</p></div>
+</dd>
+<dt id="bitrab.tui.orchestrator.QueueWriter.write"><code class="name flex">
+<span>def <span class="ident">write</span></span>(<span>self, s: str) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write(self, s: str) -&gt; None:
+    &#34;&#34;&#34;Write text to the queue.&#34;&#34;&#34;
+    if s:
+        self._queue.put((self._job_name, s))</code></pre>
+</details>
+<div class="desc"><p>Write text to the queue.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator"><code class="flex name class">
+<span>class <span class="ident">TUIOrchestrator</span></span>
+<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TUIOrchestrator:
+    &#34;&#34;&#34;Pipeline orchestrator that feeds output to the Textual TUI or CI log files.
+
+    Attributes:
+        job_executor: The JobExecutor used to run individual jobs.
+        maximum_degree_of_parallelism: Max parallel jobs per stage.
+    &#34;&#34;&#34;
+
+    def __init__(
+        self,
+        job_executor: JobExecutor,
+        maximum_degree_of_parallelism: int | None = None,
+        mp_ctx: Any = None,
+    ) -&gt; None:
+        self.job_executor = job_executor
+        cpu_cnt = os.cpu_count() or 1
+        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        if mp_ctx is None:
+            if sys.platform == &#34;win32&#34;:
+                mp_ctx = mp.get_context(&#34;spawn&#34;)
+            else:
+                mp_ctx = mp.get_context(&#34;spawn&#34;)
+        self._mp_ctx = mp_ctx
+
+        # Cancel/control state
+        self._cancel_event: threading.Event = threading.Event()
+        # job_name -&gt; worker OS PID (populated via Manager().dict() in parallel path)
+        self._worker_pids: dict[str, int] = {}
+
+    def reset(self) -&gt; None:
+        &#34;&#34;&#34;Reset orchestrator state for a fresh pipeline run.&#34;&#34;&#34;
+        self._cancel_event.clear()
+        self._worker_pids = {}
+
+    def cancel_pipeline(self) -&gt; None:
+        &#34;&#34;&#34;Signal the pipeline to stop after the current stage completes.&#34;&#34;&#34;
+        self._cancel_event.set()
+
+    def cancel_job(self, job_name: str) -&gt; None:
+        &#34;&#34;&#34;Best-effort: send SIGTERM/taskkill to the worker process running job_name.
+
+        Note: on Windows, taskkill /F kills the entire process tree immediately,
+        so after_script will NOT run for the cancelled job.
+        &#34;&#34;&#34;
+        pid = self._worker_pids.get(job_name)
+        if pid is None:
+            return
+        try:
+            if sys.platform == &#34;win32&#34;:
+                subprocess.run([&#34;taskkill&#34;, &#34;/F&#34;, &#34;/PID&#34;, str(pid)], check=False, capture_output=True)  # nosec
+            else:
+                os.kill(pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError, OSError):
+            pass  # process already exited
+
+    def run_job_inline(self, job: JobConfig, app: PipelineApp) -&gt; None:
+        &#34;&#34;&#34;Run a single job inline in the calling thread (for restart-job).
+
+        Must be called from a background thread (not the event loop thread).
+        Creates its own ephemeral Manager and Queue.
+        &#34;&#34;&#34;
+        from bitrab.tui.app import JobOutput, JobStatusChanged
+
+        mgr = self._mp_ctx.Manager()
+        output_queue = mgr.Queue()
+        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+        job_dir.mkdir(parents=True, exist_ok=True)
+        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
+        writer = QueueWriter(output_queue, job.name)
+        try:
+            self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
+        except Exception:
+            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
+        finally:
+            self._drain_queue_sync(output_queue, app, JobOutput)
+            mgr.shutdown()
+
+    def execute_pipeline_tui(self, pipeline: PipelineConfig, app: PipelineApp) -&gt; None:
+        &#34;&#34;&#34;Execute pipeline with live output routed to Textual TUI.
+
+        Called from a background thread (via app.run_worker(thread=True)).
+        Uses call_from_thread to post messages to the event loop.
+        &#34;&#34;&#34;
+        from bitrab.tui.app import JobOutput, JobStatusChanged
+
+        jobs_by_stage = self._organize_jobs_by_stage(pipeline)
+
+        # Create Manager once for the whole pipeline run
+        mgr = self._mp_ctx.Manager()
+        output_queue = mgr.Queue()
+        worker_pids = mgr.dict()
+        self._worker_pids = worker_pids  # type: ignore[assignment]
+
+        try:
+            for stage in pipeline.stages:
+                # Check for cancellation before starting each new stage
+                if self._cancel_event.is_set():
+                    app.call_from_thread(app.on_pipeline_cancelled)
+                    return
+
+                stage_jobs = jobs_by_stage.get(stage, [])
+                if not stage_jobs:
+                    continue
+
+                app.call_from_thread(app.update_stage_status, stage, len(stage_jobs))
+
+                if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
+                    # Single-job path: run inline in this thread, still use queue
+                    for job in stage_jobs:
+                        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+                        job_dir.mkdir(parents=True, exist_ok=True)
+                        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
+                        writer = QueueWriter(output_queue, job.name)
+                        try:
+                            self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
+                        except Exception as exc:
+                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
+                            raise exc
+                        finally:
+                            # drain any queued output
+                            self._drain_queue_sync(output_queue, app, JobOutput)
+                else:
+                    active_jobs: set[str] = set()
+                    failures: list[tuple[JobConfig, BaseException]] = []
+
+                    with ProcessPoolExecutor(
+                        max_workers=self.maximum_degree_of_parallelism,
+                        mp_context=self._mp_ctx,
+                    ) as pool:
+                        futures = {}
+                        for job in stage_jobs:
+                            job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+                            job_dir.mkdir(parents=True, exist_ok=True)
+                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
+                            active_jobs.add(job.name)
+                            futures[pool.submit(_run_single_job_queued, job, self.job_executor, job_dir, output_queue, worker_pids)] = job
+
+                        # Drain queue while futures run
+                        while active_jobs:
+                            try:
+                                job_name, text = output_queue.get(timeout=0.05)
+                                if text is None:
+                                    active_jobs.discard(job_name)
+                                else:
+                                    app.call_from_thread(app.post_message, JobOutput(job_name, text))
+                            except Empty:
+                                if all(f.done() for f in futures):
+                                    break
+
+                        # Collect results
+                        for fut in as_completed(futures):
+                            job = futures[fut]
+                            try:
+                                history = fut.result()
+                                self.job_executor.job_history.extend(history)
+                                app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
+                            except BaseException as exc:
+                                failures.append((job, exc))
+                                app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
+
+                    if failures:
+                        raise failures[0][1]
+
+            # After all stages complete, check if cancelled during final stage
+            if self._cancel_event.is_set():
+                app.call_from_thread(app.on_pipeline_cancelled)
+            else:
+                app.call_from_thread(app.on_pipeline_complete, True)
+        except Exception as exc:
+            app.call_from_thread(app.on_pipeline_complete, False)
+            raise exc
+        finally:
+            mgr.shutdown()
+
+    def execute_pipeline_ci(self, pipeline: PipelineConfig) -&gt; None:
+        &#34;&#34;&#34;Execute pipeline in CI mode: jobs write to files, printed when done.
+
+        No TUI. Jobs still run in parallel per stage for speed.
+        Output files written to .bitrab/&lt;job_name&gt;/output.log
+        &#34;&#34;&#34;
+        print(&#34;🚀 Starting pipeline (CI mode - parallel jobs, sequential stages)&#34;)
+        print(f&#34;📋 Stages: {&#39;, &#39;.join(pipeline.stages)}&#34;)
+
+        jobs_by_stage = self._organize_jobs_by_stage(pipeline)
+
+        for stage in pipeline.stages:
+            stage_jobs = jobs_by_stage.get(stage, [])
+            if not stage_jobs:
+                print(f&#34;⏭️  Skipping empty stage: {stage}&#34;)
+                continue
+
+            print(f&#34;\n🎯 Stage: {stage} ({len(stage_jobs)} job(s) running in parallel)&#34;)
+
+            log_paths: dict[str, Path | None] = {}
+            failures: list[tuple[JobConfig, BaseException]] = []
+
+            if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
+                for job in stage_jobs:
+                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+                    log_path = job_dir / &#34;output.log&#34;
+                    log_paths[job.name] = log_path
+                    job_dir.mkdir(parents=True, exist_ok=True)
+                    print(f&#34;  ▶ {job.name}&#34;)
+                    try:
+                        with open(log_path, &#34;w&#34;, encoding=&#34;utf-8&#34;) as fh:
+                            self.job_executor.execute_job(job, job_dir=job_dir, output_writer=fh)
+                    except Exception as exc:
+                        failures.append((job, exc))
+            else:
+                with ProcessPoolExecutor(
+                    max_workers=self.maximum_degree_of_parallelism,
+                    mp_context=self._mp_ctx,
+                ) as pool:
+                    futures = {}
+                    for job in stage_jobs:
+                        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+                        log_path = job_dir / &#34;output.log&#34;
+                        log_paths[job.name] = log_path
+                        print(f&#34;  ▶ {job.name}&#34;)
+                        futures[pool.submit(_run_single_job_file, job, self.job_executor, job_dir, log_path)] = job
+
+                    for fut in as_completed(futures):
+                        job = futures[fut]
+                        try:
+                            history = fut.result()
+                            self.job_executor.job_history.extend(history)
+                        except BaseException as exc:
+                            failures.append((job, exc))
+
+            # Print all logs after stage completes
+            for job in stage_jobs:
+                job_log: Path | None = log_paths.get(job.name)
+                status = &#34;✅&#34; if not any(j.name == job.name for j, _ in failures) else &#34;❌&#34;
+                print(f&#34;\n{&#39;=&#39; * 60}&#34;)
+                print(f&#34;{status} Job: {job.name} (stage: {stage})&#34;)
+                print(f&#34;{&#39;=&#39; * 60}&#34;)
+                if job_log and job_log.exists():
+                    print(job_log.read_text(encoding=&#34;utf-8&#34;))
+                else:
+                    print(&#34;(no output)&#34;)
+
+            if failures:
+                print(f&#34;\n🛑 Stage {stage} failed. Stopping pipeline.&#34;)
+                raise failures[0][1]
+
+        print(&#34;\n🎉 Pipeline completed successfully!&#34;)
+
+    def _drain_queue_sync(self, queue: Any, app: PipelineApp, job_output_cls: Any) -&gt; None:
+        &#34;&#34;&#34;Drain any remaining items from queue after single-job inline execution.&#34;&#34;&#34;
+        while True:
+            try:
+                job_name, text = queue.get_nowait()
+                if text is not None:
+                    app.call_from_thread(app.post_message, job_output_cls(job_name, text))
+            except Empty:
+                break
+
+    def _organize_jobs_by_stage(self, pipeline: PipelineConfig) -&gt; dict[str, list[JobConfig]]:
+        &#34;&#34;&#34;Organize jobs by stage.&#34;&#34;&#34;
+        jobs_by_stage: dict[str, list[JobConfig]] = {}
+        for job in pipeline.jobs:
+            jobs_by_stage.setdefault(job.stage, []).append(job)
+        return jobs_by_stage</code></pre>
+</details>
+<div class="desc"><p>Pipeline orchestrator that feeds output to the Textual TUI or CI log files.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>job_executor</code></strong></dt>
+<dd>The JobExecutor used to run individual jobs.</dd>
+<dt><strong><code>maximum_degree_of_parallelism</code></strong></dt>
+<dd>Max parallel jobs per stage.</dd>
+</dl></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator.cancel_job"><code class="name flex">
+<span>def <span class="ident">cancel_job</span></span>(<span>self, job_name: str) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cancel_job(self, job_name: str) -&gt; None:
+    &#34;&#34;&#34;Best-effort: send SIGTERM/taskkill to the worker process running job_name.
+
+    Note: on Windows, taskkill /F kills the entire process tree immediately,
+    so after_script will NOT run for the cancelled job.
+    &#34;&#34;&#34;
+    pid = self._worker_pids.get(job_name)
+    if pid is None:
+        return
+    try:
+        if sys.platform == &#34;win32&#34;:
+            subprocess.run([&#34;taskkill&#34;, &#34;/F&#34;, &#34;/PID&#34;, str(pid)], check=False, capture_output=True)  # nosec
+        else:
+            os.kill(pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError, OSError):
+        pass  # process already exited</code></pre>
+</details>
+<div class="desc"><p>Best-effort: send SIGTERM/taskkill to the worker process running job_name.</p>
+<p>Note: on Windows, taskkill /F kills the entire process tree immediately,
+so after_script will NOT run for the cancelled job.</p></div>
+</dd>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator.cancel_pipeline"><code class="name flex">
+<span>def <span class="ident">cancel_pipeline</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cancel_pipeline(self) -&gt; None:
+    &#34;&#34;&#34;Signal the pipeline to stop after the current stage completes.&#34;&#34;&#34;
+    self._cancel_event.set()</code></pre>
+</details>
+<div class="desc"><p>Signal the pipeline to stop after the current stage completes.</p></div>
+</dd>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_ci"><code class="name flex">
+<span>def <span class="ident">execute_pipeline_ci</span></span>(<span>self, pipeline: PipelineConfig) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def execute_pipeline_ci(self, pipeline: PipelineConfig) -&gt; None:
+    &#34;&#34;&#34;Execute pipeline in CI mode: jobs write to files, printed when done.
+
+    No TUI. Jobs still run in parallel per stage for speed.
+    Output files written to .bitrab/&lt;job_name&gt;/output.log
+    &#34;&#34;&#34;
+    print(&#34;🚀 Starting pipeline (CI mode - parallel jobs, sequential stages)&#34;)
+    print(f&#34;📋 Stages: {&#39;, &#39;.join(pipeline.stages)}&#34;)
+
+    jobs_by_stage = self._organize_jobs_by_stage(pipeline)
+
+    for stage in pipeline.stages:
+        stage_jobs = jobs_by_stage.get(stage, [])
+        if not stage_jobs:
+            print(f&#34;⏭️  Skipping empty stage: {stage}&#34;)
+            continue
+
+        print(f&#34;\n🎯 Stage: {stage} ({len(stage_jobs)} job(s) running in parallel)&#34;)
+
+        log_paths: dict[str, Path | None] = {}
+        failures: list[tuple[JobConfig, BaseException]] = []
+
+        if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
+            for job in stage_jobs:
+                job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+                log_path = job_dir / &#34;output.log&#34;
+                log_paths[job.name] = log_path
+                job_dir.mkdir(parents=True, exist_ok=True)
+                print(f&#34;  ▶ {job.name}&#34;)
+                try:
+                    with open(log_path, &#34;w&#34;, encoding=&#34;utf-8&#34;) as fh:
+                        self.job_executor.execute_job(job, job_dir=job_dir, output_writer=fh)
+                except Exception as exc:
+                    failures.append((job, exc))
+        else:
+            with ProcessPoolExecutor(
+                max_workers=self.maximum_degree_of_parallelism,
+                mp_context=self._mp_ctx,
+            ) as pool:
+                futures = {}
+                for job in stage_jobs:
+                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+                    log_path = job_dir / &#34;output.log&#34;
+                    log_paths[job.name] = log_path
+                    print(f&#34;  ▶ {job.name}&#34;)
+                    futures[pool.submit(_run_single_job_file, job, self.job_executor, job_dir, log_path)] = job
+
+                for fut in as_completed(futures):
+                    job = futures[fut]
+                    try:
+                        history = fut.result()
+                        self.job_executor.job_history.extend(history)
+                    except BaseException as exc:
+                        failures.append((job, exc))
+
+        # Print all logs after stage completes
+        for job in stage_jobs:
+            job_log: Path | None = log_paths.get(job.name)
+            status = &#34;✅&#34; if not any(j.name == job.name for j, _ in failures) else &#34;❌&#34;
+            print(f&#34;\n{&#39;=&#39; * 60}&#34;)
+            print(f&#34;{status} Job: {job.name} (stage: {stage})&#34;)
+            print(f&#34;{&#39;=&#39; * 60}&#34;)
+            if job_log and job_log.exists():
+                print(job_log.read_text(encoding=&#34;utf-8&#34;))
+            else:
+                print(&#34;(no output)&#34;)
+
+        if failures:
+            print(f&#34;\n🛑 Stage {stage} failed. Stopping pipeline.&#34;)
+            raise failures[0][1]
+
+    print(&#34;\n🎉 Pipeline completed successfully!&#34;)</code></pre>
+</details>
+<div class="desc"><p>Execute pipeline in CI mode: jobs write to files, printed when done.</p>
+<p>No TUI. Jobs still run in parallel per stage for speed.
+Output files written to .bitrab/<job_name>/output.log</p></div>
+</dd>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_tui"><code class="name flex">
+<span>def <span class="ident">execute_pipeline_tui</span></span>(<span>self, pipeline: PipelineConfig, app: PipelineApp) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def execute_pipeline_tui(self, pipeline: PipelineConfig, app: PipelineApp) -&gt; None:
+    &#34;&#34;&#34;Execute pipeline with live output routed to Textual TUI.
+
+    Called from a background thread (via app.run_worker(thread=True)).
+    Uses call_from_thread to post messages to the event loop.
+    &#34;&#34;&#34;
+    from bitrab.tui.app import JobOutput, JobStatusChanged
+
+    jobs_by_stage = self._organize_jobs_by_stage(pipeline)
+
+    # Create Manager once for the whole pipeline run
+    mgr = self._mp_ctx.Manager()
+    output_queue = mgr.Queue()
+    worker_pids = mgr.dict()
+    self._worker_pids = worker_pids  # type: ignore[assignment]
+
+    try:
+        for stage in pipeline.stages:
+            # Check for cancellation before starting each new stage
+            if self._cancel_event.is_set():
+                app.call_from_thread(app.on_pipeline_cancelled)
+                return
+
+            stage_jobs = jobs_by_stage.get(stage, [])
+            if not stage_jobs:
+                continue
+
+            app.call_from_thread(app.update_stage_status, stage, len(stage_jobs))
+
+            if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
+                # Single-job path: run inline in this thread, still use queue
+                for job in stage_jobs:
+                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+                    job_dir.mkdir(parents=True, exist_ok=True)
+                    app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
+                    writer = QueueWriter(output_queue, job.name)
+                    try:
+                        self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+                        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
+                    except Exception as exc:
+                        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
+                        raise exc
+                    finally:
+                        # drain any queued output
+                        self._drain_queue_sync(output_queue, app, JobOutput)
+            else:
+                active_jobs: set[str] = set()
+                failures: list[tuple[JobConfig, BaseException]] = []
+
+                with ProcessPoolExecutor(
+                    max_workers=self.maximum_degree_of_parallelism,
+                    mp_context=self._mp_ctx,
+                ) as pool:
+                    futures = {}
+                    for job in stage_jobs:
+                        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+                        job_dir.mkdir(parents=True, exist_ok=True)
+                        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
+                        active_jobs.add(job.name)
+                        futures[pool.submit(_run_single_job_queued, job, self.job_executor, job_dir, output_queue, worker_pids)] = job
+
+                    # Drain queue while futures run
+                    while active_jobs:
+                        try:
+                            job_name, text = output_queue.get(timeout=0.05)
+                            if text is None:
+                                active_jobs.discard(job_name)
+                            else:
+                                app.call_from_thread(app.post_message, JobOutput(job_name, text))
+                        except Empty:
+                            if all(f.done() for f in futures):
+                                break
+
+                    # Collect results
+                    for fut in as_completed(futures):
+                        job = futures[fut]
+                        try:
+                            history = fut.result()
+                            self.job_executor.job_history.extend(history)
+                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
+                        except BaseException as exc:
+                            failures.append((job, exc))
+                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
+
+                if failures:
+                    raise failures[0][1]
+
+        # After all stages complete, check if cancelled during final stage
+        if self._cancel_event.is_set():
+            app.call_from_thread(app.on_pipeline_cancelled)
+        else:
+            app.call_from_thread(app.on_pipeline_complete, True)
+    except Exception as exc:
+        app.call_from_thread(app.on_pipeline_complete, False)
+        raise exc
+    finally:
+        mgr.shutdown()</code></pre>
+</details>
+<div class="desc"><p>Execute pipeline with live output routed to Textual TUI.</p>
+<p>Called from a background thread (via app.run_worker(thread=True)).
+Uses call_from_thread to post messages to the event loop.</p></div>
+</dd>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator.reset"><code class="name flex">
+<span>def <span class="ident">reset</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reset(self) -&gt; None:
+    &#34;&#34;&#34;Reset orchestrator state for a fresh pipeline run.&#34;&#34;&#34;
+    self._cancel_event.clear()
+    self._worker_pids = {}</code></pre>
+</details>
+<div class="desc"><p>Reset orchestrator state for a fresh pipeline run.</p></div>
+</dd>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator.run_job_inline"><code class="name flex">
+<span>def <span class="ident">run_job_inline</span></span>(<span>self, job: JobConfig, app: PipelineApp) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def run_job_inline(self, job: JobConfig, app: PipelineApp) -&gt; None:
+    &#34;&#34;&#34;Run a single job inline in the calling thread (for restart-job).
+
+    Must be called from a background thread (not the event loop thread).
+    Creates its own ephemeral Manager and Queue.
+    &#34;&#34;&#34;
+    from bitrab.tui.app import JobOutput, JobStatusChanged
+
+    mgr = self._mp_ctx.Manager()
+    output_queue = mgr.Queue()
+    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+    job_dir.mkdir(parents=True, exist_ok=True)
+    app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
+    writer = QueueWriter(output_queue, job.name)
+    try:
+        self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
+    except Exception:
+        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
+    finally:
+        self._drain_queue_sync(output_queue, app, JobOutput)
+        mgr.shutdown()</code></pre>
+</details>
+<div class="desc"><p>Run a single job inline in the calling thread (for restart-job).</p>
+<p>Must be called from a background thread (not the event loop thread).
+Creates its own ephemeral Manager and Queue.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab.tui" href="index.html">bitrab.tui</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="bitrab.tui.orchestrator.QueueWriter" href="#bitrab.tui.orchestrator.QueueWriter">QueueWriter</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.tui.orchestrator.QueueWriter.flush" href="#bitrab.tui.orchestrator.QueueWriter.flush">flush</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator.QueueWriter.write" href="#bitrab.tui.orchestrator.QueueWriter.write">write</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.tui.orchestrator.TUIOrchestrator" href="#bitrab.tui.orchestrator.TUIOrchestrator">TUIOrchestrator</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.cancel_job" href="#bitrab.tui.orchestrator.TUIOrchestrator.cancel_job">cancel_job</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.cancel_pipeline" href="#bitrab.tui.orchestrator.TUIOrchestrator.cancel_pipeline">cancel_pipeline</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_ci" href="#bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_ci">execute_pipeline_ci</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_tui" href="#bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_tui">execute_pipeline_tui</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.reset" href="#bitrab.tui.orchestrator.TUIOrchestrator.reset">reset</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.run_job_inline" href="#bitrab.tui.orchestrator.TUIOrchestrator.run_job_inline">run_job_inline</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

@@ -29,6 +29,27 @@ class JobConfig:
     retry_when: list[str] = field(default_factory=list)
     retry_exit_codes: list[int] = field(default_factory=list)  # empty => not used
 
+    # allow_failure: job failure doesn't fail the pipeline
+    allow_failure: bool = False
+    allow_failure_exit_codes: list[int] = field(default_factory=list)
+
+    # when: controls job execution condition
+    when: str = "on_success"  # on_success | on_failure | always | manual | never
+
+    # DAG execution: explicit job dependencies (bypasses stage ordering)
+    needs: list[str] = field(default_factory=list)
+
+    # timeout: maximum seconds the job may run (None = no limit)
+    timeout: float | None = None
+
+    # artifacts: files to preserve after job completion
+    artifacts_paths: list[str] = field(default_factory=list)
+    artifacts_when: str = "on_success"  # on_success | on_failure | always
+
+    # dependencies: named jobs whose artifacts to copy before this job runs
+    # None = inherit all (GitLab default); [] = no artifacts
+    dependencies: list[str] | None = None
+
 
 @dataclass
 class DefaultConfig:

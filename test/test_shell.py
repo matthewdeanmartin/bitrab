@@ -16,13 +16,22 @@ def _bash_available() -> bool:
     """
     Rough availability check for bash used by the runner.
     - On POSIX: look for 'bash' on PATH.
-    - On Windows: check the common Git-Bash path (same as your runner's default).
+    - On Windows: mirrors the search order of shell._find_bash_windows().
     """
     if os.name != "nt":
         return shutil.which("bash") is not None
-    # Common Git-Bash location used by the runner
-    default_git_bash = r"C:\Program Files\Git\bin\bash.exe"
-    return os.path.exists(default_git_bash)
+    override = os.environ.get("BITRAB_BASH_PATH")
+    if override:
+        return os.path.isfile(override)
+    if shutil.which("bash") is not None:
+        return True
+    candidates = [
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\bin\bash.exe",
+        r"C:\msys64\usr\bin\bash.exe",
+        r"C:\msys\usr\bin\bash.exe",
+    ]
+    return any(os.path.isfile(c) for c in candidates)
 
 
 pytestmark = pytest.mark.skipif(not _bash_available(), reason="Bash not available for subprocess tests")
@@ -137,10 +146,12 @@ def test_env_not_stale():
 
 
 def test_streaming_not_delayed():
-    # Verify that output is not delayed by readline() buffering
+    # Streaming delivers complete lines promptly.
+    # Two lines separated by a sleep should arrive as two separate writes,
+    # at different times.
     import time
 
-    script = 'printf "A"; sleep 0.5; printf "B\n"'
+    script = 'echo "A"; sleep 0.5; echo "B"'
 
     class Monitor:
         def __init__(self):
@@ -155,12 +166,9 @@ def test_streaming_not_delayed():
     monitor = Monitor()
     run_bash(script, mode="stream", stdout_target=monitor)
 
-    # We should have at least two writes at different times if it's streaming
+    # Two newline-terminated lines → two writes
     assert len(monitor.writes) >= 2
-    # The first write should be "A" and happen before the second write
-    # Depending on how read(1) interacts with ANSI codes, we might have multiple writes for "A"
-    # because of the GREEN/RESET colors.
-    # But importantly, some writes should happen BEFORE the sleep is over.
     first_write_time = monitor.writes[0][0]
     last_write_time = monitor.writes[-1][0]
+    # The sleep between lines means writes should be at least 0.4s apart
     assert last_write_time - first_write_time >= 0.4

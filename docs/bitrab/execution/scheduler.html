@@ -76,11 +76,11 @@ el.replaceWith(d);
         if sys.platform == &#34;win32&#34;:
             self._mp_ctx = mp.get_context(&#34;spawn&#34;)
         else:
-            # spawn avoids the fork-in-multithreaded-parent hazard triggering the warning
-            if os.getenv(&#34;BITRAB_USE_FORKSERVER&#34;):
-                self._mp_ctx = mp.get_context(&#34;forkserver&#34;)
-            else:
+            if not os.getenv(&#34;BITRAB_USE_FORKSERVER&#34;):
+                # spawn avoids the fork-in-multithreaded-parent hazard triggering the warning
                 self._mp_ctx = mp.get_context(&#34;spawn&#34;)
+            else:
+                self._mp_ctx = mp.get_context(&#34;forkserver&#34;)  # type: ignore[assignment]
 
     def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
         &#34;&#34;&#34;
@@ -106,20 +106,27 @@ el.replaceWith(d);
             # If it isn&#39;t, change _run_single_job to reconstruct the executor from config.
             failures: list[tuple[JobConfig, BaseException]] = []
 
-            if self.maximum_degree_of_parallelism == 1:
+            if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
                 for job in stage_jobs:
-                    self.job_executor.execute_job(job)
+                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / self._sanitize_job_name(job.name)
+                    job_dir.mkdir(parents=True, exist_ok=True)
+                    self.job_executor.execute_job(job, job_dir=job_dir)
             else:
                 with ProcessPoolExecutor(
                     max_workers=self.maximum_degree_of_parallelism,
                     mp_context=self._mp_ctx,
                 ) as pool:
-                    futures = {pool.submit(_run_single_job, job, self.job_executor): job for job in stage_jobs}
+                    futures = {}
+                    for job in stage_jobs:
+                        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / self._sanitize_job_name(job.name)
+                        job_dir.mkdir(parents=True, exist_ok=True)
+                        futures[pool.submit(_run_single_job, job, self.job_executor, job_dir)] = job
 
                     for fut in as_completed(futures):
                         job = futures[fut]
                         try:
-                            fut.result()  # propagate errors
+                            history = fut.result()
+                            self.job_executor.job_history.extend(history)
                             print(f&#34;✅ Job completed: {job.name}&#34;)
                         except BaseException as exc:  # catch all to surface any worker failures
                             failures.append((job, exc))
@@ -132,6 +139,11 @@ el.replaceWith(d);
                     raise failures[0][1]
 
         print(&#34;\n🎉 Pipeline completed successfully!&#34;)
+
+    def _sanitize_job_name(self, name: str) -&gt; str:
+        &#34;&#34;&#34;Replace characters that are invalid in filenames with underscores.&#34;&#34;&#34;
+        # Common invalid characters on Windows and Unix: / \ : * ? &#34; &lt; &gt; |
+        return re.sub(r&#39;[\\/:*?&#34;&lt;&gt;|]&#39;, &#34;_&#34;, name)
 
     def _organize_jobs_by_stage(self, pipeline: PipelineConfig) -&gt; dict[str, list[JobConfig]]:
         &#34;&#34;&#34;
@@ -186,20 +198,27 @@ os.cpu_count() (falls back to 1 if None).</dd>
         # If it isn&#39;t, change _run_single_job to reconstruct the executor from config.
         failures: list[tuple[JobConfig, BaseException]] = []
 
-        if self.maximum_degree_of_parallelism == 1:
+        if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
             for job in stage_jobs:
-                self.job_executor.execute_job(job)
+                job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / self._sanitize_job_name(job.name)
+                job_dir.mkdir(parents=True, exist_ok=True)
+                self.job_executor.execute_job(job, job_dir=job_dir)
         else:
             with ProcessPoolExecutor(
                 max_workers=self.maximum_degree_of_parallelism,
                 mp_context=self._mp_ctx,
             ) as pool:
-                futures = {pool.submit(_run_single_job, job, self.job_executor): job for job in stage_jobs}
+                futures = {}
+                for job in stage_jobs:
+                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / self._sanitize_job_name(job.name)
+                    job_dir.mkdir(parents=True, exist_ok=True)
+                    futures[pool.submit(_run_single_job, job, self.job_executor, job_dir)] = job
 
                 for fut in as_completed(futures):
                     job = futures[fut]
                     try:
-                        fut.result()  # propagate errors
+                        history = fut.result()
+                        self.job_executor.job_history.extend(history)
                         print(f&#34;✅ Job completed: {job.name}&#34;)
                     except BaseException as exc:  # catch all to surface any worker failures
                         failures.append((job, exc))

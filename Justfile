@@ -174,3 +174,38 @@ publish: test
 
 issues:
     @echo "N/A"
+
+# =========================
+# LLM-friendly targets: compact output, errors only
+# Designed for token-efficient consumption by AI assistants.
+# =========================
+
+# Run tests, show only failures (no verbose, no coverage HTML)
+test-llm: clean uv-lock
+    @echo "=== pytest (errors only) ==="
+    {{venv}} py.test test -q --tb=short --no-header \
+      --cov=bitrab --cov-fail-under 35 --cov-branch \
+      --timeout=5 --session-timeout=600 2>&1 | tail -40
+
+# Lint: ruff + pylint, compact output
+lint-llm:
+    @echo "=== ruff ==="
+    {{venv}} ruff check bitrab 2>&1 | head -50
+    @echo "=== pylint ==="
+    {{venv}} pylint bitrab --fail-under 5 --output-format=text --rcfile=.pylintrc 2>&1 \
+      | grep -E "^bitrab|^E|^W|^C|Your code|[Ee]rror" | head -60
+
+# Type check, compact output
+mypy-llm:
+    @echo "=== mypy ==="
+    {{venv}} mypy bitrab --ignore-missing-imports --check-untyped-defs --no-error-summary 2>&1 \
+      | grep -v "^Success" | head -60
+
+# Security check, compact
+bandit-llm:
+    @echo "=== bandit ==="
+    {{venv}} bandit bitrab -r --severity-level medium 2>&1 | grep -E "Issue|Severity|>>|^$" | head -40
+
+# All checks, LLM-friendly (parallel where possible, compact output)
+check-llm: mypy-llm test-llm lint-llm bandit-llm
+    @echo "=== check-llm done ==="

@@ -48,7 +48,7 @@ el.replaceWith(d);
 <dl>
 <dt id="bitrab.execution.job.JobExecutor"><code class="flex name class">
 <span>class <span class="ident">JobExecutor</span></span>
-<span>(</span><span>variable_manager: VariableManager, dry_run: bool = False)</span>
+<span>(</span><span>variable_manager: VariableManager,<br>dry_run: bool = False,<br>project_dir: Path | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -63,12 +63,14 @@ el.replaceWith(d);
         variable_manager: The VariableManager instance for managing variables.
     &#34;&#34;&#34;
 
-    def __init__(self, variable_manager: VariableManager, dry_run: bool = False):
+    def __init__(self, variable_manager: VariableManager, dry_run: bool = False, project_dir: Path | None = None):
         self.variable_manager = variable_manager
         self.job_history: list[RunResult] = []
         self.dry_run = dry_run
+        self.project_dir = project_dir or Path.cwd()
 
     # ---- retry helpers ----
+
     @staticmethod
     def _env_delay_seconds() -&gt; int:
         try:
@@ -107,19 +109,29 @@ el.replaceWith(d);
         # exponential (default)
         return float(base) * (2 ** (attempt_index - 1))
 
-    def execute_job(self, job: JobConfig) -&gt; None:
+    def execute_job(self, job: JobConfig, job_dir: Path | None = None, output_writer: TextWriter | None = None) -&gt; None:
         &#34;&#34;&#34;
         Execute a single job.
 
         Args:
             job: The job configuration.
+            job_dir: Optional override for the execution directory.
+            output_writer: Optional file-like object for all job output. When None,
+                           output goes to sys.stdout/sys.stderr (default behavior).
 
         Raises:
             JobExecutionError: If the job fails to execute successfully.
         &#34;&#34;&#34;
-        print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
+        _print = (lambda msg: output_writer.write(msg + &#34;\n&#34;)) if output_writer else print
+        _print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
 
         env = self.variable_manager.prepare_environment(job)
+        # Always run scripts from project_dir so relative paths (e.g. ./scripts/foo.sh)
+        # resolve correctly. job_dir is exposed as CI_JOB_DIR for scripts that need
+        # an isolated workspace, but it is NOT used as cwd.
+        execution_dir = self.project_dir
+        if job_dir is not None:
+            env[&#34;CI_JOB_DIR&#34;] = str(job_dir)
 
         max_attempts = 1 + max(0, int(job.retry_max))
         attempt = 0
@@ -133,36 +145,36 @@ el.replaceWith(d);
         while attempt &lt; max_attempts:
             attempt += 1
             if max_attempts &gt; 1:
-                print(f&#34;  🔁 Attempt {attempt}/{max_attempts}&#34;)
+                _print(f&#34;  🔁 Attempt {attempt}/{max_attempts}&#34;)
 
             try:
                 if job.before_script:
-                    print(&#34;  📋 Running before_script...&#34;)
-                    self._execute_scripts(job.before_script, env)
+                    _print(&#34;  📋 Running before_script...&#34;)
+                    self._execute_scripts(job.before_script, env, execution_dir, output_writer=output_writer)
 
                 if job.script:
-                    print(&#34;  🚀 Running script...&#34;)
-                    self._execute_scripts(job.script, env)
+                    _print(&#34;  🚀 Running script...&#34;)
+                    self._execute_scripts(job.script, env, execution_dir, output_writer=output_writer)
 
-                print(f&#34;✅ Job {job.name} completed successfully&#34;)
+                _print(f&#34;✅ Job {job.name} completed successfully&#34;)
                 return
 
             except subprocess.CalledProcessError as e:
                 last_exc = e
-                print(f&#34;  ❗ Job step failed with exit code {e.returncode}&#34;)
+                _print(f&#34;  ❗ Job step failed with exit code {e.returncode}&#34;)
                 if FAIL_FAST:
                     raise
             except BaseException as e:
                 last_exc = e
-                print(f&#34;  ❗ Job step raised an exception: {e!r}&#34;)
+                _print(f&#34;  ❗ Job step raised an exception: {e!r}&#34;)
             finally:
                 if job.after_script:
-                    print(&#34;  📋 Running after_script...&#34;)
+                    _print(&#34;  📋 Running after_script...&#34;)
                     try:
-                        self._execute_scripts(job.after_script, env)
+                        self._execute_scripts(job.after_script, env, execution_dir, output_writer=output_writer)
                     except subprocess.CalledProcessError as e2:
                         last_exc = last_exc or e2
-                        print(f&#34;  ❗ after_script failed with exit code {e2.returncode}&#34;)
+                        _print(f&#34;  ❗ after_script failed with exit code {e2.returncode}&#34;)
 
             # failed attempt
             if attempt &gt;= max_attempts:
@@ -170,35 +182,45 @@ el.replaceWith(d);
 
             # honor exit_codes restriction first; then when
             if not self._should_retry_exit_codes(job.retry_exit_codes, last_exc or Exception(&#34;unknown failure&#34;)):
-                print(&#34;  ↩️  Retry blocked by exit_codes; will not retry.&#34;)
+                _print(&#34;  ↩️  Retry blocked by exit_codes; will not retry.&#34;)
                 break
             if not self._should_retry_when(job.retry_when, last_exc or Exception(&#34;unknown failure&#34;)):
-                print(&#34;  ↩️  Retry conditions not met (when); will not retry.&#34;)
+                _print(&#34;  ↩️  Retry conditions not met (when); will not retry.&#34;)
                 break
 
             delay = self._compute_delay_seconds(strategy, base_delay, attempt)
             if delay &gt; 0 and not skip_sleep:
-                print(f&#34;  ⏳ Waiting {delay:.2f}s before retry...&#34;)
+                _print(f&#34;  ⏳ Waiting {delay:.2f}s before retry...&#34;)
                 time.sleep(delay)
 
-            print(&#34;  🔄 Retrying job...&#34;)
+            _print(&#34;  🔄 Retrying job...&#34;)
 
         # out of attempts
         if isinstance(last_exc, subprocess.CalledProcessError):
             raise JobExecutionError(f&#34;Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}&#34;) from last_exc
         raise JobExecutionError(f&#34;Job {job.name} failed after {attempt} attempt(s).&#34;) from last_exc
 
-    def _execute_scripts(self, scripts: list[str], env: dict[str, str]) -&gt; None:
+    def _execute_scripts(
+        self,
+        scripts: list[str],
+        env: dict[str, str],
+        cwd: Path | None = None,
+        output_writer: TextWriter | None = None,
+    ) -&gt; None:
         &#34;&#34;&#34;
         Execute a list of script commands.
 
         Args:
             scripts: The list of scripts to execute.
             env: The environment variables for the scripts.
+            cwd: Optional working directory.
+            output_writer: Optional file-like object to direct all output into.
 
         Raises:
             subprocess.CalledProcessError: If a script exits with a non-zero code.
         &#34;&#34;&#34;
+        _print = (lambda msg: output_writer.write(msg + &#34;\n&#34;)) if output_writer else print
+
         lines = []
         for script in scripts:
             if not isinstance(script, str):
@@ -209,17 +231,22 @@ el.replaceWith(d);
             lines.append(script)
 
         full_script = &#34;\n&#34;.join(lines)
-        print(f&#34;    $ {full_script}&#34;)
+        _print(f&#34;    $ {full_script}&#34;)
+
+        target_cwd = cwd or self.project_dir
 
         if self.dry_run:
-            print(&#34;Not running...&#34;)
-            print(full_script)
+            _print(&#34;Not running...&#34;)
+            _print(full_script)
             result = RunResult(0, &#34;&#34;, &#34;&#34;)
         else:
-            result = run_colored(
+            result = run_bash(
                 full_script,
                 env=env,
-                cwd=Path.cwd(),
+                cwd=target_cwd,
+                check=False,
+                stdout_target=output_writer,
+                stderr_target=output_writer,
             )
         self.job_history.append(result)
 
@@ -235,26 +262,36 @@ el.replaceWith(d);
 <h3>Methods</h3>
 <dl>
 <dt id="bitrab.execution.job.JobExecutor.execute_job"><code class="name flex">
-<span>def <span class="ident">execute_job</span></span>(<span>self, job: JobConfig) ‑> None</span>
+<span>def <span class="ident">execute_job</span></span>(<span>self,<br>job: JobConfig,<br>job_dir: Path | None = None,<br>output_writer: TextWriter | None = None) ‑> None</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def execute_job(self, job: JobConfig) -&gt; None:
+<pre><code class="python">def execute_job(self, job: JobConfig, job_dir: Path | None = None, output_writer: TextWriter | None = None) -&gt; None:
     &#34;&#34;&#34;
     Execute a single job.
 
     Args:
         job: The job configuration.
+        job_dir: Optional override for the execution directory.
+        output_writer: Optional file-like object for all job output. When None,
+                       output goes to sys.stdout/sys.stderr (default behavior).
 
     Raises:
         JobExecutionError: If the job fails to execute successfully.
     &#34;&#34;&#34;
-    print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
+    _print = (lambda msg: output_writer.write(msg + &#34;\n&#34;)) if output_writer else print
+    _print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
 
     env = self.variable_manager.prepare_environment(job)
+    # Always run scripts from project_dir so relative paths (e.g. ./scripts/foo.sh)
+    # resolve correctly. job_dir is exposed as CI_JOB_DIR for scripts that need
+    # an isolated workspace, but it is NOT used as cwd.
+    execution_dir = self.project_dir
+    if job_dir is not None:
+        env[&#34;CI_JOB_DIR&#34;] = str(job_dir)
 
     max_attempts = 1 + max(0, int(job.retry_max))
     attempt = 0
@@ -268,36 +305,36 @@ el.replaceWith(d);
     while attempt &lt; max_attempts:
         attempt += 1
         if max_attempts &gt; 1:
-            print(f&#34;  🔁 Attempt {attempt}/{max_attempts}&#34;)
+            _print(f&#34;  🔁 Attempt {attempt}/{max_attempts}&#34;)
 
         try:
             if job.before_script:
-                print(&#34;  📋 Running before_script...&#34;)
-                self._execute_scripts(job.before_script, env)
+                _print(&#34;  📋 Running before_script...&#34;)
+                self._execute_scripts(job.before_script, env, execution_dir, output_writer=output_writer)
 
             if job.script:
-                print(&#34;  🚀 Running script...&#34;)
-                self._execute_scripts(job.script, env)
+                _print(&#34;  🚀 Running script...&#34;)
+                self._execute_scripts(job.script, env, execution_dir, output_writer=output_writer)
 
-            print(f&#34;✅ Job {job.name} completed successfully&#34;)
+            _print(f&#34;✅ Job {job.name} completed successfully&#34;)
             return
 
         except subprocess.CalledProcessError as e:
             last_exc = e
-            print(f&#34;  ❗ Job step failed with exit code {e.returncode}&#34;)
+            _print(f&#34;  ❗ Job step failed with exit code {e.returncode}&#34;)
             if FAIL_FAST:
                 raise
         except BaseException as e:
             last_exc = e
-            print(f&#34;  ❗ Job step raised an exception: {e!r}&#34;)
+            _print(f&#34;  ❗ Job step raised an exception: {e!r}&#34;)
         finally:
             if job.after_script:
-                print(&#34;  📋 Running after_script...&#34;)
+                _print(&#34;  📋 Running after_script...&#34;)
                 try:
-                    self._execute_scripts(job.after_script, env)
+                    self._execute_scripts(job.after_script, env, execution_dir, output_writer=output_writer)
                 except subprocess.CalledProcessError as e2:
                     last_exc = last_exc or e2
-                    print(f&#34;  ❗ after_script failed with exit code {e2.returncode}&#34;)
+                    _print(f&#34;  ❗ after_script failed with exit code {e2.returncode}&#34;)
 
         # failed attempt
         if attempt &gt;= max_attempts:
@@ -305,18 +342,18 @@ el.replaceWith(d);
 
         # honor exit_codes restriction first; then when
         if not self._should_retry_exit_codes(job.retry_exit_codes, last_exc or Exception(&#34;unknown failure&#34;)):
-            print(&#34;  ↩️  Retry blocked by exit_codes; will not retry.&#34;)
+            _print(&#34;  ↩️  Retry blocked by exit_codes; will not retry.&#34;)
             break
         if not self._should_retry_when(job.retry_when, last_exc or Exception(&#34;unknown failure&#34;)):
-            print(&#34;  ↩️  Retry conditions not met (when); will not retry.&#34;)
+            _print(&#34;  ↩️  Retry conditions not met (when); will not retry.&#34;)
             break
 
         delay = self._compute_delay_seconds(strategy, base_delay, attempt)
         if delay &gt; 0 and not skip_sleep:
-            print(f&#34;  ⏳ Waiting {delay:.2f}s before retry...&#34;)
+            _print(f&#34;  ⏳ Waiting {delay:.2f}s before retry...&#34;)
             time.sleep(delay)
 
-        print(&#34;  🔄 Retrying job...&#34;)
+        _print(&#34;  🔄 Retrying job...&#34;)
 
     # out of attempts
     if isinstance(last_exc, subprocess.CalledProcessError):
@@ -328,6 +365,11 @@ el.replaceWith(d);
 <dl>
 <dt><strong><code>job</code></strong></dt>
 <dd>The job configuration.</dd>
+<dt><strong><code>job_dir</code></strong></dt>
+<dd>Optional override for the execution directory.</dd>
+<dt><strong><code>output_writer</code></strong></dt>
+<dd>Optional file-like object for all job output. When None,
+output goes to sys.stdout/sys.stderr (default behavior).</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>

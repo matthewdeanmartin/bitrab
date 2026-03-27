@@ -11,3 +11,7 @@ class GitlabRunnerError(BitrabError):
 
 class JobExecutionError(GitlabRunnerError):
     """Raised when a job fails to execute successfully."""
+
+
+class JobTimeoutError(JobExecutionError):
+    """Raised when a job exceeds its configured timeout."""

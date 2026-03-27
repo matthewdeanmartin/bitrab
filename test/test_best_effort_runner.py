@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+import pytest
+
+from bitrab.exceptions import JobExecutionError
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
@@ -89,10 +92,9 @@ job:
     runner = LocalGitLabRunner(tmp_path)
     runner.run_pipeline()
 
-    # Isolated dirs: .bitrab/job/job.txt
-    job_dir = tmp_path / ".bitrab" / "job"
-    assert (job_dir / "job.txt").exists()
-    assert not (job_dir / "global.txt").exists()
+    # Scripts run from project_dir (tmp_path), so files land there
+    assert (tmp_path / "job.txt").exists()
+    assert not (tmp_path / "global.txt").exists()
 
 
 def test_variable_precedence(tmp_path):
@@ -114,7 +116,8 @@ job:
     runner = LocalGitLabRunner(tmp_path)
     runner.run_pipeline()
 
-    output = (tmp_path / ".bitrab" / "job" / "output.txt").read_text().strip()
+    # Scripts run from project_dir (tmp_path)
+    output = (tmp_path / "output.txt").read_text().strip()
     assert "FOO is default" in output
 
 
@@ -134,6 +137,9 @@ def test_job_history_includes_failures():
 
 
 def test_concurrency_isolation(tmp_path):
+    # Jobs using $CI_JOB_DIR get isolated per-job workspaces even when running
+    # in parallel. Scripts themselves run from project_dir (correct for ./scripts/
+    # relative paths), but $CI_JOB_DIR points to the per-job sandbox.
     config_content = """
 stages:
   - test
@@ -141,16 +147,12 @@ stages:
 job1:
   stage: test
   script:
-    - echo "JOB1" > shared.txt
-    - sleep 1
-    - cat shared.txt > result.txt
+    - echo "JOB1" > "$CI_JOB_DIR/result.txt"
 
 job2:
   stage: test
   script:
-    - echo "JOB2" > shared.txt
-    - sleep 1
-    - cat shared.txt > result.txt
+    - echo "JOB2" > "$CI_JOB_DIR/result.txt"
 """
     config_file = tmp_path / ".gitlab-ci.yml"
     config_file.write_text(config_content)
@@ -185,3 +187,212 @@ job2:
     runner.run_pipeline(maximum_degree_of_parallelism=2)
 
     assert len(runner.job_executor.job_history) == 2
+
+
+def test_allow_failure_does_not_fail_pipeline(tmp_path):
+    """A job with allow_failure: true should not cause the pipeline to fail."""
+    config_content = """
+stages:
+  - test
+  - deploy
+
+fail_job:
+  stage: test
+  allow_failure: true
+  script:
+    - exit 1
+
+deploy_job:
+  stage: deploy
+  script:
+    - echo "deployed"
+"""
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text(config_content)
+
+    runner = LocalGitLabRunner(tmp_path)
+    # Should NOT raise, because fail_job has allow_failure: true
+    runner.run_pipeline(maximum_degree_of_parallelism=1)
+
+
+def test_allow_failure_exit_codes_matching(tmp_path):
+    """allow_failure with matching exit_codes should not fail pipeline."""
+    config_content = """
+stages:
+  - test
+  - deploy
+
+fail_job:
+  stage: test
+  allow_failure:
+    exit_codes:
+      - 42
+  script:
+    - exit 42
+
+deploy_job:
+  stage: deploy
+  script:
+    - echo "deployed"
+"""
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text(config_content)
+
+    runner = LocalGitLabRunner(tmp_path)
+    runner.run_pipeline(maximum_degree_of_parallelism=1)
+
+
+def test_allow_failure_exit_codes_non_matching(tmp_path):
+    """allow_failure with non-matching exit_codes should still fail pipeline."""
+    config_content = """
+stages:
+  - test
+
+fail_job:
+  stage: test
+  allow_failure:
+    exit_codes:
+      - 42
+  script:
+    - exit 1
+"""
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text(config_content)
+
+    runner = LocalGitLabRunner(tmp_path)
+    with pytest.raises(JobExecutionError):
+        runner.run_pipeline(maximum_degree_of_parallelism=1)
+
+
+def test_when_never_skips_job(tmp_path):
+    """A job with when: never should not run."""
+    config_content = """
+stages:
+  - test
+
+skip_me:
+  stage: test
+  when: never
+  script:
+    - echo "should not run" > skip.txt
+
+run_me:
+  stage: test
+  script:
+    - echo "ran"
+"""
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text(config_content)
+
+    runner = LocalGitLabRunner(tmp_path)
+    runner.run_pipeline(maximum_degree_of_parallelism=1)
+    # The "never" job should not have created the file
+    assert not (tmp_path / "skip.txt").exists()
+
+
+def test_when_manual_skips_job(tmp_path):
+    """A job with when: manual should not run automatically."""
+    config_content = """
+stages:
+  - test
+
+manual_job:
+  stage: test
+  when: manual
+  script:
+    - echo "should not run" > manual.txt
+
+auto_job:
+  stage: test
+  script:
+    - echo "ran"
+"""
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text(config_content)
+
+    runner = LocalGitLabRunner(tmp_path)
+    runner.run_pipeline(maximum_degree_of_parallelism=1)
+    assert not (tmp_path / "manual.txt").exists()
+
+
+def test_when_always_runs_after_failure(tmp_path):
+    """A job with when: always should run even after a prior stage failure."""
+    config_content = """
+stages:
+  - test
+  - cleanup
+
+fail_job:
+  stage: test
+  script:
+    - exit 1
+
+cleanup_job:
+  stage: cleanup
+  when: always
+  script:
+    - echo "cleaned" > cleanup.txt
+"""
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text(config_content)
+
+    runner = LocalGitLabRunner(tmp_path)
+    with pytest.raises(JobExecutionError):
+        runner.run_pipeline(maximum_degree_of_parallelism=1)
+    # The always job should have run despite the failure
+    assert (tmp_path / "cleanup.txt").exists()
+
+
+def test_when_on_failure_runs_after_failure(tmp_path):
+    """A job with when: on_failure should run when a prior stage failed."""
+    config_content = """
+stages:
+  - test
+  - notify
+
+fail_job:
+  stage: test
+  script:
+    - exit 1
+
+notify_job:
+  stage: notify
+  when: on_failure
+  script:
+    - echo "notified" > notify.txt
+"""
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text(config_content)
+
+    runner = LocalGitLabRunner(tmp_path)
+    with pytest.raises(JobExecutionError):
+        runner.run_pipeline(maximum_degree_of_parallelism=1)
+    # The on_failure job should have run
+    assert (tmp_path / "notify.txt").exists()
+
+
+def test_when_on_failure_skipped_on_success(tmp_path):
+    """A job with when: on_failure should NOT run when all prior stages succeeded."""
+    config_content = """
+stages:
+  - test
+  - notify
+
+pass_job:
+  stage: test
+  script:
+    - echo "ok"
+
+notify_job:
+  stage: notify
+  when: on_failure
+  script:
+    - echo "notified" > notify.txt
+"""
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text(config_content)
+
+    runner = LocalGitLabRunner(tmp_path)
+    runner.run_pipeline(maximum_degree_of_parallelism=1)
+    # The on_failure job should NOT have run since everything passed
+    assert not (tmp_path / "notify.txt").exists()

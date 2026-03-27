@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.6">
-<title>bitrab API documentation</title>
-<meta name="description" content="">
+<title>bitrab.tui API documentation</title>
+<meta name="description" content="Textual TUI components for bitrab pipeline visualization.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -33,94 +33,31 @@ el.replaceWith(d);
 <main>
 <article id="content">
 <header>
-<h1 class="title">Package <code>bitrab</code></h1>
+<h1 class="title">Module <code>bitrab.tui</code></h1>
 </header>
 <section id="section-intro">
+<p>Textual TUI components for bitrab pipeline visualization.</p>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
-<dt><code class="name"><a title="bitrab.cli" href="cli.html">bitrab.cli</a></code></dt>
+<dt><code class="name"><a title="bitrab.tui.app" href="app.html">bitrab.tui.app</a></code></dt>
 <dd>
-<div class="desc"><p>Bitrab - Local GitLab CI Runner
-A tool for running GitLab CI pipelines locally.</p></div>
+<div class="desc"><p>Textual TUI application for bitrab pipeline visualization …</p></div>
 </dd>
-<dt><code class="name"><a title="bitrab.config" href="config/index.html">bitrab.config</a></code></dt>
+<dt><code class="name"><a title="bitrab.tui.ci_mode" href="ci_mode.html">bitrab.tui.ci_mode</a></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Display mode detection for bitrab …</p></div>
 </dd>
-<dt><code class="name"><a title="bitrab.exceptions" href="exceptions.html">bitrab.exceptions</a></code></dt>
+<dt><code class="name"><a title="bitrab.tui.orchestrator" href="orchestrator.html">bitrab.tui.orchestrator</a></code></dt>
 <dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.execution" href="execution/index.html">bitrab.execution</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.models" href="models/index.html">bitrab.models</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.plan" href="plan.html">bitrab.plan</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.tui" href="tui/index.html">bitrab.tui</a></code></dt>
-<dd>
-<div class="desc"><p>Textual TUI components for bitrab pipeline visualization.</p></div>
-</dd>
-<dt><code class="name"><a title="bitrab.utils" href="utils/index.html">bitrab.utils</a></code></dt>
-<dd>
-<div class="desc"></div>
+<div class="desc"><p>TUI-aware pipeline orchestrator …</p></div>
 </dd>
 </dl>
 </section>
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="bitrab.main"><code class="name flex">
-<span>def <span class="ident">main</span></span>(<span>) ‑> None</span>
-</code></dt>
-<dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def main() -&gt; None:
-    &#34;&#34;&#34;Main entry point.&#34;&#34;&#34;
-    parser = create_parser()
-    args = parser.parse_args()
-
-    # Handle license display
-    if args.license:
-        print(__license__)
-        sys.exit(0)
-
-    # Configure logging
-    setup_logging(args.verbose, args.quiet)
-
-    # Handle no command (default to run)
-    if not args.command:
-        args.command = &#34;run&#34;
-        args.func = cmd_run
-        # Set defaults for run command
-        args.dry_run = False
-        args.parallel = None
-        args.jobs = None
-        args.no_tui = False
-
-    # Execute the command
-    try:
-        args.func(args)
-    except AttributeError:
-        parser.print_help()
-        sys.exit(1)</code></pre>
-</details>
-<div class="desc"><p>Main entry point.</p></div>
-</dd>
-</dl>
 </section>
 <section>
 </section>
@@ -130,21 +67,16 @@ A tool for running GitLab CI pipelines locally.</p></div>
 <ul></ul>
 </div>
 <ul id="index">
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<li><h3>Super-module</h3>
 <ul>
-<li><code><a title="bitrab.cli" href="cli.html">bitrab.cli</a></code></li>
-<li><code><a title="bitrab.config" href="config/index.html">bitrab.config</a></code></li>
-<li><code><a title="bitrab.exceptions" href="exceptions.html">bitrab.exceptions</a></code></li>
-<li><code><a title="bitrab.execution" href="execution/index.html">bitrab.execution</a></code></li>
-<li><code><a title="bitrab.models" href="models/index.html">bitrab.models</a></code></li>
-<li><code><a title="bitrab.plan" href="plan.html">bitrab.plan</a></code></li>
-<li><code><a title="bitrab.tui" href="tui/index.html">bitrab.tui</a></code></li>
-<li><code><a title="bitrab.utils" href="utils/index.html">bitrab.utils</a></code></li>
+<li><code><a title="bitrab" href="../index.html">bitrab</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
-<li><code><a title="bitrab.main" href="#bitrab.main">main</a></code></li>
+<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<ul>
+<li><code><a title="bitrab.tui.app" href="app.html">bitrab.tui.app</a></code></li>
+<li><code><a title="bitrab.tui.ci_mode" href="ci_mode.html">bitrab.tui.ci_mode</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator" href="orchestrator.html">bitrab.tui.orchestrator</a></code></li>
 </ul>
 </li>
 </ul>

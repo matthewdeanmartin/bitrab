@@ -176,6 +176,8 @@ A tool for running GitLab CI pipelines locally.</p>
 </summary>
 <pre><code class="python">def cmd_run(args: argparse.Namespace) -&gt; None:
     &#34;&#34;&#34;Execute the pipeline or specific jobs.&#34;&#34;&#34;
+    from bitrab.tui.ci_mode import is_ci_mode, should_use_tui
+
     config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
 
     if not config_path.exists():
@@ -190,7 +192,16 @@ A tool for running GitLab CI pipelines locally.</p>
             # TODO: Implement job filtering in runner
             print(&#34;⚠️  Job filtering not yet implemented - running full pipeline&#34;)
 
-        runner.run_pipeline(config_path=config_path, maximum_degree_of_parallelism=args.parallel, dry_run=args.dry_run)
+        use_tui = should_use_tui(args)
+        ci_mode = is_ci_mode() and not use_tui
+
+        runner.run_pipeline(
+            config_path=config_path,
+            maximum_degree_of_parallelism=args.parallel,
+            dry_run=args.dry_run,
+            use_tui=use_tui,
+            ci_mode=ci_mode,
+        )
 
     except (BitrabError, GitlabRunnerError) as e:
         print(f&#34;❌ Execution error: {e}&#34;, file=sys.stderr)
@@ -227,9 +238,21 @@ A tool for running GitLab CI pipelines locally.</p>
         sys.exit(1)
 
     try:
+        # 1. Official Schema Validation
+        print(f&#34;🔍 Validating {config_path} against GitLab CI schema...&#34;)
+        validator = GitLabCIValidator()
+        yaml_content = config_path.read_text(encoding=&#34;utf-8&#34;)
+        is_valid, schema_errors = validator.validate_ci_config(yaml_content)
+
+        if not is_valid:
+            print(&#34;❌ Schema validation failed:&#34;)
+            for error in schema_errors:
+                print(f&#34;   • {error}&#34;)
+            sys.exit(1)
+
+        # 2. Structural/Semantic Validation
         raw_config, pipeline_config = load_and_process_config(config_path)
 
-        # Basic validation
         errors = []
         warnings = []
 
@@ -250,7 +273,7 @@ A tool for running GitLab CI pipelines locally.</p>
 
         # Report results
         if errors:
-            print(&#34;❌ Validation failed:&#34;)
+            print(&#34;❌ Semantic validation failed:&#34;)
             for error in errors:
                 print(f&#34;   • {error}&#34;)
             sys.exit(1)
@@ -288,6 +311,8 @@ A tool for running GitLab CI pipelines locally.</p>
 
     except Exception as e:
         print(f&#34;❌ Validation error: {e}&#34;, file=sys.stderr)
+        if DEBUG:
+            raise
         sys.exit(1)</code></pre>
 </details>
 <div class="desc"><p>Validate the pipeline configuration.</p></div>
@@ -342,6 +367,11 @@ Version: {__version__}
         help=&#34;Number of parallel jobs per stage (default: number of CPU cores)&#34;,
     )
     run_parser.add_argument(&#34;--jobs&#34;, nargs=&#34;*&#34;, metavar=&#34;JOB&#34;, help=&#34;Run only specified jobs (if not specified, run all jobs)&#34;)
+    run_parser.add_argument(
+        &#34;--no-tui&#34;,
+        action=&#34;store_true&#34;,
+        help=&#34;Disable Textual TUI, use plain streaming output&#34;,
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # List command
@@ -451,6 +481,7 @@ Version: {__version__}
         args.dry_run = False
         args.parallel = None
         args.jobs = None
+        args.no_tui = False
 
     # Execute the command
     try:

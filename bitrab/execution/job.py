@@ -4,9 +4,8 @@ import os
 import subprocess  # nosec
 import time
 from pathlib import Path
-
-from bitrab.exceptions import BitrabError, JobExecutionError
-from bitrab.execution.shell import RunResult, run_bash
+from bitrab.exceptions import BitrabError, JobExecutionError, JobTimeoutError
+from bitrab.execution.shell import RunResult, TextWriter, run_bash
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
 
@@ -67,21 +66,32 @@ class JobExecutor:
         # exponential (default)
         return float(base) * (2 ** (attempt_index - 1))
 
-    def execute_job(self, job: JobConfig, job_dir: Path | None = None) -> None:
+    def execute_job(self, job: JobConfig, job_dir: Path | None = None, output_writer: TextWriter | None = None, timeout: float | None = None) -> None:
         """
         Execute a single job.
 
         Args:
             job: The job configuration.
             job_dir: Optional override for the execution directory.
+            output_writer: Optional file-like object for all job output. When None,
+                           output goes to sys.stdout/sys.stderr (default behavior).
 
         Raises:
             JobExecutionError: If the job fails to execute successfully.
         """
-        print(f"🔧 Running job: {job.name} (stage: {job.stage})")
+        _print = (lambda msg: output_writer.write(msg + "\n")) if output_writer else print
+        _print(f"🔧 Running job: {job.name} (stage: {job.stage})")
 
         env = self.variable_manager.prepare_environment(job)
-        execution_dir = job_dir or self.project_dir
+        # Always run scripts from project_dir so relative paths (e.g. ./scripts/foo.sh)
+        # resolve correctly. job_dir is exposed as CI_JOB_DIR for scripts that need
+        # an isolated workspace, but it is NOT used as cwd.
+        execution_dir = self.project_dir
+        if job_dir is not None:
+            env["CI_JOB_DIR"] = str(job_dir)
+
+        job_timeout = job.timeout if job.timeout is not None else timeout
+        deadline: float | None = (time.monotonic() + job_timeout) if job_timeout is not None else None
 
         max_attempts = 1 + max(0, int(job.retry_max))
         attempt = 0
@@ -95,36 +105,39 @@ class JobExecutor:
         while attempt < max_attempts:
             attempt += 1
             if max_attempts > 1:
-                print(f"  🔁 Attempt {attempt}/{max_attempts}")
+                _print(f"  🔁 Attempt {attempt}/{max_attempts}")
 
             try:
                 if job.before_script:
-                    print("  📋 Running before_script...")
-                    self._execute_scripts(job.before_script, env, execution_dir)
+                    _print("  📋 Running before_script...")
+                    self._execute_scripts(job.before_script, env, execution_dir, output_writer=output_writer, deadline=deadline)
 
                 if job.script:
-                    print("  🚀 Running script...")
-                    self._execute_scripts(job.script, env, execution_dir)
+                    _print("  🚀 Running script...")
+                    self._execute_scripts(job.script, env, execution_dir, output_writer=output_writer, deadline=deadline)
 
-                print(f"✅ Job {job.name} completed successfully")
+                _print(f"✅ Job {job.name} completed successfully")
                 return
 
+            except JobTimeoutError:
+                _print(f"  ⏱️ Job {job.name} timed out after {job_timeout}s")
+                raise
             except subprocess.CalledProcessError as e:
                 last_exc = e
-                print(f"  ❗ Job step failed with exit code {e.returncode}")
+                _print(f"  ❗ Job step failed with exit code {e.returncode}")
                 if FAIL_FAST:
                     raise
             except BaseException as e:
                 last_exc = e
-                print(f"  ❗ Job step raised an exception: {e!r}")
+                _print(f"  ❗ Job step raised an exception: {e!r}")
             finally:
                 if job.after_script:
-                    print("  📋 Running after_script...")
+                    _print("  📋 Running after_script...")
                     try:
-                        self._execute_scripts(job.after_script, env, execution_dir)
+                        self._execute_scripts(job.after_script, env, execution_dir, output_writer=output_writer, deadline=deadline)
                     except subprocess.CalledProcessError as e2:
                         last_exc = last_exc or e2
-                        print(f"  ❗ after_script failed with exit code {e2.returncode}")
+                        _print(f"  ❗ after_script failed with exit code {e2.returncode}")
 
             # failed attempt
             if attempt >= max_attempts:
@@ -132,27 +145,32 @@ class JobExecutor:
 
             # honor exit_codes restriction first; then when
             if not self._should_retry_exit_codes(job.retry_exit_codes, last_exc or Exception("unknown failure")):
-                print("  ↩️  Retry blocked by exit_codes; will not retry.")
+                _print("  ↩️  Retry blocked by exit_codes; will not retry.")
                 break
             if not self._should_retry_when(job.retry_when, last_exc or Exception("unknown failure")):
-                print("  ↩️  Retry conditions not met (when); will not retry.")
+                _print("  ↩️  Retry conditions not met (when); will not retry.")
                 break
 
             delay = self._compute_delay_seconds(strategy, base_delay, attempt)
             if delay > 0 and not skip_sleep:
-                print(f"  ⏳ Waiting {delay:.2f}s before retry...")
+                _print(f"  ⏳ Waiting {delay:.2f}s before retry...")
                 time.sleep(delay)
 
-            print("  🔄 Retrying job...")
+            _print("  🔄 Retrying job...")
 
         # out of attempts
         if isinstance(last_exc, subprocess.CalledProcessError):
-            raise JobExecutionError(
-                f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}"
-            ) from last_exc
+            raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}") from last_exc
         raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s).") from last_exc
 
-    def _execute_scripts(self, scripts: list[str], env: dict[str, str], cwd: Path | None = None) -> None:
+    def _execute_scripts(
+        self,
+        scripts: list[str],
+        env: dict[str, str],
+        cwd: Path | None = None,
+        output_writer: TextWriter | None = None,
+        deadline: float | None = None,
+    ) -> None:
         """
         Execute a list of script commands.
 
@@ -160,10 +178,16 @@ class JobExecutor:
             scripts: The list of scripts to execute.
             env: The environment variables for the scripts.
             cwd: Optional working directory.
+            output_writer: Optional file-like object to direct all output into.
+            deadline: monotonic clock deadline; if set, remaining time is passed
+                      as the timeout to run_bash.
 
         Raises:
             subprocess.CalledProcessError: If a script exits with a non-zero code.
+            JobTimeoutError: If the deadline is reached before the script finishes.
         """
+        _print = (lambda msg: output_writer.write(msg + "\n")) if output_writer else print
+
         lines = []
         for script in scripts:
             if not isinstance(script, str):
@@ -174,20 +198,29 @@ class JobExecutor:
             lines.append(script)
 
         full_script = "\n".join(lines)
-        print(f"    $ {full_script}")
+        _print(f"    $ {full_script}")
 
         target_cwd = cwd or self.project_dir
 
         if self.dry_run:
-            print("Not running...")
-            print(full_script)
+            _print("Not running...")
+            _print(full_script)
             result = RunResult(0, "", "")
         else:
+            remaining: float | None = None
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise JobTimeoutError("Job timed out before script could start")
+
             result = run_bash(
                 full_script,
                 env=env,
                 cwd=target_cwd,
                 check=False,
+                stdout_target=output_writer,
+                stderr_target=output_writer,
+                timeout=remaining,
             )
         self.job_history.append(result)
 
