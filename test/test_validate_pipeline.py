@@ -143,5 +143,5 @@ def test_load_fallback_schema(validator, mock_schema):
             # This is tricky because of how Path and open are used.
             # Let's try a simpler approach by mocking _load_fallback_schema itself in other tests
             # and here just verify it doesn't crash.
-            schema = validator._load_fallback_schema()
+            validator._load_fallback_schema()
             # It might return None if it can't find the real file, which is fine for this sanity check.
