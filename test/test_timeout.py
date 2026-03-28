@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import os
 import shutil
+import subprocess
+import threading
 
 import pytest
 
@@ -34,6 +37,54 @@ def _bash_available() -> bool:
 
 
 bash_required = pytest.mark.skipif(not _bash_available(), reason="Bash not available")
+
+
+class _FakeCapturePopen:
+    def __init__(self, *args, **kwargs):
+        self.returncode = None
+        self.killed = False
+        self._communicate_calls = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def communicate(self, *_args, timeout=None):
+        self._communicate_calls += 1
+        if self._communicate_calls == 1:
+            raise subprocess.TimeoutExpired(cmd="bash", timeout=timeout)
+        self.returncode = -9
+        return ("", "")
+
+    def kill(self):
+        self.killed = True
+        self.returncode = -9
+
+
+class _FakeStreamPopen:
+    def __init__(self, *args, **kwargs):
+        self.stdout = io.StringIO("")
+        self.stderr = io.StringIO("")
+        self.stdin = io.StringIO()
+        self.returncode = None
+        self._killed = threading.Event()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def wait(self):
+        self._killed.wait(timeout=1)
+        self.returncode = -9
+        return self.returncode
+
+    def kill(self):
+        self.returncode = -9
+        self._killed.set()
 
 
 # ---------------------------------------------------------------------------
@@ -124,8 +175,9 @@ def test_timeout_defaults_to_none():
 # ---------------------------------------------------------------------------
 
 
-@bash_required
-def test_capture_mode_timeout_raises_job_timeout_error():
+def test_capture_mode_timeout_raises_job_timeout_error(monkeypatch):
+    monkeypatch.setattr("bitrab.execution.shell.subprocess.Popen", _FakeCapturePopen)
+
     with pytest.raises(JobTimeoutError):
         run_bash("sleep 10", mode="capture", check=False, timeout=0.5)
 
@@ -142,10 +194,11 @@ def test_capture_mode_no_timeout_completes():
 # ---------------------------------------------------------------------------
 
 
-@bash_required
-def test_stream_mode_timeout_raises_job_timeout_error():
+def test_stream_mode_timeout_raises_job_timeout_error(monkeypatch):
+    monkeypatch.setattr("bitrab.execution.shell.subprocess.Popen", _FakeStreamPopen)
+
     with pytest.raises(JobTimeoutError):
-        run_bash("sleep 10", mode="stream", check=False, timeout=0.5)
+        run_bash("sleep 10", mode="stream", check=False, timeout=0.01)
 
 
 @bash_required

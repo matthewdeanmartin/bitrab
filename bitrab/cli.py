@@ -6,22 +6,25 @@ A tool for running GitLab CI pipelines locally.
 from __future__ import annotations
 
 import argparse
-import json
-import logging
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Any
+from typing import Callable
+from typing import cast
 
-from bitrab.config.capabilities import check_capabilities
-from bitrab.config.loader import ConfigurationLoader
-from bitrab.config.validate_pipeline import GitLabCIValidator
+from bitrab.__about__ import __version__
 from bitrab.exceptions import BitrabError, GitlabRunnerError
-from bitrab.plan import LocalGitLabRunner, PipelineProcessor
+
+if TYPE_CHECKING:
+    from bitrab.config.loader import ConfigurationLoader as ConfigurationLoaderType
+    from bitrab.config.validate_pipeline import GitLabCIValidator as GitLabCIValidatorType
+    from bitrab.plan import LocalGitLabRunner as LocalGitLabRunnerType
+    from bitrab.plan import PipelineProcessor as PipelineProcessorType
 
 # emoji support
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 
-__version__ = "0.1.0"
 __license__ = """MIT License
 
 Copyright (c) 2025 Matthew Dean Martin
@@ -47,9 +50,80 @@ SOFTWARE.
 
 DEBUG = False
 
+ConfigurationLoader: type[ConfigurationLoaderType] | None = None
+PipelineProcessor: type[PipelineProcessorType] | None = None
+LocalGitLabRunner: type[LocalGitLabRunnerType] | None = None
+GitLabCIValidator: type[GitLabCIValidatorType] | None = None
+check_capabilities: Callable[[dict[str, Any]], list[Any]] | None = None
+
+
+def _ensure_config_dependencies() -> None:
+    """Populate config loading/parsing imports lazily so --help stays cheap."""
+    global ConfigurationLoader, PipelineProcessor
+
+    if ConfigurationLoader is None:
+        from bitrab.config.loader import ConfigurationLoader as _ConfigurationLoader
+
+        ConfigurationLoader = _ConfigurationLoader
+    if PipelineProcessor is None:
+        from bitrab.plan import PipelineProcessor as _PipelineProcessor
+
+        PipelineProcessor = _PipelineProcessor
+
+
+def _ensure_runner_dependency() -> None:
+    """Populate pipeline runner imports lazily."""
+    global LocalGitLabRunner
+
+    if LocalGitLabRunner is None:
+        from bitrab.plan import LocalGitLabRunner as _LocalGitLabRunner
+
+        LocalGitLabRunner = _LocalGitLabRunner
+
+
+def _ensure_validation_dependencies() -> None:
+    """Populate validation/capabilities imports lazily."""
+    global GitLabCIValidator, check_capabilities
+
+    if GitLabCIValidator is None:
+        from bitrab.config.validate_pipeline import GitLabCIValidator as _GitLabCIValidator
+
+        GitLabCIValidator = _GitLabCIValidator
+    if check_capabilities is None:
+        from bitrab.config.capabilities import check_capabilities as _check_capabilities
+
+        check_capabilities = _check_capabilities
+
+
+def _get_configuration_loader() -> type[ConfigurationLoaderType]:
+    _ensure_config_dependencies()
+    return cast(type[ConfigurationLoaderType], ConfigurationLoader)
+
+
+def _get_pipeline_processor() -> type[PipelineProcessorType]:
+    _ensure_config_dependencies()
+    return cast(type[PipelineProcessorType], PipelineProcessor)
+
+
+def _get_local_gitlab_runner() -> type[LocalGitLabRunnerType]:
+    _ensure_runner_dependency()
+    return cast(type[LocalGitLabRunnerType], LocalGitLabRunner)
+
+
+def _get_gitlab_ci_validator() -> type[GitLabCIValidatorType]:
+    _ensure_validation_dependencies()
+    return cast(type[GitLabCIValidatorType], GitLabCIValidator)
+
+
+def _get_check_capabilities() -> Callable[[dict[str, Any]], list[Any]]:
+    _ensure_validation_dependencies()
+    return cast(Callable[[dict[str, Any]], list[Any]], check_capabilities)
+
 
 def setup_logging(verbose: bool, quiet: bool) -> None:
     """Configure logging based on verbosity flags."""
+    import logging
+
     if quiet:
         level = logging.ERROR
     elif verbose:
@@ -63,8 +137,8 @@ def setup_logging(verbose: bool, quiet: bool) -> None:
 def load_and_process_config(config_path: Path) -> tuple[dict, Any]:
     """Load and process configuration, returning raw config and pipeline config."""
     try:
-        loader = ConfigurationLoader()
-        processor = PipelineProcessor()
+        loader = _get_configuration_loader()()
+        processor = _get_pipeline_processor()()
 
         raw_config = loader.load_config(config_path)
         pipeline_config = processor.process_config(raw_config)
@@ -95,7 +169,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
-        runner = LocalGitLabRunner(base_path=config_path.parent)
+        runner = _get_local_gitlab_runner()(base_path=config_path.parent)
 
         job_filter: list[str] | None = args.jobs if args.jobs else None
         stage_filter: list[str] | None = args.stage if args.stage else None
@@ -169,6 +243,8 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 def cmd_validate(args: argparse.Namespace) -> None:
     """Validate the pipeline configuration."""
+    import json
+
     config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
 
     if not config_path.exists():
@@ -178,7 +254,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     try:
         # 1. Official Schema Validation
         print(f"🔍 Validating {config_path} against GitLab CI schema...")
-        validator = GitLabCIValidator()
+        validator = _get_gitlab_ci_validator()()
         yaml_content = config_path.read_text(encoding="utf-8")
         is_valid, schema_errors = validator.validate_ci_config(yaml_content)
 
@@ -191,7 +267,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
         # 2. Capability validation (informational only — does not block execution)
         raw_config, pipeline_config = load_and_process_config(config_path)
 
-        cap_diags = check_capabilities(raw_config)
+        cap_diags = _get_check_capabilities()(raw_config)
         if cap_diags:
             print("ℹ️  Local execution notes (these features behave differently or are skipped locally):")
             for d in cap_diags:

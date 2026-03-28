@@ -147,11 +147,51 @@ def test_env_not_stale():
 
 def test_streaming_not_delayed():
     # Streaming delivers complete lines promptly.
-    # Two lines separated by a sleep should arrive as two separate writes,
-    # at different times.
+    # Two lines emitted at different times should be forwarded as distinct writes.
     import time
 
-    script = 'echo "A"; sleep 0.5; echo "B"'
+    class TimedPipe:
+        def __init__(self, chunks):
+            self._chunks = list(chunks)
+            self._current = ""
+
+        def read(self, _size=1):
+            while not self._current and self._chunks:
+                delay, chunk = self._chunks.pop(0)
+                if delay:
+                    time.sleep(delay)
+                self._current = chunk
+            if not self._current:
+                return ""
+            ch = self._current[0]
+            self._current = self._current[1:]
+            return ch
+
+        def close(self):
+            return None
+
+    class FakeStdin:
+        def write(self, _data):
+            return None
+
+        def close(self):
+            return None
+
+    class FakePopen:
+        def __init__(self, *args, **kwargs):
+            self.stdout = TimedPipe([(0.0, "A\n"), (0.01, "B\n")])
+            self.stderr = TimedPipe([])
+            self.stdin = FakeStdin()
+            self.returncode = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def wait(self):
+            return self.returncode
 
     class Monitor:
         def __init__(self):
@@ -164,11 +204,18 @@ def test_streaming_not_delayed():
             pass
 
     monitor = Monitor()
-    run_bash(script, mode="stream", stdout_target=monitor)
+    from bitrab.execution import shell as shell_module
+
+    original_popen = shell_module.subprocess.Popen
+    shell_module.subprocess.Popen = FakePopen
+    try:
+        run_bash('echo "unused"', mode="stream", stdout_target=monitor)
+    finally:
+        shell_module.subprocess.Popen = original_popen
 
     # Two newline-terminated lines → two writes
     assert len(monitor.writes) >= 2
     first_write_time = monitor.writes[0][0]
     last_write_time = monitor.writes[-1][0]
-    # The sleep between lines means writes should be at least 0.4s apart
-    assert last_write_time - first_write_time >= 0.4
+    # The sleep between lines means writes should be visibly separated.
+    assert last_write_time - first_write_time >= 0.008
