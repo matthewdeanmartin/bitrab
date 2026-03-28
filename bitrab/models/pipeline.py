@@ -4,6 +4,26 @@ from dataclasses import dataclass, field
 
 
 @dataclass
+class RuleConfig:
+    """
+    Configuration for a single rule in a job.
+
+    Attributes:
+        if_expr: Expression to evaluate (e.g. '$CI_COMMIT_TAG').
+        when: Condition to apply if rule matches.
+        allow_failure: Override allow_failure if rule matches.
+        variables: Variables to inject if rule matches.
+        needs: Override needs if rule matches.
+    """
+
+    if_expr: str | None = None
+    when: str | None = None
+    allow_failure: bool | None = None
+    variables: dict[str, str] = field(default_factory=dict)
+    needs: list[str] | None = None
+
+
+@dataclass
 class JobConfig:
     """
     Configuration for a single job.
@@ -35,6 +55,9 @@ class JobConfig:
 
     # when: controls job execution condition
     when: str = "on_success"  # on_success | on_failure | always | manual | never
+
+    # rules: list of conditional rules
+    rules: list[RuleConfig] = field(default_factory=list)
 
     # DAG execution: explicit job dependencies (bypasses stage ordering)
     needs: list[str] = field(default_factory=list)

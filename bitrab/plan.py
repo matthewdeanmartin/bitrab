@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any, Union
@@ -8,7 +9,8 @@ from bitrab.config.loader import ConfigurationLoader
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.scheduler import StageOrchestrator
 from bitrab.execution.variables import VariableManager
-from bitrab.models.pipeline import DefaultConfig, JobConfig, PipelineConfig
+from bitrab.config.rules import evaluate_rules
+from bitrab.models.pipeline import DefaultConfig, JobConfig, PipelineConfig, RuleConfig
 
 _DURATION_RE = re.compile(
     r"""
@@ -254,6 +256,33 @@ class PipelineProcessor:
             else:
                 dependencies = []
 
+        # rules: conditional execution
+        rules_raw = job_data.get("rules", [])
+        rules: list[RuleConfig] = []
+        if isinstance(rules_raw, list):
+            for r in rules_raw:
+                if isinstance(r, dict):
+                    rule_needs: list[str] | None = None
+                    if "needs" in r:
+                        rule_needs = []
+                        _rn = r["needs"]
+                        if isinstance(_rn, list):
+                            for item in _rn:
+                                if isinstance(item, str):
+                                    rule_needs.append(item)
+                                elif isinstance(item, dict) and "job" in item:
+                                    rule_needs.append(str(item["job"]))
+
+                    rules.append(
+                        RuleConfig(
+                            if_expr=r.get("if"),
+                            when=r.get("when"),
+                            allow_failure=r.get("allow_failure"),
+                            variables=r.get("variables", {}),
+                            needs=rule_needs,
+                        )
+                    )
+
         # when keyword
         when = job_data.get("when", "on_success")
         if when not in {"on_success", "on_failure", "always", "manual", "never", "delayed"}:
@@ -272,6 +301,7 @@ class PipelineProcessor:
             allow_failure=allow_failure,
             allow_failure_exit_codes=allow_failure_exit_codes,
             when=when,
+            rules=rules,
             needs=needs,
             timeout=timeout,
             artifacts_paths=artifacts_paths,
@@ -365,6 +395,16 @@ class LocalGitLabRunner:
 
         # Set up execution components
         variable_manager = VariableManager(pipeline.variables, project_dir=self.base_path)
+
+        # Evaluate rules for each job
+        # We use a base environment (os + global + builtin) for rule evaluation
+        base_env = os.environ.copy()
+        base_env.update(variable_manager.gitlab_ci_vars)
+        base_env.update(variable_manager.base_variables)
+
+        for job in pipeline.jobs:
+            evaluate_rules(job, base_env)
+
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
         if use_tui or (ci_mode and not dry_run):

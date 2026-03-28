@@ -35,7 +35,6 @@ from bitrab.execution.shell import RunResult, _colors_enabled, force_subproc_mod
 from bitrab.execution.stage_runner import (
     PipelineCallbacks,
     StagePipelineRunner,
-    _filter_jobs_by_when,
     _is_failure_allowed,
 )
 from bitrab.execution.variables import VariableManager

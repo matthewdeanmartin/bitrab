@@ -148,7 +148,8 @@ class JobExecutor:
             JobExecutionError: If the job fails to execute successfully.
         """
         if ctx is None:
-            assert job is not None, "Either 'job' or 'ctx' must be provided"
+            if job is None:
+                raise ValueError("Either 'job' or 'ctx' must be provided")
             ctx = self.build_context(job, job_dir=job_dir, output_writer=output_writer, timeout=timeout)
 
         self._execute_with_context(ctx)

@@ -137,11 +137,6 @@ def test_validate_gitlab_ci_yaml_convenience(tmp_path, mock_schema):
 
 
 def test_load_fallback_schema(validator, mock_schema):
-    # Test loading from relative path
-    with patch("pathlib.Path.exists", return_value=True):
-        with patch("builtins.open", patch.object(Path, "read_text", return_value=json.dumps(mock_schema))):
-            # This is tricky because of how Path and open are used.
-            # Let's try a simpler approach by mocking _load_fallback_schema itself in other tests
-            # and here just verify it doesn't crash.
-            validator._load_fallback_schema()
-            # It might return None if it can't find the real file, which is fine for this sanity check.
+    # Verify _load_fallback_schema doesn't crash and returns None when file is absent
+    result = validator._load_fallback_schema()
+    assert result is None or isinstance(result, dict)
