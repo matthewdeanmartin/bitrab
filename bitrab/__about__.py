@@ -13,11 +13,11 @@ __all__ = [
 ]
 
 __title__ = "bitrab"
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __description__ = "Compile bash to gitlab pipeline yaml"
 __readme__ = "README.md"
 __credits__ = [{'name': 'Matthew Martin', 'email': 'matthewdeanmartin@gmail.com'}]
 __keywords__ = ['bash', 'gitlab']
 __license__ = "MIT"
-__requires_python__ = ">=3.8"
+__requires_python__ = ">=3.9"
 __status__ = "4 - Beta"

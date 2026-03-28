@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed for any bug fixes.
 - Security in case of vulnerabilities.
 
+## [0.2.1] - 2026-03-28
+
+### Removed
+
+- Dropped support for Python 3.8. Minimum required version is now 3.9.
+
+
 ## [0.2.0] - 2026-03-27
 
 ### Added
