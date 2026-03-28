@@ -79,7 +79,8 @@ def _run_single_job_queued(
         worker_pids[job.name] = os.getpid()
     writer = QueueWriter(output_queue, job.name)
     try:
-        executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+        ctx = executor.build_context(job, job_dir=job_dir, output_writer=writer)
+        executor.execute_job(ctx=ctx)
     finally:
         output_queue.put((job.name, None))  # sentinel: job done
     return executor.job_history
@@ -96,7 +97,8 @@ def _run_single_job_file(
     log_path = Path(log_path)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "w", encoding="utf-8") as fh:
-        executor.execute_job(job, job_dir=job_dir, output_writer=fh)
+        ctx = executor.build_context(job, job_dir=job_dir, output_writer=fh)
+        executor.execute_job(ctx=ctx)
     return executor.job_history
 
 
@@ -322,7 +324,8 @@ class TUIOrchestrator:
         app.call_from_thread(app.post_message, JobStatusChanged(job.name, "running"))
         writer = QueueWriter(output_queue, job.name)
         try:
-            self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
+            self.job_executor.execute_job(ctx=ctx)
             app.call_from_thread(app.post_message, JobStatusChanged(job.name, "success"))
         except Exception:
             app.call_from_thread(app.post_message, JobStatusChanged(job.name, "failed"))

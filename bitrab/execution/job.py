@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess  # nosec
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from bitrab.exceptions import BitrabError, JobExecutionError, JobTimeoutError
 from bitrab.execution.shell import RunResult, TextWriter, run_bash
@@ -10,6 +11,30 @@ from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
 
 FAIL_FAST = False
+
+
+@dataclass(frozen=True)
+class JobRuntimeContext:
+    """Frozen per-job context built once before execution begins.
+
+    Replaces the pattern where :meth:`JobExecutor.execute_job` receives
+    scattered parameters and rebuilds the environment on every call.
+
+    Attributes:
+        job: The job configuration.
+        env: Fully resolved environment dict (os.environ + CI vars + job vars).
+        job_dir: Per-job workspace directory (e.g. ``.bitrab/<job>/``).
+        project_dir: The project root directory (used as cwd for scripts).
+        output_writer: File-like sink for job output; ``None`` → sys.stdout.
+        timeout: Maximum seconds the job may run; ``None`` → no limit.
+    """
+
+    job: JobConfig
+    env: dict[str, str] = field(default_factory=dict)
+    job_dir: Path = field(default_factory=Path)
+    project_dir: Path = field(default_factory=Path)
+    output_writer: TextWriter | None = None
+    timeout: float | None = None
 
 
 class JobExecutor:
@@ -66,31 +91,81 @@ class JobExecutor:
         # exponential (default)
         return float(base) * (2 ** (attempt_index - 1))
 
-    def execute_job(self, job: JobConfig, job_dir: Path | None = None, output_writer: TextWriter | None = None, timeout: float | None = None) -> None:
+    def build_context(
+        self,
+        job: JobConfig,
+        job_dir: Path | None = None,
+        output_writer: TextWriter | None = None,
+        timeout: float | None = None,
+    ) -> JobRuntimeContext:
+        """Build a :class:`JobRuntimeContext` for *job*.
+
+        This resolves the environment once via :pyattr:`variable_manager` and
+        wires in ``CI_JOB_DIR``.  The returned context is frozen and can be
+        passed to :meth:`execute_job`.
         """
-        Execute a single job.
-
-        Args:
-            job: The job configuration.
-            job_dir: Optional override for the execution directory.
-            output_writer: Optional file-like object for all job output. When None,
-                           output goes to sys.stdout/sys.stderr (default behavior).
-
-        Raises:
-            JobExecutionError: If the job fails to execute successfully.
-        """
-        _print = (lambda msg: output_writer.write(msg + "\n")) if output_writer else print
-        _print(f"🔧 Running job: {job.name} (stage: {job.stage})")
-
         env = self.variable_manager.prepare_environment(job)
-        # Always run scripts from project_dir so relative paths (e.g. ./scripts/foo.sh)
-        # resolve correctly. job_dir is exposed as CI_JOB_DIR for scripts that need
-        # an isolated workspace, but it is NOT used as cwd.
-        execution_dir = self.project_dir
         if job_dir is not None:
             env["CI_JOB_DIR"] = str(job_dir)
 
         job_timeout = job.timeout if job.timeout is not None else timeout
+        return JobRuntimeContext(
+            job=job,
+            env=env,
+            job_dir=job_dir or self.project_dir,
+            project_dir=self.project_dir,
+            output_writer=output_writer,
+            timeout=job_timeout,
+        )
+
+    def execute_job(
+        self,
+        job: JobConfig | None = None,
+        job_dir: Path | None = None,
+        output_writer: TextWriter | None = None,
+        timeout: float | None = None,
+        *,
+        ctx: JobRuntimeContext | None = None,
+    ) -> None:
+        """Execute a single job.
+
+        May be called in two ways:
+
+        1. **Legacy (scattered params)**::
+
+               executor.execute_job(job, job_dir=..., output_writer=...)
+
+        2. **New (context)**::
+
+               ctx = executor.build_context(job, ...)
+               executor.execute_job(ctx=ctx)
+
+        When *ctx* is provided, *job*, *job_dir*, *output_writer*, and
+        *timeout* are ignored.
+
+        Raises:
+            JobExecutionError: If the job fails to execute successfully.
+        """
+        if ctx is None:
+            assert job is not None, "Either 'job' or 'ctx' must be provided"
+            ctx = self.build_context(job, job_dir=job_dir, output_writer=output_writer, timeout=timeout)
+
+        self._execute_with_context(ctx)
+
+    def _execute_with_context(self, ctx: JobRuntimeContext) -> None:
+        """Core execution loop driven by a :class:`JobRuntimeContext`."""
+        job = ctx.job
+        output_writer = ctx.output_writer
+        # Always run scripts from project_dir so relative paths (e.g. ./scripts/foo.sh)
+        # resolve correctly. job_dir is exposed as CI_JOB_DIR for scripts that need
+        # an isolated workspace, but it is NOT used as cwd.
+        execution_dir = ctx.project_dir
+        env = dict(ctx.env)  # mutable copy (frozen dataclass stores the original)
+
+        _print = (lambda msg: output_writer.write(msg + "\n")) if output_writer else print
+        _print(f"🔧 Running job: {job.name} (stage: {job.stage})")
+
+        job_timeout = ctx.timeout
         deadline: float | None = (time.monotonic() + job_timeout) if job_timeout is not None else None
 
         max_attempts = 1 + max(0, int(job.retry_max))

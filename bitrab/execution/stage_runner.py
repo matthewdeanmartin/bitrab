@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from bitrab.execution.artifacts import collect_artifacts, inject_dependencies
-from bitrab.execution.job import JobExecutor, RunResult
+from bitrab.execution.job import JobExecutor, JobRuntimeContext, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 
@@ -124,6 +124,14 @@ class PipelineCallbacks:
     def on_cancelled(self) -> None:
         """Called when the pipeline is aborted due to cancellation."""
 
+    def enrich_context(self, ctx: JobRuntimeContext) -> JobRuntimeContext:
+        """Optionally transform the context before it is passed to a worker.
+
+        The default implementation returns *ctx* unchanged.  Override this to
+        swap the output writer, inject extra env vars, etc.
+        """
+        return ctx
+
 
 # ---------------------------------------------------------------------------
 # Default (picklable) worker
@@ -177,7 +185,8 @@ def _default_worker(
     job_dir: Path,
 ) -> list[RunResult]:
     """Module-level worker: run one job, return its history."""
-    executor.execute_job(job, job_dir=job_dir)
+    ctx = executor.build_context(job, job_dir=job_dir)
+    executor.execute_job(ctx=ctx)
     return executor.job_history
 
 
@@ -313,9 +322,11 @@ class StagePipelineRunner:
             cb.on_job_start(job)
             inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
+            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
+            ctx = cb.enrich_context(ctx)
             succeeded = True
             try:
-                self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+                self.job_executor.execute_job(ctx=ctx)
                 outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
             except BaseException as exc:
                 succeeded = False
@@ -588,9 +599,11 @@ class DagPipelineRunner:
             cb.on_job_start(job)
             inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
+            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
+            ctx = cb.enrich_context(ctx)
             succeeded = True
             try:
-                self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+                self.job_executor.execute_job(ctx=ctx)
                 outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
             except BaseException as exc:
                 succeeded = False
