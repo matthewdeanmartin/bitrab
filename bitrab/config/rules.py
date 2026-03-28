@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import re
 
 from bitrab.models.pipeline import JobConfig, RuleConfig
+
+logger = logging.getLogger(__name__)
 
 # Pre-compiled regexes for rule evaluation
 _RE_VARIABLE = re.compile(r"^\$(\w+)\s*$")
@@ -67,7 +70,8 @@ def _evaluate_if(expr: str, env: dict[str, str]) -> bool:
     - $VAR != "value"
     - $VAR =~ /regex/
     - $VAR !~ /regex/
-    - Simple combinations with && and || (basic support)
+
+    NOT yet supported: compound expressions with && or ||.
     """
     # Simple implementation for now:
     # 1. Variable existence/non-empty check: "$CI_COMMIT_TAG"
@@ -106,5 +110,6 @@ def _evaluate_if(expr: str, env: dict[str, str]) -> bool:
         except re.error:
             return True
 
-    # Fallback or complex expressions: return False for now to be safe
+    # Fallback: unrecognized expression — warn and treat as non-match
+    logger.warning("Could not evaluate rules expression: %r — treating as non-match", expr)
     return False

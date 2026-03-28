@@ -57,7 +57,8 @@ _TOP_LEVEL_NON_JOBS = {
 # Helpers
 # ---------------------------------------------------------------------------
 
-_SUPPORTED_RULES_KEYS = {"if", "when", "exists", "allow_failure", "variables"}
+_SUPPORTED_RULES_KEYS = {"if", "when", "allow_failure", "variables"}
+_UNIMPLEMENTED_RULES_KEYS = {"exists"}  # parsed but not yet evaluated
 _UNSUPPORTED_RULES_KEYS = {"changes"}
 
 
@@ -241,6 +242,17 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                             feature="rules:changes",
                             message=(
                                 f"Job '{job_name}', rule {i + 1}: 'changes:' conditions are not yet evaluated locally and will be skipped."
+                            ),
+                        )
+                    )
+                unimplemented = _UNIMPLEMENTED_RULES_KEYS & rule.keys()
+                if unimplemented:
+                    diags.append(
+                        CapabilityDiagnostic(
+                            level=DiagnosticLevel.WARNING,
+                            feature="rules:exists",
+                            message=(
+                                f"Job '{job_name}', rule {i + 1}: 'exists:' conditions are not yet evaluated locally and will be ignored."
                             ),
                         )
                     )
