@@ -73,6 +73,11 @@ pre-commit: .build_history/pre-commit
 .PHONY: bandit
 bandit: .build_history/bandit
 
+.PHONY: benchmark
+benchmark: uv.lock
+	@echo "Running performance benchmarks"
+	$(VENV) pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1
+
 .PHONY: pylint
 .build_history/pylint: .build_history .build_history/isort .build_history/black $(FILES)
 	@echo "Linting with pylint"

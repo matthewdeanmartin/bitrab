@@ -113,6 +113,7 @@ dev = [
     "hypothesis[cli]; python_version >= '3.8'",
     "detect-test-pollution",
     "pytest-timeout>=2.4.0",
+    "pytest-benchmark>=4.0.0; python_version >= '3.8'",
     # docs
     "interrogate>=1.5.0; python_version >= '3.8'",
     "pydoctest==0.2.1; python_version >= '3.8'",
@@ -189,7 +190,7 @@ exclude = '''
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-n auto --dist loadfile"
+addopts = "-n auto --dist loadfile --benchmark-min-rounds=5 --benchmark-min-time=0.1"
 testpaths = [
     "test",
     "tests"
