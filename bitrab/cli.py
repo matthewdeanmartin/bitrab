@@ -8,12 +8,11 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
-from typing import Any
-from typing import Callable
-from typing import cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 from bitrab.__about__ import __version__
+from bitrab.console import configure_stdio
+from bitrab.console import safe_print as print
 from bitrab.exceptions import BitrabError, GitlabRunnerError
 
 if TYPE_CHECKING:
@@ -21,9 +20,13 @@ if TYPE_CHECKING:
     from bitrab.config.validate_pipeline import GitLabCIValidator as GitLabCIValidatorType
     from bitrab.plan import LocalGitLabRunner as LocalGitLabRunnerType
     from bitrab.plan import PipelineProcessor as PipelineProcessorType
+else:
+    ConfigurationLoaderType = Any
+    GitLabCIValidatorType = Any
+    LocalGitLabRunnerType = Any
+    PipelineProcessorType = Any
 
-# emoji support
-sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+configure_stdio()
 
 __license__ = """MIT License
 

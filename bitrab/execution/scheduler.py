@@ -5,6 +5,7 @@ Thin wrapper around :class:`StagePipelineRunner` that prints status to stdout.
 
 from __future__ import annotations
 
+from bitrab.console import safe_print as print
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner
 from bitrab.models.pipeline import JobConfig, PipelineConfig

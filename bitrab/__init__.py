@@ -1,3 +1,7 @@
+from bitrab.console import configure_stdio
+
+configure_stdio()
+
 __all__ = ["main"]
 
 

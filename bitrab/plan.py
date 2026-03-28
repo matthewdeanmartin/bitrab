@@ -7,6 +7,7 @@ from typing import Any, Union
 
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.config.rules import evaluate_rules
+from bitrab.console import safe_print as print
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.scheduler import StageOrchestrator
 from bitrab.execution.variables import VariableManager
