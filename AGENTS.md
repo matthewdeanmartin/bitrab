@@ -26,3 +26,29 @@ uv run pytest
 uv run ruff check .
 uv run mypy bitrab/
 ```
+
+## Build workflows
+
+Both `Makefile` and `Justfile` are supported and should stay feature-parity.
+
+Discover targets with:
+
+```bash
+make help
+just help
+```
+
+Preferred workflows:
+
+```bash
+make check-human
+just check-human
+```
+
+- `fix` is the mutating phase
+- `verify` is the read-only verification phase
+- `check-ci` is non-mutating and CI-safe
+- `check-llm` is compact and token-efficient
+- `fast-verify` runs read-only checks in parallel with grouped logs
+- `bugs` is the bug-finding oriented workflow
+- `repro` runs serial verification for easier debugging

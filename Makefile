@@ -1,7 +1,11 @@
 .EXPORT_ALL_VARIABLES:
-# Get changed files
+SHELL := bash
 
 FILES := $(wildcard **/*.py)
+LOGS_DIR := .build_logs
+STAMP_DIR := .build_history
+VERIFY_TARGETS := ruff mypy pylint bandit smoke pytest
+NO_COLOR_ENV := NO_COLOR=1 CLICOLOR=0 FORCE_COLOR=0 PY_COLORS=0
 
 # if you wrap everything in uv run, it runs slower.
 ifeq ($(origin VIRTUAL_ENV),undefined)
@@ -14,6 +18,46 @@ uv.lock: pyproject.toml
 	@echo "Installing dependencies"
 	@uv sync --all-extras
 
+.PHONY: uv-lock
+uv-lock: uv.lock
+
+.PHONY: help
+help:
+	@echo "Build targets:"
+	@echo "  help             List build targets and descriptions"
+	@echo "  list-jobs        Alias for help"
+	@echo "  fix              Run source-mutating fixers in canonical order"
+	@echo "  fix-ci           Read-only formatter drift checks"
+	@echo "  verify           Run read-only verification targets"
+	@echo "  fast-verify      Run read-only verification in parallel with log collation"
+	@echo "  triage           Alias for fast-verify"
+	@echo "  repro            Run serial verification for easier debugging"
+	@echo "  bugs             Run bug-finding focused checks"
+	@echo "  check-human      Run fix, then verify with human-friendly sequencing"
+	@echo "  check            Alias for check-human"
+	@echo "  check-ci         Run non-mutating CI-safe verification and docs checks"
+	@echo "  check-llm        Run compact token-efficient verification"
+	@echo "  full-verify      Run verify plus docs checks"
+	@echo "  ruff             Run read-only ruff checks"
+	@echo "  mypy             Run mypy"
+	@echo "  pylint           Run pylint"
+	@echo "  bandit           Run bandit"
+	@echo "  pytest           Run the Python test suite"
+	@echo "  smoke            Run CLI smoke tests"
+	@echo "  test             Run pytest plus smoke tests"
+	@echo "  benchmark        Run performance benchmarks"
+	@echo "  pre-commit       Run pre-commit hooks"
+	@echo "  check-docs       Run documentation checks"
+	@echo "  check-md         Run markdown checks in read-only mode"
+	@echo "  check-spelling   Run spelling checks"
+	@echo "  check-changelog  Validate changelog format"
+	@echo "  check-all-docs   Run all documentation checks"
+	@echo "  refresh-schema   Refresh vendored GitLab schema files"
+	@echo "  publish          Build the distribution"
+
+.PHONY: list-jobs
+list-jobs: help
+
 clean-pyc:
 	@echo "Removing compiled files"
 
@@ -25,21 +69,19 @@ clean-test:
 
 clean: clean-pyc clean-test
 
-# tests can't be expected to pass if dependencies aren't installed.
-# tests are often slow and linting is fast, so run tests on linted code.
-test: clean uv.lock install_plugins
-	@echo "Running unit tests"
-	# $(VENV) pytest --doctest-modules bitrab
-	# $(VENV) python -m unittest discover
-	$(VENV) pytest test -vv --cov=bitrab --cov-report=html --cov-fail-under 35 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600
-	$(VENV) bash ./scripts/basic_checks.sh
-#	$(VENV) bash basic_test_with_logging.sh
+install_plugins:
+	@echo "N/A"
 
+.PHONY: install-plugins
+install-plugins: install_plugins
 
-.build_history:
-	@mkdir -p .build_history
+$(STAMP_DIR):
+	@mkdir -p $(STAMP_DIR)
 
-.build_history/isort: .build_history $(FILES)
+$(LOGS_DIR):
+	@mkdir -p $(LOGS_DIR)
+
+.build_history/isort: $(STAMP_DIR) uv.lock pyproject.toml $(FILES)
 	@echo "Formatting imports"
 	$(VENV) isort .
 	@touch .build_history/isort
@@ -47,103 +89,236 @@ test: clean uv.lock install_plugins
 .PHONY: isort
 isort: .build_history/isort
 
-.build_history/black: .build_history .build_history/isort $(FILES)
+.build_history/black: $(STAMP_DIR) uv.lock pyproject.toml $(FILES)
 	@echo "Formatting code"
-	$(VENV) metametameta pep621
-	$(VENV) black bitrab # --exclude .venv
-	$(VENV) black test # --exclude .venv
-	$(VENV) git2md bitrab --ignore __init__.py __pycache__ --output SOURCE.md
+	$(VENV) black bitrab
+	$(VENV) black test
+	@touch .build_history/black
 
 .PHONY: black
 black: .build_history/black
 
-.build_history/pre-commit: .build_history .build_history/isort .build_history/black
-	@echo "Pre-commit checks"
-	$(VENV) pre-commit run --all-files
-	@touch .build_history/pre-commit
+.build_history/ruff-fix: $(STAMP_DIR) uv.lock pyproject.toml $(FILES)
+	@echo "Auto-fixing with ruff"
+	$(VENV) ruff check --fix .
+	@touch .build_history/ruff-fix
 
-.PHONY: pre-commit
-pre-commit: .build_history/pre-commit
+.PHONY: ruff-fix
+ruff-fix: .build_history/ruff-fix
 
-.build_history/bandit: .build_history $(FILES)
-	@echo "Security checks"
-	$(VENV)  bandit bitrab -r --quiet
-	@touch .build_history/bandit
+.build_history/sync-metadata: $(STAMP_DIR) uv.lock pyproject.toml $(FILES)
+	@echo "Syncing generated metadata"
+	$(VENV) metametameta pep621
+	$(VENV) git2md bitrab --ignore __init__.py __pycache__ --output SOURCE.md
+	@touch .build_history/sync-metadata
 
-.PHONY: bandit
-bandit: .build_history/bandit
+.PHONY: sync-metadata
+sync-metadata: .build_history/sync-metadata
 
-.PHONY: benchmark
-benchmark: uv.lock
-	@echo "Running performance benchmarks"
-	$(VENV) pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1
+.PHONY: fix
+fix: uv-lock install-plugins ruff-fix isort black sync-metadata
+
+.PHONY: format-check
+format-check: uv-lock install-plugins
+	@echo "Checking formatter drift"
+	$(NO_COLOR_ENV) $(VENV) isort --check-only .
+	$(NO_COLOR_ENV) $(VENV) black --check bitrab test
+	$(NO_COLOR_ENV) $(VENV) ruff check .
+
+.PHONY: fix-ci
+fix-ci: format-check
+
+.PHONY: ruff-only
+ruff-only:
+	@echo "Running ruff"
+	$(NO_COLOR_ENV) $(VENV) ruff check .
+
+.PHONY: ruff
+ruff: uv-lock install-plugins ruff-only
+
+.PHONY: mypy-only
+mypy-only:
+	@echo "Running mypy"
+	$(NO_COLOR_ENV) $(VENV) mypy bitrab --ignore-missing-imports --check-untyped-defs
+
+.PHONY: mypy
+mypy: uv-lock install-plugins mypy-only
+
+.PHONY: pylint-only
+pylint-only:
+	@echo "Running pylint"
+	$(NO_COLOR_ENV) $(VENV) pylint bitrab --fail-under 9.8
 
 .PHONY: pylint
-.build_history/pylint: .build_history .build_history/isort .build_history/black $(FILES)
-	@echo "Linting with pylint"
-	$(VENV) ruff --fix bitrab
-	$(VENV) pylint bitrab --fail-under 9.8
-	@touch .build_history/pylint
+pylint: uv-lock install-plugins pylint-only
 
-# for when using -j (jobs, run in parallel)
-.NOTPARALLEL: .build_history/isort .build_history/black
+.PHONY: bandit-only
+bandit-only:
+	@echo "Running bandit"
+	$(NO_COLOR_ENV) $(VENV) bandit bitrab -r --quiet
 
-check: mypy test pylint bandit pre-commit update-schema
+.PHONY: bandit
+bandit: uv-lock install-plugins bandit-only
 
-#.PHONY: publish_test
-#publish_test:
-#	rm -rf dist && poetry version minor && poetry build && twine upload -r testpypi dist/*
+.PHONY: pytest-only
+pytest-only:
+	@echo "Running unit tests"
+	$(NO_COLOR_ENV) $(VENV) pytest test -vv --cov=bitrab --cov-report=html --cov-fail-under 35 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600 --color=no
+
+.PHONY: pytest
+pytest: clean uv-lock install-plugins pytest-only
+
+.PHONY: smoke-only
+smoke-only:
+	@echo "Running CLI smoke checks"
+	$(NO_COLOR_ENV) $(VENV) bash ./scripts/basic_checks.sh
+
+.PHONY: smoke
+smoke: uv-lock install-plugins smoke-only
+
+.PHONY: test
+test: pytest smoke
+
+.PHONY: verify
+verify: ruff mypy pylint bandit test
+
+.PHONY: fast-verify
+fast-verify: clean uv-lock install-plugins $(LOGS_DIR)
+	@rm -f $(LOGS_DIR)/*.log $(LOGS_DIR)/*.ok || true
+	@set -eu; \
+	for target in $(VERIFY_TARGETS); do \
+		( "$(MAKE)" --no-print-directory $$target-only > $(LOGS_DIR)/$$target.log 2>&1 && touch $(LOGS_DIR)/$$target.ok ) & \
+	done; \
+	wait; \
+	status=0; \
+	for target in $(VERIFY_TARGETS); do \
+		echo ""; \
+		echo "===== $$target ====="; \
+		if test -f $(LOGS_DIR)/$$target.log; then tail -n 80 $(LOGS_DIR)/$$target.log; fi; \
+		if ! test -f $(LOGS_DIR)/$$target.ok; then status=1; fi; \
+	done; \
+	exit $$status
+
+.PHONY: triage
+triage: fast-verify
+
+.PHONY: repro
+repro: clean uv-lock install-plugins
+	@echo "Running serial reproduction-friendly verification"
+	$(NO_COLOR_ENV) $(VENV) pytest test -n 0 -vv --maxfail=1 --cov=bitrab --cov-report=xml --cov-branch --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600 --color=no
+	$(NO_COLOR_ENV) $(VENV) bash ./scripts/basic_checks.sh
+
+.PHONY: bugs
+bugs: fix-ci ruff mypy pylint bandit repro smoke
+
+.PHONY: benchmark
+benchmark: uv-lock install-plugins
+	@echo "Running performance benchmarks"
+	$(NO_COLOR_ENV) $(VENV) pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1 --color=no
+
+.PHONY: pre-commit
+pre-commit: uv-lock install-plugins
+	@echo "Running pre-commit hooks"
+	$(VENV) pre-commit run --all-files
+
+.PHONY: check-human
+check-human: fix verify
+
+.PHONY: check
+check: check-human
+
+.PHONY: check-ci
+check-ci: fix-ci fast-verify check-all-docs
+
+.PHONY: full-verify
+full-verify: verify check-all-docs
+
+.PHONY: test-llm
+test-llm: clean uv-lock install-plugins
+	@echo "=== pytest (errors only) ==="
+	@$(NO_COLOR_ENV) $(VENV) pytest test -q --tb=short --no-header --cov=bitrab --cov-fail-under 35 --cov-branch --timeout=15 --session-timeout=600 --color=no 2>&1 | tail -40
+
+.PHONY: lint-llm
+lint-llm: uv-lock install-plugins
+	@echo "=== ruff ==="
+	@$(NO_COLOR_ENV) $(VENV) ruff check . 2>&1 | head -50
+	@echo "=== pylint ==="
+	@$(NO_COLOR_ENV) $(VENV) pylint bitrab --fail-under 9.8 --output-format=text 2>&1 | grep -E "^bitrab|^E|^W|^C|Your code|[Ee]rror" | head -60
+
+.PHONY: mypy-llm
+mypy-llm: uv-lock install-plugins
+	@echo "=== mypy ==="
+	@$(NO_COLOR_ENV) $(VENV) mypy bitrab --ignore-missing-imports --check-untyped-defs --no-error-summary 2>&1 | grep -v "^Success" | head -60
+
+.PHONY: bandit-llm
+bandit-llm: uv-lock install-plugins
+	@echo "=== bandit ==="
+	@$(NO_COLOR_ENV) $(VENV) bandit bitrab -r --severity-level medium 2>&1 | grep -E "Issue|Severity|>>|^$$" | head -40
+
+.PHONY: smoke-llm
+smoke-llm: uv-lock install-plugins
+	@echo "=== smoke ==="
+	@$(NO_COLOR_ENV) $(VENV) bash ./scripts/basic_checks.sh 2>&1 | tail -30
+
+.PHONY: check-llm
+check-llm: mypy-llm lint-llm bandit-llm test-llm smoke-llm
+	@echo "=== check-llm done ==="
+
+check_docs:
+	$(NO_COLOR_ENV) $(VENV) interrogate bitrab --verbose --fail-under 70
+	$(NO_COLOR_ENV) $(VENV) pydoctest --config .pydoctest.json | grep -v "__init__" | grep -v "__main__" | grep -v "Unable to parse"
+
+.PHONY: check-docs
+check-docs: check_docs
+
+make_docs:
+	$(VENV) pdoc bitrab --html -o docs --force
+
+.PHONY: make-docs
+make-docs: make_docs
+
+check_md:
+	$(NO_COLOR_ENV) $(VENV) linkcheckMarkdown README.md
+	$(NO_COLOR_ENV) $(VENV) markdownlint README.md --config .markdownlintrc
+	$(NO_COLOR_ENV) $(VENV) mdformat --check README.md docs/*.md
+
+.PHONY: check-md
+check-md: check_md
+
+check_spelling:
+	$(NO_COLOR_ENV) $(VENV) pylint bitrab --enable C0402 --rcfile=.pylintrc_spell
+	$(NO_COLOR_ENV) $(VENV) pylint docs --enable C0402 --rcfile=.pylintrc_spell
+	$(NO_COLOR_ENV) $(VENV) codespell README.md --ignore-words=private_dictionary.txt
+	$(NO_COLOR_ENV) $(VENV) codespell bitrab --ignore-words=private_dictionary.txt
+	$(NO_COLOR_ENV) $(VENV) codespell docs --ignore-words=private_dictionary.txt
+
+.PHONY: check-spelling
+check-spelling: check_spelling
+
+check_changelog:
+	$(NO_COLOR_ENV) $(VENV) changelogmanager validate
+
+.PHONY: check-changelog
+check-changelog: check_changelog
+
+check_all_docs: check_docs check_md check_spelling check_changelog
+
+.PHONY: check-all-docs
+check-all-docs: check_all_docs
+
+check_self:
+	$(NO_COLOR_ENV) $(VENV) ./scripts/dog_food.sh
+
+.PHONY: check-own-ver
+check-own-ver: check_self
 
 .PHONY: publish
 publish: test
 	rm -rf dist && hatch build
 
-.PHONY: mypy
-mypy:
-	$(VENV) echo $$PYTHONPATH
-	$(VENV) mypy bitrab --ignore-missing-imports --check-untyped-defs
-
-
-check_docs:
-	$(VENV) interrogate bitrab --verbose  --fail-under 70
-	$(VENV) pydoctest --config .pydoctest.json | grep -v "__init__" | grep -v "__main__" | grep -v "Unable to parse"
-
-make_docs:
-	pdoc bitrab --html -o docs --force
-
-check_md:
-	$(VENV) linkcheckMarkdown README.md
-	$(VENV) markdownlint README.md --config .markdownlintrc
-	$(VENV) mdformat README.md docs/*.md
-
-
-check_spelling:
-	$(VENV) pylint bitrab --enable C0402 --rcfile=.pylintrc_spell
-	$(VENV) pylint docs --enable C0402 --rcfile=.pylintrc_spell
-	$(VENV) codespell README.md --ignore-words=private_dictionary.txt
-	$(VENV) codespell bitrab --ignore-words=private_dictionary.txt
-	$(VENV) codespell docs --ignore-words=private_dictionary.txt
-
-check_changelog:
-	# pipx install keepachangelog-manager
-	$(VENV) changelogmanager validate
-
-check_all_docs: check_docs check_md check_spelling check_changelog
-
-check_self:
-	# Can it verify itself?
-	$(VENV) ./scripts/dog_food.sh
-
-#audit:
-#	# $(VENV) python -m bitrab audit
-#	$(VENV) tool_audit single bitrab --version=">=2.0.0"
-
-install_plugins:
-	echo "N/A"
-
 .PHONY: issues
 issues:
-	echo "N/A"
+	@echo "N/A"
 
 core_all_tests:
 	./scripts/exercise_core_all.sh bitrab "compile --in examples/compile/src --out examples/compile/out --dry-run"
@@ -163,3 +338,6 @@ update-schema:
 	else \
 		echo "⚠️  Warning: Failed to download NOTICE"; \
 	fi
+
+.PHONY: refresh-schema
+refresh-schema: update-schema
