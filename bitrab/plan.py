@@ -7,7 +7,7 @@ from typing import Any, Union
 
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.config.rules import evaluate_rules
-from bitrab.console import safe_print as print
+from bitrab.console import safe_print
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.scheduler import StageOrchestrator
 from bitrab.execution.variables import VariableManager
@@ -383,15 +383,15 @@ class LocalGitLabRunner:
                 known_jobs = {j.name for j in pipeline.jobs}
                 for name in job_filter:
                     if name not in known_jobs:
-                        print(f"⚠️  Unknown job: '{name}' (not found in pipeline)")
+                        safe_print(f"⚠️  Unknown job: '{name}' (not found in pipeline)")
             if stage_filter is not None:
                 known_stages = set(pipeline.stages)
                 for name in stage_filter:
                     if name not in known_stages:
-                        print(f"⚠️  Unknown stage: '{name}' (not found in pipeline)")
+                        safe_print(f"⚠️  Unknown stage: '{name}' (not found in pipeline)")
             pipeline = filter_pipeline(pipeline, jobs=job_filter, stages=stage_filter)
             if not pipeline.jobs:
-                print("⚠️  No jobs match the given filter — nothing to run.")
+                safe_print("⚠️  No jobs match the given filter — nothing to run.")
                 return
 
         # Set up execution components

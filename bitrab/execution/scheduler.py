@@ -5,7 +5,7 @@ Thin wrapper around :class:`StagePipelineRunner` that prints status to stdout.
 
 from __future__ import annotations
 
-from bitrab.console import safe_print as print
+from bitrab.console import safe_print
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner
 from bitrab.models.pipeline import JobConfig, PipelineConfig
@@ -19,35 +19,35 @@ class _StreamingCallbacks(PipelineCallbacks):
 
     def on_pipeline_start(self, pipeline: PipelineConfig, max_workers: int) -> None:
         if self._dry_run:
-            print("🚀 Starting GitLab CI pipeline dry run")
+            safe_print("🚀 Starting GitLab CI pipeline dry run")
         else:
-            print("🚀 Starting GitLab CI pipeline execution")
-        print(f"📋 Stages: {', '.join(pipeline.stages)}")
-        print(f"🧠 Parallel workers per stage: {max_workers}")
+            safe_print("🚀 Starting GitLab CI pipeline execution")
+        safe_print(f"📋 Stages: {', '.join(pipeline.stages)}")
+        safe_print(f"🧠 Parallel workers per stage: {max_workers}")
 
     def on_pipeline_complete(self, success: bool) -> None:
         if success:
-            print("\n🎉 Pipeline completed successfully!")
+            safe_print("\n🎉 Pipeline completed successfully!")
 
     def on_stage_start(self, stage: str, jobs: list[JobConfig]) -> None:
         verb = "Previewing" if self._dry_run else "Executing"
-        print(f"\n🎯 {verb} stage in parallel: {stage} ({len(jobs)} job(s))")
+        safe_print(f"\n🎯 {verb} stage in parallel: {stage} ({len(jobs)} job(s))")
 
     def on_stage_skip(self, stage: str) -> None:
-        print(f"⏭️  Skipping empty stage: {stage}")
+        safe_print(f"⏭️  Skipping empty stage: {stage}")
 
     def on_job_complete(self, outcome: JobOutcome) -> None:
         if outcome.allowed_failure:
-            print(f"⚠️  Job warned (allow_failure): {outcome.job.name}")
+            safe_print(f"⚠️  Job warned (allow_failure): {outcome.job.name}")
         elif outcome.success:
-            print(f"✅ Job completed: {outcome.job.name}")
+            safe_print(f"✅ Job completed: {outcome.job.name}")
         else:
-            print(f"❌ Job failed: {outcome.job.name} -> {outcome.error!r}")
+            safe_print(f"❌ Job failed: {outcome.job.name} -> {outcome.error!r}")
 
     def on_stage_complete(self, stage: str, outcomes: list[JobOutcome]) -> None:
         failures = [o for o in outcomes if not o.success]
         if failures:
-            print("\n🛑 Stopping pipeline due to failures in stage:", stage)
+            safe_print("\n🛑 Stopping pipeline due to failures in stage:", stage)
 
 
 class StageOrchestrator:

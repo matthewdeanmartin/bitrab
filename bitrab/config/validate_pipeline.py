@@ -6,8 +6,8 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import weakref
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +16,7 @@ import orjson as json
 import ruamel.yaml
 
 logger = logging.getLogger(__name__)
+_SCHEMA_CACHE: weakref.WeakKeyDictionary[Any, dict[str, Any]] = weakref.WeakKeyDictionary()
 
 # Import compatibility for Python 3.8+
 if sys.version_info >= (3, 9):  # noqa: UP036
@@ -25,17 +26,6 @@ else:
         from importlib_resources import files
     except ImportError:
         files = None
-
-try:
-    # Python 3.9+
-    from functools import cache as _py_cache
-
-    cache = _py_cache
-except ImportError:
-    # Python <3.9 — emulate with unbounded LRU
-    def cache(func):
-        return lru_cache(maxsize=None)(func)
-
 
 class GitLabCIValidator:
     """Validates GitLab CI YAML files against the official schema."""
@@ -140,7 +130,6 @@ class GitLabCIValidator:
 
         return None
 
-    @cache  # noqa: B019
     def get_schema(self) -> dict[str, Any]:
         """
         Get the GitLab CI schema, trying URL first, then cache, then fallback.
@@ -151,10 +140,15 @@ class GitLabCIValidator:
         Raises:
             RuntimeError: If no schema could be loaded from any source.
         """
+        cached_schema = _SCHEMA_CACHE.get(self)
+        if cached_schema is not None:
+            return cached_schema
+
         # Check cache
         schema = self._load_schema_from_cache()
         if schema:
             logger.debug("Using cached gitlab schema")
+            _SCHEMA_CACHE[self] = schema
             return schema
 
         # Try to fetch from URL first
@@ -162,12 +156,14 @@ class GitLabCIValidator:
         if schema:
             logger.debug("Using schema from URL")
             self._save_schema_to_cache(schema)
+            _SCHEMA_CACHE[self] = schema
             return schema
 
         # Fall back to package resource
         schema = self._load_fallback_schema()
         if schema:
             logger.debug("Using gitlab schema from package")
+            _SCHEMA_CACHE[self] = schema
             return schema
 
         raise RuntimeError("Could not load schema from URL, cache, or fallback resource")
@@ -253,3 +249,11 @@ def validate_gitlab_ci_yaml(yaml_content: str, cache_dir: str | None = None) -> 
     """
     validator = GitLabCIValidator(cache_dir=cache_dir)
     return validator.validate_ci_config(yaml_content)
+
+
+def _clear_get_schema_cache() -> None:
+    """Clear cached schemas for all validator instances."""
+    _SCHEMA_CACHE.clear()
+
+
+GitLabCIValidator.get_schema.cache_clear = _clear_get_schema_cache  # type: ignore[attr-defined]

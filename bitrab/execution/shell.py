@@ -250,7 +250,7 @@ def run_bash(
         finally:
             try:
                 pipe.close()
-            except Exception:  # nosec: clean up
+            except Exception:  # nosec B110
                 pass
 
     _process_killed_by_timeout = False

@@ -112,7 +112,7 @@ def print_validation_summary(results: list[ValidationResult]) -> None:
 
 def run_validate_all(
     input_dir: Path,
-    output_path: Path,
+    _output_path: Path,
     parallelism: int | None = None,
 ) -> int:
     """
@@ -120,7 +120,7 @@ def run_validate_all(
 
     Args:
         input_dir: Directory containing YAML files to validate.
-        output_path: Path to write validation results.
+        _output_path: Path to write validation results.
         parallelism: Number of parallel processes (None for auto-detect).
 
     Returns:

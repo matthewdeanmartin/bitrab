@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from bitrab.console import safe_print as print
+from bitrab.console import safe_print
 from bitrab.exceptions import BitrabError, JobExecutionError, JobTimeoutError
 from bitrab.execution.shell import RunResult, TextWriter, run_bash
 from bitrab.execution.variables import VariableManager
@@ -165,7 +165,7 @@ class JobExecutor:
         execution_dir = ctx.project_dir
         env = dict(ctx.env)  # mutable copy (frozen dataclass stores the original)
 
-        _print = (lambda msg: print(msg, file=output_writer)) if output_writer else print
+        _print = (lambda msg: safe_print(msg, file=output_writer)) if output_writer else safe_print
         _print(f"🔧 Running job: {job.name} (stage: {job.stage})")
 
         job_timeout = ctx.timeout
@@ -272,7 +272,7 @@ class JobExecutor:
             subprocess.CalledProcessError: If a script exits with a non-zero code.
             JobTimeoutError: If the deadline is reached before the script finishes.
         """
-        _print = (lambda msg: print(msg, file=output_writer)) if output_writer else print
+        _print = (lambda msg: safe_print(msg, file=output_writer)) if output_writer else safe_print
 
         lines = []
         for script in scripts:

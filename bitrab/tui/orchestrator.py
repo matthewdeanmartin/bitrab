@@ -153,13 +153,13 @@ class _TUICallbacks(PipelineCallbacks):
     def is_cancelled(self) -> bool:
         return self._cancel_event.is_set()
 
-    def make_output_writer(self, job: JobConfig, job_dir: Path) -> TextWriter | None:
+    def make_output_writer(self, job: JobConfig, _job_dir: Path) -> TextWriter | None:
         return QueueWriter(self._output_queue, job.name)
 
     def get_worker_func(self):
         return _run_single_job_queued
 
-    def make_worker_args(self, job: JobConfig, job_dir: Path) -> dict[str, Any]:
+    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -> dict[str, Any]:
         return {"output_queue": self._output_queue, "worker_pids": self._worker_pids}
 
     def on_stage_complete(self, stage: str, outcomes: list[JobOutcome]) -> None:

@@ -89,11 +89,11 @@ class PipelineCallbacks:
         """Return True to abort the pipeline before the next stage."""
         return False
 
-    def make_output_writer(self, job: JobConfig, job_dir: Path) -> TextWriter | None:
+    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -> TextWriter | None:
         """Return an output writer for this job, or None for default (sys.stdout)."""
         return None
 
-    def make_worker_args(self, job: JobConfig, job_dir: Path) -> dict[str, Any]:
+    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -> dict[str, Any]:
         """Return extra kwargs passed to the parallel worker function.
 
         The returned dict is merged into the arguments of the module-level
@@ -174,7 +174,7 @@ def _filter_jobs_by_when(jobs: list[JobConfig], prior_had_failure: bool) -> list
     result = []
     for job in jobs:
         when = job.when
-        if when == "never" or when == "manual":
+        if when in {"never", "manual"}:
             continue
         if when == "always":
             result.append(job)
@@ -541,7 +541,7 @@ class DagPipelineRunner:
                         continue
                     when = job.when
                     skip = False
-                    if when == "never" or when == "manual":
+                    if when in {"never", "manual"}:
                         skip = True
                     elif when == "on_failure":
                         if not failed_jobs:

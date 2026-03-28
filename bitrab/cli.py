@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 from bitrab.__about__ import __version__
 from bitrab.console import configure_stdio
-from bitrab.console import safe_print as print
+from bitrab.console import safe_print
 from bitrab.exceptions import BitrabError, GitlabRunnerError
 
 if TYPE_CHECKING:
@@ -148,13 +148,13 @@ def load_and_process_config(config_path: Path) -> tuple[dict, Any]:
 
         return raw_config, pipeline_config
     except (BitrabError, GitlabRunnerError) as e:
-        print(f"❌ Configuration error: {e}", file=sys.stderr)
+        safe_print(f"❌ Configuration error: {e}", file=sys.stderr)
         if DEBUG:
             sys.exit(1)
         else:
             raise
     except Exception as e:
-        print(f"❌ Unexpected error loading config: {e}", file=sys.stderr)
+        safe_print(f"❌ Unexpected error loading config: {e}", file=sys.stderr)
         if DEBUG:
             sys.exit(1)
         else:
@@ -168,7 +168,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
 
     if not config_path.exists():
-        print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
+        safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -181,7 +181,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         ci_mode = is_ci_mode() and not use_tui
 
         if args.dry_run:
-            print("🔎 Dry-run mode enabled — jobs will only report what would run and will succeed.")
+            safe_print("🔎 Dry-run mode enabled — jobs will only report what would run and will succeed.")
 
         runner.run_pipeline(
             config_path=config_path,
@@ -194,16 +194,16 @@ def cmd_run(args: argparse.Namespace) -> None:
         )
 
     except (BitrabError, GitlabRunnerError) as e:
-        print(f"❌ Execution error: {e}", file=sys.stderr)
+        safe_print(f"❌ Execution error: {e}", file=sys.stderr)
         if DEBUG:
             sys.exit(1)
         else:
             raise
     except KeyboardInterrupt:
-        print("\n🛑 Pipeline execution interrupted by user", file=sys.stderr)
+        safe_print("\n🛑 Pipeline execution interrupted by user", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
-        print(f"❌ Unexpected error: {e}", file=sys.stderr)
+        safe_print(f"❌ Unexpected error: {e}", file=sys.stderr)
         if DEBUG:
             sys.exit(1)
         else:
@@ -215,14 +215,14 @@ def cmd_list(args: argparse.Namespace) -> None:
     config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
 
     if not config_path.exists():
-        print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
+        safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
     _, pipeline_config = load_and_process_config(config_path)
 
-    print("📋 Pipeline Jobs:")
-    print(f"   Stages: {', '.join(pipeline_config.stages)}")
-    print()
+    safe_print("📋 Pipeline Jobs:")
+    safe_print(f"   Stages: {', '.join(pipeline_config.stages)}")
+    safe_print()
 
     # Group jobs by stage
     jobs_by_stage: dict[str, list[Any]] = {}
@@ -232,16 +232,16 @@ def cmd_list(args: argparse.Namespace) -> None:
     for stage in pipeline_config.stages:
         stage_jobs = jobs_by_stage.get(stage, [])
         if stage_jobs:
-            print(f"🎯 Stage: {stage}")
+            safe_print(f"🎯 Stage: {stage}")
             for job in stage_jobs:
                 retry_info = ""
                 if job.retry_max > 0:
                     retry_info = f" (retry: {job.retry_max})"
-                print(f"   • {job.name}{retry_info}")
-            print()
+                safe_print(f"   • {job.name}{retry_info}")
+            safe_print()
         else:
-            print(f"⏭️  Stage: {stage} (no jobs)")
-            print()
+            safe_print(f"⏭️  Stage: {stage} (no jobs)")
+            safe_print()
 
 
 def cmd_validate(args: argparse.Namespace) -> None:
@@ -251,20 +251,20 @@ def cmd_validate(args: argparse.Namespace) -> None:
     config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
 
     if not config_path.exists():
-        print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
+        safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
     try:
         # 1. Official Schema Validation
-        print(f"🔍 Validating {config_path} against GitLab CI schema...")
+        safe_print(f"🔍 Validating {config_path} against GitLab CI schema...")
         validator = _get_gitlab_ci_validator()()
         yaml_content = config_path.read_text(encoding="utf-8")
         is_valid, schema_errors = validator.validate_ci_config(yaml_content)
 
         if not is_valid:
-            print("❌ Schema validation failed:")
+            safe_print("❌ Schema validation failed:")
             for error in schema_errors:
-                print(f"   • {error}")
+                safe_print(f"   • {error}")
             sys.exit(1)
 
         # 2. Capability validation (informational only — does not block execution)
@@ -272,9 +272,9 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
         cap_diags = _get_check_capabilities()(raw_config)
         if cap_diags:
-            print("ℹ️  Local execution notes (these features behave differently or are skipped locally):")
+            safe_print("ℹ️  Local execution notes (these features behave differently or are skipped locally):")
             for d in cap_diags:
-                print(f"   • {d}")
+                safe_print(f"   • {d}")
 
         # 3. Structural/Semantic Validation
         errors = []
@@ -297,18 +297,18 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
         # Report results
         if errors:
-            print("❌ Semantic validation failed:")
+            safe_print("❌ Semantic validation failed:")
             for error in errors:
-                print(f"   • {error}")
+                safe_print(f"   • {error}")
             sys.exit(1)
 
         if warnings:
-            print("⚠️  Validation passed with warnings:")
+            safe_print("⚠️  Validation passed with warnings:")
             for warning in warnings:
-                print(f"   • {warning}")
+                safe_print(f"   • {warning}")
 
-        print("✅ Configuration is valid")
-        print(f"   📊 Found {len(pipeline_config.jobs)} jobs across {len(pipeline_config.stages)} stages")
+        safe_print("✅ Configuration is valid")
+        safe_print(f"   📊 Found {len(pipeline_config.jobs)} jobs across {len(pipeline_config.stages)} stages")
 
         if args.output_json:
             # Output pipeline config as JSON for further processing
@@ -330,33 +330,33 @@ def cmd_validate(args: argparse.Namespace) -> None:
                     for job in pipeline_config.jobs
                 ],
             }
-            print("\n📄 Pipeline configuration (JSON):")
-            print(json.dumps(pipeline_dict, indent=2))
+            safe_print("\n📄 Pipeline configuration (JSON):")
+            safe_print(json.dumps(pipeline_dict, indent=2))
 
     except Exception as e:
-        print(f"❌ Validation error: {e}", file=sys.stderr)
+        safe_print(f"❌ Validation error: {e}", file=sys.stderr)
         if DEBUG:
             raise
         sys.exit(1)
 
 
-def cmd_lint(args: argparse.Namespace) -> None:
+def cmd_lint(_args: argparse.Namespace) -> None:
     """Lint the pipeline configuration using GitLab's API."""
-    print("🔍 GitLab CI Lint")
-    print("⚠️  Server-side linting not yet implemented")
-    print("   This would validate your .gitlab-ci.yml against GitLab's official linter")
-    print("   For now, use 'bitrab validate' for basic local validation")
+    safe_print("🔍 GitLab CI Lint")
+    safe_print("⚠️  Server-side linting not yet implemented")
+    safe_print("   This would validate your .gitlab-ci.yml against GitLab's official linter")
+    safe_print("   For now, use 'bitrab validate' for basic local validation")
     sys.exit(1)
 
 
 def cmd_graph(args: argparse.Namespace) -> None:
     """Generate a visual dependency graph of the pipeline."""
-    print("📊 Pipeline Dependency Graph")
+    safe_print("📊 Pipeline Dependency Graph")
     if getattr(args, "dry_run", False):
-        print("🔎 Dry-run mode enabled — would generate the pipeline dependency graph without writing files.")
+        safe_print("🔎 Dry-run mode enabled — would generate the pipeline dependency graph without writing files.")
         return
-    print("⚠️  Graph generation not yet implemented")
-    print("   This would create a visual representation of job dependencies")
+    safe_print("⚠️  Graph generation not yet implemented")
+    safe_print("   This would create a visual representation of job dependencies")
     sys.exit(1)
 
 
@@ -364,26 +364,26 @@ def cmd_debug(args: argparse.Namespace) -> None:
     """Debug pipeline configuration and execution environment."""
     config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
 
-    print("🔧 Debug Information")
-    print(f"   Config file: {config_path.absolute()}")
-    print(f"   Config exists: {config_path.exists()}")
-    print(f"   Working directory: {Path.cwd()}")
+    safe_print("🔧 Debug Information")
+    safe_print(f"   Config file: {config_path.absolute()}")
+    safe_print(f"   Config exists: {config_path.exists()}")
+    safe_print(f"   Working directory: {Path.cwd()}")
 
     if config_path.exists():
-        raw_config, pipeline_config = load_and_process_config(config_path)
-        print(f"   Jobs found: {len(pipeline_config.jobs)}")
-        print(f"   Stages: {pipeline_config.stages}")
-        print(f"   Global variables: {len(pipeline_config.variables)}")
+        _, pipeline_config = load_and_process_config(config_path)
+        safe_print(f"   Jobs found: {len(pipeline_config.jobs)}")
+        safe_print(f"   Stages: {pipeline_config.stages}")
+        safe_print(f"   Global variables: {len(pipeline_config.variables)}")
 
 
 def cmd_clean(args: argparse.Namespace) -> None:
     """Clean up artifacts and temporary files."""
-    print("🧹 Clean Pipeline Artifacts")
+    safe_print("🧹 Clean Pipeline Artifacts")
     if getattr(args, "dry_run", False):
-        print("🔎 Dry-run mode enabled — would remove build artifacts, cache files, and temporary files.")
+        safe_print("🔎 Dry-run mode enabled — would remove build artifacts, cache files, and temporary files.")
         return
-    print("⚠️  Cleanup not yet implemented")
-    print("   This would remove build artifacts, cache files, etc.")
+    safe_print("⚠️  Cleanup not yet implemented")
+    safe_print("   This would remove build artifacts, cache files, etc.")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -510,7 +510,7 @@ def main() -> None:
 
     # Handle license display
     if args.license:
-        print(__license__)
+        safe_print(__license__)
         sys.exit(0)
 
     # Configure logging

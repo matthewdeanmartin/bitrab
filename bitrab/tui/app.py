@@ -68,6 +68,7 @@ def _copy_to_clipboard(text: str) -> bool:
                 input=text,
                 text=True,
                 capture_output=True,
+                check=False,
             )
             return proc.returncode == 0
         if sys.platform == "darwin":
@@ -76,12 +77,13 @@ def _copy_to_clipboard(text: str) -> bool:
                 input=text,
                 text=True,
                 capture_output=True,
+                check=False,
             )
             return proc.returncode == 0
         # Linux: try xclip, then xsel, then wl-copy
         for cmd in [["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"], ["wl-copy"]]:
             try:
-                proc = subprocess.run(cmd, input=text, text=True, capture_output=True)  # nosec
+                proc = subprocess.run(cmd, input=text, text=True, capture_output=True, check=False)  # nosec
                 if proc.returncode == 0:
                     return True
             except FileNotFoundError:

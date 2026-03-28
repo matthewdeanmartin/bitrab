@@ -24,36 +24,46 @@ uv-lock: uv.lock
 .PHONY: help
 help:
 	@echo "Build targets:"
-	@echo "  help             List build targets and descriptions"
-	@echo "  list-jobs        Alias for help"
-	@echo "  fix              Run source-mutating fixers in canonical order"
-	@echo "  fix-ci           Read-only formatter drift checks"
-	@echo "  verify           Run read-only verification targets"
-	@echo "  fast-verify      Run read-only verification in parallel with log collation"
-	@echo "  triage           Alias for fast-verify"
-	@echo "  repro            Run serial verification for easier debugging"
-	@echo "  bugs             Run bug-finding focused checks"
-	@echo "  check-human      Run fix, then verify with human-friendly sequencing"
-	@echo "  check            Alias for check-human"
-	@echo "  check-ci         Run non-mutating CI-safe verification and docs checks"
-	@echo "  check-llm        Run compact token-efficient verification"
-	@echo "  full-verify      Run verify plus docs checks"
-	@echo "  ruff             Run read-only ruff checks"
-	@echo "  mypy             Run mypy"
-	@echo "  pylint           Run pylint"
-	@echo "  bandit           Run bandit"
-	@echo "  pytest           Run the Python test suite"
-	@echo "  smoke            Run CLI smoke tests"
-	@echo "  test             Run pytest plus smoke tests"
-	@echo "  benchmark        Run performance benchmarks"
-	@echo "  pre-commit       Run pre-commit hooks"
-	@echo "  check-docs       Run documentation checks"
-	@echo "  check-md         Run markdown checks in read-only mode"
-	@echo "  check-spelling   Run spelling checks"
-	@echo "  check-changelog  Validate changelog format"
-	@echo "  check-all-docs   Run all documentation checks"
-	@echo "  refresh-schema   Refresh vendored GitLab schema files"
-	@echo "  publish          Build the distribution"
+	@echo "  help                 List build targets and descriptions"
+	@echo "  list-jobs            Alias for help"
+	@echo "  fix                  Run source-mutating fixers in canonical order"
+	@echo "  fix-ci               Read-only formatter drift checks"
+	@echo "  verify               Run read-only verification targets"
+	@echo "  fast-verify          Run read-only verification in parallel with log collation"
+	@echo "  triage               Alias for fast-verify"
+	@echo "  repro                Run serial verification for easier debugging"
+	@echo "  bugs                 Run bug-finding focused checks"
+	@echo "  check-human          Run fix, then verify with human-friendly sequencing"
+	@echo "  check                Alias for check-human"
+	@echo "  check-ci             Run non-mutating CI-safe verification and docs checks"
+	@echo "  check-llm            Run compact token-efficient verification"
+	@echo "  full-verify          Run verify plus docs checks"
+	@echo "  ruff                 Run read-only ruff checks"
+	@echo "  mypy                 Run mypy"
+	@echo "  pylint               Run pylint"
+	@echo "  bandit               Run bandit"
+	@echo "  pytest               Run the Python test suite"
+	@echo "  smoke                Run CLI smoke tests"
+	@echo "  test                 Run pytest plus smoke tests"
+	@echo "  benchmark            Run performance benchmarks"
+	@echo "  pre-commit           Run pre-commit hooks"
+	@echo "  check-docs           Run documentation checks"
+	@echo "  check-md             Run markdown checks in read-only mode"
+	@echo "  check-spelling       Run spelling checks"
+	@echo "  check-changelog      Validate changelog format"
+	@echo "  check-all-docs       Run all documentation checks"
+	@echo "  metadata-sync-check  Check generated metadata is in sync with pyproject.toml"
+	@echo "  version-check        Check version sources are consistent"
+	@echo "  dev-status-check     Verify Development Status classifier"
+	@echo "  gha-validate         Validate GitHub Actions workflow YAML and artifact handoff"
+	@echo "  gha-pin              Pin GitHub Actions to current commit SHAs"
+	@echo "  gha-upgrade          Pin and validate GitHub Actions (gha-pin + gha-validate)"
+	@echo "  prerelease           Run all pre-release checks (metadata, version, docs, tests)"
+	@echo "  prerelease-llm       Run compact pre-release checks (token-efficient)"
+	@echo "  publish-gha          Dispatch the GitHub Actions publish workflow"
+	@echo "  refresh-schema       Refresh vendored GitLab schema files"
+	@echo "  build-dist           Build the distribution package"
+	@echo "  publish              Run prerelease checks then build the distribution"
 
 .PHONY: list-jobs
 list-jobs: help
@@ -312,9 +322,56 @@ check_self:
 .PHONY: check-own-ver
 check-own-ver: check_self
 
-.PHONY: publish
-publish: test
+.PHONY: metadata-sync-check
+metadata-sync-check:
+	@echo "Checking generated metadata is in sync"
+	$(VENV) metametameta sync-check
+
+.PHONY: version-check
+version-check:
+	@echo "Checking version sources and PyPI ordering"
+	$(VENV) metametameta sync-check
+
+.PHONY: dev-status-check
+dev-status-check:
+	@echo "Verifying Development Status classifier"
+	uvx --from troml-dev-status troml-dev-status validate .
+
+.PHONY: gha-validate
+gha-validate:
+	@echo "Validating GitHub Actions workflows"
+	$(VENV) python -c "import pathlib, yaml; [yaml.safe_load(p.read_text(encoding='utf-8')) for p in pathlib.Path('.github/workflows').glob('*.yml')]; print('YAML parse OK')"
+	$(VENV) python -c "from pathlib import Path; import yaml; data=yaml.safe_load(Path('.github/workflows/publish_to_pypi.yml').read_text(encoding='utf-8')); build_steps=data['jobs']['build']['steps']; publish_steps=data['jobs']['pypi-publish']['steps']; up=next(s for s in build_steps if s.get('uses','').startswith('actions/upload-artifact@')); down=next(s for s in publish_steps if s.get('uses','').startswith('actions/download-artifact@')); assert up['with']['name']==down['with']['name']=='packages'; assert up['with']['path']==down['with']['path']=='dist/'; print('Artifact handoff OK:', up['uses'], '->', down['uses'])"
+	uvx zizmor --no-progress --no-exit-codes .
+
+.PHONY: gha-pin
+gha-pin:
+	@echo "Pinning GitHub Actions to current SHAs"
+	$(VENV) python -c "import os, subprocess, sys; token=os.environ.get('GITHUB_TOKEN') or subprocess.run(['gh', 'auth', 'token'], capture_output=True, text=True).stdout.strip(); assert token, 'Set GITHUB_TOKEN or log in with gh auth login'; env=dict(os.environ, GITHUB_TOKEN=token); raise SystemExit(subprocess.run(['gha-update'], env=env).returncode)"
+
+.PHONY: gha-upgrade
+gha-upgrade: gha-pin gha-validate
+	@echo "GitHub Actions upgrade complete"
+
+.PHONY: publish-gha
+publish-gha:
+	@echo "Dispatching GitHub Actions publish workflow"
+	gh workflow run publish_to_pypi.yml --ref main
+
+.PHONY: prerelease
+prerelease: metadata-sync-check version-check dev-status-check check-all-docs test
+	@echo "Pre-release checks complete"
+
+.PHONY: prerelease-llm
+prerelease-llm: metadata-sync-check version-check dev-status-check test-llm
+	@echo "Quiet pre-release checks complete"
+
+.PHONY: build-dist
+build-dist:
 	rm -rf dist && hatch build
+
+.PHONY: publish
+publish: prerelease build-dist
 
 .PHONY: issues
 issues:
