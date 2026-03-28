@@ -48,6 +48,15 @@ class CompletingOrchestrator(DummyOrchestrator):
         app.call_from_thread(app.on_pipeline_complete, self.success)
 
 
+class AwaitingManualOrchestrator(DummyOrchestrator):
+    """Simulates a pipeline that finished all auto jobs but has manual jobs remaining."""
+
+    def execute_pipeline_tui(self, pipeline: PipelineConfig, app: PipelineApp) -> None:
+        super().execute_pipeline_tui(pipeline, app)
+        app.call_from_thread(app.on_pipeline_awaiting_manual)
+        app.call_from_thread(app.on_pipeline_complete, True)
+
+
 def _pipeline() -> PipelineConfig:
     return PipelineConfig(
         stages=["build", "test"],
@@ -160,5 +169,34 @@ def test_pipeline_app_can_close_on_completion() -> None:
 
         assert app.return_code == 0
         assert orchestrator.execute_calls == 1
+
+    asyncio.run(scenario())
+
+
+def test_pipeline_app_awaiting_manual_updates_summary() -> None:
+    async def scenario() -> None:
+        orchestrator = AwaitingManualOrchestrator()
+        app = PipelineApp(_pipeline(), orchestrator)
+
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+
+            summary = app.query_one("#summary", Static)
+            assert "manual" in _static_text(summary).lower()
+
+    asyncio.run(scenario())
+
+
+def test_pipeline_app_awaiting_manual_closes_when_flag_set() -> None:
+    async def scenario() -> None:
+        orchestrator = AwaitingManualOrchestrator()
+        app = PipelineApp(_pipeline(), orchestrator, close_on_completion=True)
+
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+
+        assert app.return_code == 0
 
     asyncio.run(scenario())

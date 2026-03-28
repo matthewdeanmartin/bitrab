@@ -124,6 +124,14 @@ class PipelineCallbacks:
     def on_cancelled(self) -> None:
         """Called when the pipeline is aborted due to cancellation."""
 
+    def on_pipeline_awaiting_manual(self) -> None:
+        """Called when all automatically-runnable jobs have finished but one or
+        more manual jobs remain.  The pipeline is considered successful at this
+        point; the TUI should stay open in interactive use so the operator can
+        trigger manual jobs, but tests may choose to close via
+        ``close_on_completion``.
+        """
+
     def enrich_context(self, ctx: JobRuntimeContext) -> JobRuntimeContext:
         """Optionally transform the context before it is passed to a worker.
 
@@ -231,7 +239,9 @@ class StagePipelineRunner:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
         cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        self.maximum_degree_of_parallelism = (
+            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        )
         if mp_ctx is None:
             if sys.platform == "win32":
                 mp_ctx = mp.get_context("spawn")
@@ -264,6 +274,7 @@ class StagePipelineRunner:
         success = True
         prior_had_failure = False
         first_error: BaseException | None = None
+        has_manual_skipped = False
 
         try:
             for stage in pipeline.stages:
@@ -276,6 +287,8 @@ class StagePipelineRunner:
                 stage_jobs = _filter_jobs_by_when(all_stage_jobs, prior_had_failure)
 
                 if not stage_jobs:
+                    if any(j.when == "manual" for j in all_stage_jobs):
+                        has_manual_skipped = True
                     cb.on_stage_skip(stage)
                     continue
 
@@ -304,6 +317,8 @@ class StagePipelineRunner:
             success = False
             raise
         finally:
+            if has_manual_skipped and success:
+                cb.on_pipeline_awaiting_manual()
             cb.on_pipeline_complete(success)
 
     def _run_stage(self, stage_jobs: list[JobConfig]) -> list[JobOutcome]:
@@ -481,7 +496,9 @@ class DagPipelineRunner:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
         cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        self.maximum_degree_of_parallelism = (
+            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        )
         if mp_ctx is None:
             mp_ctx = mp.get_context("spawn")
         self._mp_ctx = mp_ctx

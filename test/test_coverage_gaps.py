@@ -25,21 +25,17 @@ from pathlib import Path
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Helpers shared across tests
-# ---------------------------------------------------------------------------
-
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.shell import RunResult, _colors_enabled, force_subproc_mode, merge_env, run_bash, run_colored
-from bitrab.execution.stage_runner import (
-    PipelineCallbacks,
-    StagePipelineRunner,
-    _is_failure_allowed,
-)
+from bitrab.execution.stage_runner import PipelineCallbacks, StagePipelineRunner, _is_failure_allowed
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 from bitrab.plan import LocalGitLabRunner, PipelineProcessor, filter_pipeline
+
+# ---------------------------------------------------------------------------
+# Helpers shared across tests
+# ---------------------------------------------------------------------------
 
 
 def _make_job(name="j", stage="test", **kwargs) -> JobConfig:
@@ -193,6 +189,7 @@ class TestJobExecuteRetryExitCodeBlocked:
             retry_exit_codes=[99],  # only retry on exit code 99
         )
         from bitrab.exceptions import JobExecutionError
+
         with pytest.raises(JobExecutionError):
             ex.execute_job(job, job_dir=tmp_path)
         # Only 1 attempt should have been made
@@ -208,6 +205,7 @@ class TestJobExecuteRetryExitCodeBlocked:
             retry_when=["runner_system_failure"],
         )
         from bitrab.exceptions import JobExecutionError
+
         with pytest.raises(JobExecutionError):
             ex.execute_job(job, job_dir=tmp_path)
         assert len(ex.job_history) == 1
@@ -313,7 +311,6 @@ class TestMergeEnv:
         assert result["MYVAR"] == "hello"
 
     def test_does_not_mutate_os_environ(self):
-        orig_keys = set(os.environ.keys())
         merge_env({"_BITRAB_TEST_KEY": "x"})
         assert "_BITRAB_TEST_KEY" not in os.environ
 
@@ -410,6 +407,7 @@ class TestIsFailureAllowed:
 
     def test_allow_failure_via_cause_chain(self):
         from bitrab.exceptions import JobExecutionError
+
         job = _make_job(allow_failure=True, allow_failure_exit_codes=[1])
         cause = subprocess.CalledProcessError(1, "cmd")
         exc = JobExecutionError("failed")
@@ -427,7 +425,9 @@ class TestPipelineCancellation:
     def test_cancel_before_second_stage(self, tmp_path):
         """Cancelling mid-pipeline stops after first stage."""
         ci = tmp_path / ".gitlab-ci.yml"
-        ci.write_text(textwrap.dedent("""\
+        ci.write_text(
+            textwrap.dedent(
+                """\
             stages: [a, b]
             job_a:
               stage: a
@@ -435,7 +435,9 @@ class TestPipelineCancellation:
             job_b:
               stage: b
               script: [echo b]
-        """))
+        """
+            )
+        )
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(ci)
         pipeline = PipelineProcessor().process_config(raw)
@@ -478,6 +480,7 @@ class TestDefaultCallbacksNoOps:
         job = _make_job()
         cb.on_job_start(job)
         from bitrab.execution.stage_runner import JobOutcome
+
         cb.on_job_complete(JobOutcome(job=job, success=True))
         assert cb.is_cancelled() is False
         assert cb.make_output_writer(job, Path(".")) is None
@@ -493,6 +496,7 @@ class TestDefaultCallbacksNoOps:
 class TestFindYamlFiles:
     def test_finds_yml_and_yaml(self, tmp_path):
         from bitrab.config.schema import find_yaml_files
+
         (tmp_path / "a.yml").write_text("x: 1")
         (tmp_path / "b.yaml").write_text("y: 2")
         (tmp_path / "c.txt").write_text("ignored")
@@ -504,6 +508,7 @@ class TestFindYamlFiles:
 
     def test_recursive(self, tmp_path):
         from bitrab.config.schema import find_yaml_files
+
         sub = tmp_path / "sub"
         sub.mkdir()
         (sub / "deep.yml").write_text("z: 3")
@@ -512,12 +517,14 @@ class TestFindYamlFiles:
 
     def test_empty_dir(self, tmp_path):
         from bitrab.config.schema import find_yaml_files
+
         assert find_yaml_files(tmp_path) == []
 
 
 class TestValidateSingleFile:
     def test_valid_ci_file(self, tmp_path):
         from bitrab.config.schema import validate_single_file
+
         ci = tmp_path / "ci.yml"
         ci.write_text("job:\n  script: [echo hi]\n")
         result = validate_single_file(ci)
@@ -525,12 +532,14 @@ class TestValidateSingleFile:
 
     def test_missing_file(self, tmp_path):
         from bitrab.config.schema import validate_single_file
+
         result = validate_single_file(tmp_path / "nonexistent.yml")
         assert not result.is_valid
         assert any("does not exist" in e for e in result.errors)
 
     def test_not_a_file(self, tmp_path):
         from bitrab.config.schema import validate_single_file
+
         # Pass a directory path
         result = validate_single_file(tmp_path)
         assert not result.is_valid
@@ -541,6 +550,7 @@ class TestWriteResultsToOutput:
     def test_writes_json(self, tmp_path):
         from bitrab.config.schema import write_results_to_output
         from bitrab.config.validate_pipeline import ValidationResult
+
         results = [
             ValidationResult(file_path=tmp_path / "a.yml", is_valid=True, errors=[]),
             ValidationResult(file_path=tmp_path / "b.yml", is_valid=False, errors=["bad"]),
@@ -548,6 +558,7 @@ class TestWriteResultsToOutput:
         out = tmp_path / "results.json"
         write_results_to_output(results, out)
         import json
+
         data = json.loads(out.read_text())
         assert data["summary"]["total_files"] == 2
         assert data["summary"]["valid_files"] == 1
@@ -558,6 +569,7 @@ class TestPrintValidationSummary:
     def test_all_valid(self, tmp_path, capsys):
         from bitrab.config.schema import print_validation_summary
         from bitrab.config.validate_pipeline import ValidationResult
+
         results = [ValidationResult(file_path=tmp_path / "a.yml", is_valid=True, errors=[])]
         print_validation_summary(results)
         out = capsys.readouterr().out
@@ -566,6 +578,7 @@ class TestPrintValidationSummary:
     def test_some_invalid(self, tmp_path, capsys):
         from bitrab.config.schema import print_validation_summary
         from bitrab.config.validate_pipeline import ValidationResult
+
         results = [ValidationResult(file_path=tmp_path / "bad.yml", is_valid=False, errors=["oops"])]
         print_validation_summary(results)
         out = capsys.readouterr().out
@@ -575,11 +588,13 @@ class TestPrintValidationSummary:
 class TestRunValidateAll:
     def test_missing_input_dir_returns_2(self, tmp_path):
         from bitrab.config.schema import run_validate_all
+
         code = run_validate_all(tmp_path / "no_such_dir", tmp_path / "out.json")
         assert code == 2
 
     def test_input_is_file_not_dir_returns_2(self, tmp_path):
         from bitrab.config.schema import run_validate_all
+
         f = tmp_path / "file.yml"
         f.write_text("x: 1")
         code = run_validate_all(f, tmp_path / "out.json")
@@ -587,17 +602,20 @@ class TestRunValidateAll:
 
     def test_empty_dir_returns_0(self, tmp_path):
         from bitrab.config.schema import run_validate_all
+
         code = run_validate_all(tmp_path, tmp_path / "out.json")
         assert code == 0
 
     def test_valid_files_return_0(self, tmp_path):
         from bitrab.config.schema import run_validate_all
+
         (tmp_path / "good.yml").write_text("job:\n  script: [echo hi]\n")
         code = run_validate_all(tmp_path, tmp_path / "out.json")
         assert code == 0
 
     def test_invalid_file_returns_1(self, tmp_path):
         from bitrab.config.schema import run_validate_all
+
         # A completely bogus YAML structure that fails schema validation
         (tmp_path / "bad.yml").write_text("not_a_job: 123\nstages: 'wrong'\n")
         code = run_validate_all(tmp_path, tmp_path / "out.json")
@@ -613,11 +631,13 @@ class TestRunValidateAll:
 class TestValidationResult:
     def test_file_path_coerced_to_path(self):
         from bitrab.config.validate_pipeline import ValidationResult
+
         r = ValidationResult(file_path="/some/path.yml", is_valid=True, errors=[])  # type: ignore[arg-type]
         assert isinstance(r.file_path, Path)
 
     def test_already_path_unchanged(self, tmp_path):
         from bitrab.config.validate_pipeline import ValidationResult
+
         p = tmp_path / "x.yml"
         r = ValidationResult(file_path=p, is_valid=True, errors=[])
         assert r.file_path == p
@@ -626,6 +646,7 @@ class TestValidationResult:
 class TestGitLabCIValidatorPragma:
     def test_pragma_skip_returns_valid(self):
         from bitrab.config.validate_pipeline import GitLabCIValidator
+
         v = GitLabCIValidator()
         yaml = "# pragma: do-not-validate-schema\njob:\n  script: [exit 1]\n"
         ok, errors = v.validate_ci_config(yaml)
@@ -634,12 +655,14 @@ class TestGitLabCIValidatorPragma:
 
     def test_yaml_to_json(self):
         from bitrab.config.validate_pipeline import GitLabCIValidator
+
         v = GitLabCIValidator()
         result = v.yaml_to_json("key: value\n")
         assert result["key"] == "value"
 
     def test_validate_ci_config_invalid_yaml(self):
         from bitrab.config.validate_pipeline import GitLabCIValidator
+
         v = GitLabCIValidator()
         ok, errors = v.validate_ci_config(":\t invalid yaml {{{\n")
         assert ok is False
@@ -647,6 +670,7 @@ class TestGitLabCIValidatorPragma:
 
     def test_convenience_function(self, tmp_path):
         from bitrab.config.validate_pipeline import validate_gitlab_ci_yaml
+
         ok, _ = validate_gitlab_ci_yaml("job:\n  script: [echo hi]\n", cache_dir=str(tmp_path))
         assert ok is True
 
@@ -703,7 +727,9 @@ class TestFilterPipeline:
 class TestLocalGitLabRunnerFilters:
     def _write_ci(self, tmp_path: Path) -> Path:
         ci = tmp_path / ".gitlab-ci.yml"
-        ci.write_text(textwrap.dedent("""\
+        ci.write_text(
+            textwrap.dedent(
+                """\
             stages: [build, test]
             build_job:
               stage: build
@@ -711,7 +737,9 @@ class TestLocalGitLabRunnerFilters:
             test_job:
               stage: test
               script: [echo test]
-        """))
+        """
+            )
+        )
         return ci
 
     def test_unknown_job_filter_warns(self, tmp_path, capsys):
@@ -751,7 +779,9 @@ class TestLocalGitLabRunnerFilters:
         marker = tmp_path / "test_ran.txt"
         ci = tmp_path / ".gitlab-ci.yml"
         # Use echo redirect which works cross-platform via bash
-        ci.write_text(textwrap.dedent(f"""\
+        ci.write_text(
+            textwrap.dedent(
+                f"""\
             stages: [build, test]
             build_job:
               stage: build
@@ -759,7 +789,9 @@ class TestLocalGitLabRunnerFilters:
             test_job:
               stage: test
               script: [echo ran > '{marker}']
-        """))
+        """
+            )
+        )
         runner = LocalGitLabRunner(base_path=tmp_path)
         runner.run_pipeline(
             config_path=ci,

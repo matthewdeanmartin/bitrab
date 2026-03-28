@@ -2,7 +2,6 @@ import json
 import os
 import time
 import urllib.error
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

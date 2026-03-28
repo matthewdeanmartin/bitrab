@@ -1,4 +1,3 @@
-
 from bitrab.utils.terminal_colors import Colors
 
 

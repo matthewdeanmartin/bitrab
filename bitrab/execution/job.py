@@ -187,11 +187,15 @@ class JobExecutor:
             try:
                 if job.before_script:
                     _print("  📋 Running before_script...")
-                    self._execute_scripts(job.before_script, env, execution_dir, output_writer=output_writer, deadline=deadline)
+                    self._execute_scripts(
+                        job.before_script, env, execution_dir, output_writer=output_writer, deadline=deadline
+                    )
 
                 if job.script:
                     _print("  🚀 Running script...")
-                    self._execute_scripts(job.script, env, execution_dir, output_writer=output_writer, deadline=deadline)
+                    self._execute_scripts(
+                        job.script, env, execution_dir, output_writer=output_writer, deadline=deadline
+                    )
 
                 _print(f"✅ Job {job.name} completed successfully")
                 return
@@ -211,7 +215,9 @@ class JobExecutor:
                 if job.after_script:
                     _print("  📋 Running after_script...")
                     try:
-                        self._execute_scripts(job.after_script, env, execution_dir, output_writer=output_writer, deadline=deadline)
+                        self._execute_scripts(
+                            job.after_script, env, execution_dir, output_writer=output_writer, deadline=deadline
+                        )
                     except subprocess.CalledProcessError as e2:
                         last_exc = last_exc or e2
                         _print(f"  ❗ after_script failed with exit code {e2.returncode}")
@@ -237,7 +243,9 @@ class JobExecutor:
 
         # out of attempts
         if isinstance(last_exc, subprocess.CalledProcessError):
-            raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}") from last_exc
+            raise JobExecutionError(
+                f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}"
+            ) from last_exc
         raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s).") from last_exc
 
     def _execute_scripts(

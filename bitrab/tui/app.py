@@ -186,7 +186,9 @@ class PipelineApp(App[int]):
         Binding("R", "restart_job", "Restart job", show=True),
     ]
 
-    def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False) -> None:
+    def __init__(
+        self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False
+    ) -> None:
         super().__init__()
         self._pipeline = pipeline
         self._orchestrator = orchestrator
@@ -195,6 +197,9 @@ class PipelineApp(App[int]):
         self._job_tab_ids: dict[str, str] = {}
         # Track pipeline success for exit code
         self._pipeline_success: bool | None = None
+        # Set when on_pipeline_awaiting_manual has fired; prevents on_pipeline_complete
+        # from overwriting the summary message.
+        self._awaiting_manual: bool = False
 
     # ------------------------------------------------------------------
     # Layout
@@ -245,15 +250,25 @@ class PipelineApp(App[int]):
         summary = self.query_one("#summary", Static)
         summary.update(f"Stage: [{stage}]  Running {job_count} job(s)…")
 
+    def on_pipeline_awaiting_manual(self) -> None:
+        """Called when all auto-runnable jobs finished but manual jobs remain."""
+        self._pipeline_success = True
+        self._awaiting_manual = True
+        summary = self.query_one("#summary", Static)
+        summary.update("⏸️  Pipeline paused — manual jobs are ready to trigger.")
+        if self._close_on_completion:
+            self.exit(0)
+
     def on_pipeline_complete(self, success: bool) -> None:
         """Called by orchestrator when the whole pipeline finishes."""
         self._pipeline_success = success
-        summary = self.query_one("#summary", Static)
-        if success:
-            summary.update("🎉 Pipeline completed successfully!")
-        else:
-            summary.update("❌ Pipeline failed.")
-        if self._close_on_completion:
+        if not self._awaiting_manual:
+            summary = self.query_one("#summary", Static)
+            if success:
+                summary.update("🎉 Pipeline completed successfully!")
+            else:
+                summary.update("❌ Pipeline failed.")
+        if self._close_on_completion and not self._awaiting_manual:
             self.exit(0 if success else 1)
 
     def on_pipeline_cancelled(self) -> None:

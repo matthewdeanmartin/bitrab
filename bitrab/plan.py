@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Any, Union
 
 from bitrab.config.loader import ConfigurationLoader
+from bitrab.config.rules import evaluate_rules
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.scheduler import StageOrchestrator
 from bitrab.execution.variables import VariableManager
-from bitrab.config.rules import evaluate_rules
 from bitrab.models.pipeline import DefaultConfig, JobConfig, PipelineConfig, RuleConfig
 
 _DURATION_RE = re.compile(
@@ -424,7 +424,9 @@ class LocalGitLabRunner:
             else:
                 tui_orchestrator.execute_pipeline_ci(pipeline)
         else:
-            self.orchestrator = StageOrchestrator(self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run)
+            self.orchestrator = StageOrchestrator(
+                self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run
+            )
             self.orchestrator.execute_pipeline(pipeline)
 
 

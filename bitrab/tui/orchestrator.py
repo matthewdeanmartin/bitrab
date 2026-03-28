@@ -138,6 +138,9 @@ class _TUICallbacks(PipelineCallbacks):
             status = "failed"
         self._app.call_from_thread(self._app.post_message, JobStatusChanged(outcome.job.name, status))
 
+    def on_pipeline_awaiting_manual(self) -> None:
+        self._app.call_from_thread(self._app.on_pipeline_awaiting_manual)
+
     def on_pipeline_complete(self, success: bool) -> None:
         if self._cancel_event.is_set():
             self._app.call_from_thread(self._app.on_pipeline_cancelled)
@@ -273,7 +276,9 @@ class TUIOrchestrator:
     ) -> None:
         self.job_executor = job_executor
         cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        self.maximum_degree_of_parallelism = (
+            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        )
         if mp_ctx is None:
             if sys.platform == "win32":
                 mp_ctx = mp.get_context("spawn")

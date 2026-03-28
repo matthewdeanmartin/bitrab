@@ -64,7 +64,14 @@ def _evaluate_if(expr: str, env: dict[str, str]) -> bool:
     """
     # Simple implementation for now:
     # 1. Variable existence/non-empty check: "$CI_COMMIT_TAG"
-    if expr.startswith("$") and " " not in expr and "==" not in expr and "!=" not in expr and "=~" not in expr and "!~" not in expr:
+    if (
+        expr.startswith("$")
+        and " " not in expr
+        and "==" not in expr
+        and "!=" not in expr
+        and "=~" not in expr
+        and "!~" not in expr
+    ):
         var_name = expr[1:].strip('"')
         return bool(env.get(var_name))
 
