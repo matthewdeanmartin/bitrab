@@ -21,6 +21,7 @@ from pathlib import Path
 from queue import Empty
 from typing import TYPE_CHECKING, Any
 
+from bitrab.execution.events import EventCollector
 from bitrab.execution.job import JobExecutor, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner, sanitize_job_name
@@ -290,6 +291,13 @@ class TUIOrchestrator:
         self._cancel_event: threading.Event = threading.Event()
         # job_name -> worker OS PID (populated via Manager().dict() in parallel path)
         self._worker_pids: dict[str, int] = {}
+        # Structured event collector (populated per execution)
+        self._event_collector: EventCollector | None = None
+
+    @property
+    def event_collector(self) -> EventCollector | None:
+        """Access the structured event collector from the last execution."""
+        return self._event_collector
 
     def is_running(self) -> bool:
         """Return True if the pipeline is actively running (not cancelled, not done)."""
@@ -344,12 +352,13 @@ class TUIOrchestrator:
         worker_pids = mgr.dict()
         self._worker_pids = worker_pids  # type: ignore[assignment]
 
-        callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event)
+        tui_callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event)
+        self._event_collector = EventCollector(inner=tui_callbacks)
 
         try:
             runner = StagePipelineRunner(
                 job_executor=self.job_executor,
-                callbacks=callbacks,
+                callbacks=self._event_collector,
                 maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
                 mp_ctx=self._mp_ctx,
             )
@@ -359,14 +368,17 @@ class TUIOrchestrator:
 
     def execute_pipeline_ci(self, pipeline: PipelineConfig) -> None:
         """Execute pipeline in CI mode: jobs write to files, printed when done."""
-        callbacks = _CIFileCallbacks()
+        ci_callbacks = _CIFileCallbacks()
+        self._event_collector = EventCollector(inner=ci_callbacks)
         runner = StagePipelineRunner(
             job_executor=self.job_executor,
-            callbacks=callbacks,
+            callbacks=self._event_collector,
             maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
             mp_ctx=self._mp_ctx,
         )
         runner.execute_pipeline(pipeline)
+        summary = self._event_collector.summary()
+        print(summary.format_text())
 
     def _drain_queue_sync(self, queue: Any, app: PipelineApp, job_output_cls: Any) -> None:
         """Drain remaining items from queue after single-job inline execution."""

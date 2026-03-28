@@ -6,6 +6,7 @@ Thin wrapper around :class:`StagePipelineRunner` that prints status to stdout.
 from __future__ import annotations
 
 from bitrab.console import safe_print
+from bitrab.execution.events import EventCollector
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner
 from bitrab.models.pipeline import JobConfig, PipelineConfig
@@ -64,12 +65,20 @@ class StageOrchestrator:
         dry_run: bool = False,
     ) -> None:
         self.job_executor = job_executor
+        self._event_collector = EventCollector(inner=_StreamingCallbacks(dry_run=dry_run))
         self._runner = StagePipelineRunner(
             job_executor=job_executor,
-            callbacks=_StreamingCallbacks(dry_run=dry_run),
+            callbacks=self._event_collector,
             maximum_degree_of_parallelism=maximum_degree_of_parallelism,
         )
+
+    @property
+    def event_collector(self) -> EventCollector:
+        """Access the structured event collector for this orchestrator."""
+        return self._event_collector
 
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
         """Execute all jobs in the pipeline, organized by stages."""
         self._runner.execute_pipeline(pipeline)
+        summary = self._event_collector.summary()
+        safe_print(summary.format_text())
