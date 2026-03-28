@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.tui.app API documentation</title>
+<meta name="description" content="Textual TUI application for bitrab pipeline visualization …">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.tui.app</code></h1>
+</header>
+<section id="section-intro">
+<p>Textual TUI application for bitrab pipeline visualization.</p>
+<p>One tab per job, showing live streamed output. Tab colors indicate status:
+yellow = running, green = success, red = failed.</p>
+<h2 id="keybindings">Keybindings</h2>
+<p>q
+quit
+c
+copy active tab's log to clipboard
+X
+cancel pipeline (stops after current stage)</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="bitrab.tui.app.JobOutput"><code class="flex name class">
+<span>class <span class="ident">JobOutput</span></span>
+<span>(</span><span>job_name: str, text: str)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class JobOutput(Message):
+    &#34;&#34;&#34;Carries a line of output for a specific job.&#34;&#34;&#34;
+
+    def __init__(self, job_name: str, text: str) -&gt; None:
+        super().__init__()
+        self.job_name = job_name
+        self.text = text</code></pre>
+</details>
+<div class="desc"><p>Carries a line of output for a specific job.</p></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>textual.message.Message</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="bitrab.tui.app.JobOutput.bubble"><code class="name">var <span class="ident">bubble</span> : ClassVar[bool]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.tui.app.JobOutput.handler_name"><code class="name">var <span class="ident">handler_name</span> : ClassVar[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.tui.app.JobOutput.no_dispatch"><code class="name">var <span class="ident">no_dispatch</span> : ClassVar[bool]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.tui.app.JobOutput.verbose"><code class="name">var <span class="ident">verbose</span> : ClassVar[bool]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.tui.app.JobStatusChanged"><code class="flex name class">
+<span>class <span class="ident">JobStatusChanged</span></span>
+<span>(</span><span>job_name: str, status: str)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class JobStatusChanged(Message):
+    &#34;&#34;&#34;Signals a job status transition.&#34;&#34;&#34;
+
+    # status values: &#34;running&#34; | &#34;success&#34; | &#34;failed&#34; | &#34;cancelled&#34;
+    def __init__(self, job_name: str, status: str) -&gt; None:
+        super().__init__()
+        self.job_name = job_name
+        self.status = status</code></pre>
+</details>
+<div class="desc"><p>Signals a job status transition.</p></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>textual.message.Message</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="bitrab.tui.app.JobStatusChanged.bubble"><code class="name">var <span class="ident">bubble</span> : ClassVar[bool]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.tui.app.JobStatusChanged.handler_name"><code class="name">var <span class="ident">handler_name</span> : ClassVar[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.tui.app.JobStatusChanged.no_dispatch"><code class="name">var <span class="ident">no_dispatch</span> : ClassVar[bool]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.tui.app.JobStatusChanged.verbose"><code class="name">var <span class="ident">verbose</span> : ClassVar[bool]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp"><code class="flex name class">
+<span>class <span class="ident">PipelineApp</span></span>
+<span>(</span><span>pipeline: PipelineConfig, orchestrator: TUIOrchestrator)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class PipelineApp(App[int]):
+    &#34;&#34;&#34;Textual TUI for monitoring a bitrab pipeline run.
+
+    Attributes:
+        TITLE: The application title.
+        CSS: Application-level CSS.
+        BINDINGS: Key bindings.
+    &#34;&#34;&#34;
+
+    TITLE = &#34;bitrab – GitLab CI Runner&#34;
+    CSS = _CSS
+    BINDINGS = [
+        Binding(&#34;q&#34;, &#34;quit_app&#34;, &#34;Quit&#34;, show=True),
+        Binding(&#34;c&#34;, &#34;copy_log&#34;, &#34;Copy log&#34;, show=True),
+        Binding(&#34;X&#34;, &#34;cancel_pipeline&#34;, &#34;Cancel pipeline&#34;, show=True),
+    ]
+
+    def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator) -&gt; None:
+        super().__init__()
+        self._pipeline = pipeline
+        self._orchestrator = orchestrator
+        # Map job name → tab_id for fast lookup
+        self._job_tab_ids: dict[str, str] = {}
+        # Track pipeline success for exit code
+        self._pipeline_success: bool | None = None
+
+    # ------------------------------------------------------------------
+    # Layout
+    # ------------------------------------------------------------------
+
+    def compose(self) -&gt; ComposeResult:
+        &#34;&#34;&#34;Build the initial widget tree.&#34;&#34;&#34;
+        yield Header()
+        yield Static(&#34;Initializing pipeline…&#34;, id=&#34;summary&#34;)
+        with Static(id=&#34;action-bar&#34;):
+            yield Button(&#34;🚫 Cancel  [X]&#34;, id=&#34;cancel-pipeline-btn&#34;, variant=&#34;warning&#34;)
+            yield Button(&#34;↺ Restart pipeline&#34;, id=&#34;restart-pipeline-btn&#34;, variant=&#34;primary&#34;)
+            yield Button(&#34;↩ Restart job&#34;, id=&#34;restart-job-btn&#34;, variant=&#34;default&#34;)
+            yield Button(&#34;✕ Cancel job&#34;, id=&#34;cancel-job-btn&#34;, variant=&#34;error&#34;)
+        with TabbedContent():
+            for job in self._pipeline.jobs:
+                tab_id = self._make_tab_id(job.name)
+                self._job_tab_ids[job.name] = tab_id
+                label = f&#34;{_STATUS_ICONS[&#39;pending&#39;]} {job.stage}/{job.name}&#34;
+                yield TabPane(label, RichLog(highlight=False, markup=False), id=tab_id)
+        with Static(id=&#34;copy-bar&#34;):
+            yield Static(&#34;&#34;, id=&#34;copy-status&#34;)
+            yield Button(&#34;📋 Copy log  [c]&#34;, id=&#34;copy-btn&#34;, variant=&#34;default&#34;)
+        yield Footer()
+
+    async def on_mount(self) -&gt; None:
+        &#34;&#34;&#34;Start the pipeline worker once the UI is ready.&#34;&#34;&#34;
+        self.run_worker(self._run_pipeline_worker, thread=True, name=&#34;pipeline-runner&#34;)
+
+    # ------------------------------------------------------------------
+    # Worker (background thread)
+    # ------------------------------------------------------------------
+
+    def _run_pipeline_worker(self) -&gt; None:
+        &#34;&#34;&#34;Run inside a background thread. Calls orchestrator which uses ProcessPoolExecutor.&#34;&#34;&#34;
+        try:
+            self._orchestrator.execute_pipeline_tui(self._pipeline, self)
+        except Exception:  # nosec B110
+            # on_pipeline_complete already called by orchestrator
+            pass
+
+    # ------------------------------------------------------------------
+    # Thread-safe callbacks (called via call_from_thread)
+    # ------------------------------------------------------------------
+
+    def update_stage_status(self, stage: str, job_count: int) -&gt; None:
+        &#34;&#34;&#34;Update summary bar with current stage info.&#34;&#34;&#34;
+        summary = self.query_one(&#34;#summary&#34;, Static)
+        summary.update(f&#34;Stage: [{stage}]  Running {job_count} job(s)…&#34;)
+
+    def on_pipeline_complete(self, success: bool) -&gt; None:
+        &#34;&#34;&#34;Called by orchestrator when the whole pipeline finishes.&#34;&#34;&#34;
+        self._pipeline_success = success
+        summary = self.query_one(&#34;#summary&#34;, Static)
+        if success:
+            summary.update(&#34;🎉 Pipeline completed successfully!&#34;)
+        else:
+            summary.update(&#34;❌ Pipeline failed.&#34;)
+
+    def on_pipeline_cancelled(self) -&gt; None:
+        &#34;&#34;&#34;Called by orchestrator when the pipeline is cancelled by user.&#34;&#34;&#34;
+        self._pipeline_success = False
+        summary = self.query_one(&#34;#summary&#34;, Static)
+        summary.update(&#34;🚫 Pipeline cancelled.&#34;)
+        # Mark any still-running tabs as cancelled
+        tabbed = self.query_one(TabbedContent)
+        for job_name, tab_id in self._job_tab_ids.items():
+            try:
+                tab = tabbed.get_tab(tab_id)
+                if tab and _STATUS_ICONS[&#34;running&#34;] in str(tab.label):
+                    tab.label = self._job_label_for(job_name, &#34;cancelled&#34;)  # type: ignore[assignment]
+            except Exception:  # nosec B110
+                pass
+
+    # ------------------------------------------------------------------
+    # Message handlers (run on event loop thread)
+    # ------------------------------------------------------------------
+
+    def on_job_output(self, message: JobOutput) -&gt; None:
+        &#34;&#34;&#34;Route job output text to the correct RichLog.&#34;&#34;&#34;
+        tab_id = self._job_tab_ids.get(message.job_name)
+        if not tab_id:
+            return
+        try:
+            rich_log = self.query_one(f&#34;#{tab_id} RichLog&#34;, RichLog)
+            # text is a full line from shell.py line-based streaming.
+            # RichLog.write() appends its own newline, so strip trailing one first.
+            for line in message.text.splitlines():
+                rich_log.write(line)
+        except Exception:  # nosec B110
+            pass
+
+    def on_job_status_changed(self, message: JobStatusChanged) -&gt; None:
+        &#34;&#34;&#34;Update the tab label with status icon and switch active tab to running jobs.&#34;&#34;&#34;
+        tab_id = self._job_tab_ids.get(message.job_name)
+        if not tab_id:
+            return
+
+        job_label = self._job_label_for(message.job_name, message.status)
+        try:
+            tabbed = self.query_one(TabbedContent)
+            tab = tabbed.get_tab(tab_id)
+            if tab:
+                tab.label = job_label  # type: ignore[assignment]
+            if message.status == &#34;running&#34;:
+                tabbed.active = tab_id
+        except Exception:  # nosec B110
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -&gt; None:
+        &#34;&#34;&#34;Handle button clicks.&#34;&#34;&#34;
+        bid = event.button.id
+        if bid == &#34;copy-btn&#34;:
+            self.action_copy_log()
+        elif bid == &#34;cancel-pipeline-btn&#34;:
+            self.action_cancel_pipeline()
+        elif bid == &#34;restart-pipeline-btn&#34;:
+            self.action_restart_pipeline()
+        elif bid == &#34;restart-job-btn&#34;:
+            self.action_restart_job()
+        elif bid == &#34;cancel-job-btn&#34;:
+            self.action_cancel_job()
+
+    # ------------------------------------------------------------------
+    # Actions
+    # ------------------------------------------------------------------
+
+    def action_quit_app(self) -&gt; None:
+        &#34;&#34;&#34;Quit with appropriate exit code.&#34;&#34;&#34;
+        code = 0 if self._pipeline_success else 1
+        self.exit(code)
+
+    def action_copy_log(self) -&gt; None:
+        &#34;&#34;&#34;Copy the active tab&#39;s log content to the system clipboard.&#34;&#34;&#34;
+        status_widget = self.query_one(&#34;#copy-status&#34;, Static)
+        try:
+            tabbed = self.query_one(TabbedContent)
+            active_id = tabbed.active
+            if not active_id:
+                status_widget.update(&#34;No active tab&#34;)
+                return
+            rich_log = self.query_one(f&#34;#{active_id} RichLog&#34;, RichLog)
+            text = _extract_richlog_text(rich_log)
+            if not text.strip():
+                status_widget.update(&#34;Nothing to copy&#34;)
+                return
+            if _copy_to_clipboard(text):
+                # Show which job was copied
+                job_name = next((name for name, tid in self._job_tab_ids.items() if tid == active_id), active_id)
+                status_widget.update(f&#34;✅ Copied {len(text.splitlines())} lines from [{job_name}]&#34;)
+            else:
+                status_widget.update(&#34;⚠️  Clipboard unavailable — try selecting text with mouse&#34;)
+        except Exception as exc:
+            status_widget.update(f&#34;❌ Copy failed: {exc}&#34;)
+
+    def action_cancel_pipeline(self) -&gt; None:
+        &#34;&#34;&#34;Signal the orchestrator to stop after the current stage.&#34;&#34;&#34;
+        self._orchestrator.cancel_pipeline()
+        summary = self.query_one(&#34;#summary&#34;, Static)
+        summary.update(&#34;🚫 Cancelling… (current stage will finish)&#34;)
+
+    def action_cancel_job(self) -&gt; None:
+        &#34;&#34;&#34;Send SIGTERM to the worker process running the active job.&#34;&#34;&#34;
+        try:
+            tabbed = self.query_one(TabbedContent)
+            active_id = tabbed.active
+            if not active_id:
+                return
+            job_name = next((n for n, tid in self._job_tab_ids.items() if tid == active_id), None)
+            if job_name:
+                self._orchestrator.cancel_job(job_name)
+        except Exception:  # nosec B110
+            pass
+
+    def action_restart_pipeline(self) -&gt; None:
+        &#34;&#34;&#34;Reset all UI state and re-run the entire pipeline from scratch.&#34;&#34;&#34;
+        # Guard: don&#39;t restart while pipeline is actively running (no cancel set, not yet done)
+        if self._pipeline_success is None and not self._orchestrator._cancel_event.is_set():
+            self.query_one(&#34;#copy-status&#34;, Static).update(&#34;Cancel the pipeline first before restarting.&#34;)
+            return
+
+        # Reset orchestrator state
+        self._orchestrator.reset()
+        self._pipeline_success = None
+
+        # Reset all tabs: clear logs and reset labels to pending
+        tabbed = self.query_one(TabbedContent)
+        for job in self._pipeline.jobs:
+            tab_id = self._job_tab_ids[job.name]
+            try:
+                tab = tabbed.get_tab(tab_id)
+                if tab:
+                    tab.label = self._job_label_for(job.name, &#34;pending&#34;)  # type: ignore[assignment]
+                rich_log = self.query_one(f&#34;#{tab_id} RichLog&#34;, RichLog)
+                rich_log.clear()
+            except Exception:  # nosec B110
+                pass
+
+        summary = self.query_one(&#34;#summary&#34;, Static)
+        summary.update(&#34;Restarting pipeline…&#34;)
+
+        # Re-launch the pipeline worker
+        self.run_worker(self._run_pipeline_worker, thread=True, name=&#34;pipeline-runner&#34;)
+
+    def action_restart_job(self) -&gt; None:
+        &#34;&#34;&#34;Re-run the job shown in the active tab.&#34;&#34;&#34;
+        try:
+            tabbed = self.query_one(TabbedContent)
+            active_id = tabbed.active
+            if not active_id:
+                return
+            job_name = next((n for n, tid in self._job_tab_ids.items() if tid == active_id), None)
+            if not job_name:
+                return
+            job = next((j for j in self._pipeline.jobs if j.name == job_name), None)
+            if not job:
+                return
+
+            # Guard: don&#39;t restart a job that is still running
+            tab = tabbed.get_tab(active_id)
+            if tab and _STATUS_ICONS[&#34;running&#34;] in str(tab.label):
+                self.query_one(&#34;#copy-status&#34;, Static).update(&#34;Job is still running.&#34;)
+                return
+
+            # Clear the log for this specific job
+            rich_log = self.query_one(f&#34;#{active_id} RichLog&#34;, RichLog)
+            rich_log.clear()
+
+            # Run the job in a new background thread
+            self.run_worker(
+                lambda: self._orchestrator.run_job_inline(job, self),
+                thread=True,
+                name=f&#34;restart-{job_name}&#34;,
+            )
+        except Exception:  # nosec B110
+            pass
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _make_tab_id(self, job_name: str) -&gt; str:
+        &#34;&#34;&#34;Convert a job name to a valid CSS ID.&#34;&#34;&#34;
+        sanitized = re.sub(r&#34;[^a-zA-Z0-9_-]&#34;, &#34;_&#34;, job_name)
+        return f&#34;job-{sanitized}&#34;
+
+    def _job_label_for(self, job_name: str, status: str) -&gt; str:
+        &#34;&#34;&#34;Build tab label with status icon, stage, and job name.&#34;&#34;&#34;
+        icon = _STATUS_ICONS.get(status, &#34;❓&#34;)
+        stage = next((j.stage for j in self._pipeline.jobs if j.name == job_name), &#34;?&#34;)
+        return f&#34;{icon} {stage}/{job_name}&#34;</code></pre>
+</details>
+<div class="desc"><p>Textual TUI for monitoring a bitrab pipeline run.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>TITLE</code></strong></dt>
+<dd>The application title.</dd>
+<dt><strong><code>CSS</code></strong></dt>
+<dd>Application-level CSS.</dd>
+<dt><strong><code>BINDINGS</code></strong></dt>
+<dd>Key bindings.</dd>
+</dl>
+<p>Create an instance of an app.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>driver_class</code></strong></dt>
+<dd>Driver class or <code>None</code> to auto-detect.
+This will be used by some Textual tools.</dd>
+<dt><strong><code>css_path</code></strong></dt>
+<dd>Path to CSS or <code>None</code> to use the <code>CSS_PATH</code> class variable.
+To load multiple CSS files, pass a list of strings or paths which
+will be loaded in order.</dd>
+<dt><strong><code>watch_css</code></strong></dt>
+<dd>Reload CSS if the files changed. This is set automatically if
+you are using <code>textual run</code> with the <code>dev</code> switch.</dd>
+<dt><strong><code>ansi_color</code></strong></dt>
+<dd>Allow ANSI colors if <code>True</code>, or convert ANSI colors to to RGB if <code>False</code>.</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>CssPathError</code></dt>
+<dd>When the supplied CSS path(s) are an unexpected type.</dd>
+</dl></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>textual.app.App</li>
+<li>typing.Generic</li>
+<li>textual.dom.DOMNode</li>
+<li>textual.message_pump.MessagePump</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="bitrab.tui.app.PipelineApp.BINDINGS"><code class="name">var <span class="ident">BINDINGS</span></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.CSS"><code class="name">var <span class="ident">CSS</span></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.TITLE"><code class="name">var <span class="ident">TITLE</span></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.tui.app.PipelineApp.action_cancel_job"><code class="name flex">
+<span>def <span class="ident">action_cancel_job</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_cancel_job(self) -&gt; None:
+    &#34;&#34;&#34;Send SIGTERM to the worker process running the active job.&#34;&#34;&#34;
+    try:
+        tabbed = self.query_one(TabbedContent)
+        active_id = tabbed.active
+        if not active_id:
+            return
+        job_name = next((n for n, tid in self._job_tab_ids.items() if tid == active_id), None)
+        if job_name:
+            self._orchestrator.cancel_job(job_name)
+    except Exception:  # nosec B110
+        pass</code></pre>
+</details>
+<div class="desc"><p>Send SIGTERM to the worker process running the active job.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.action_cancel_pipeline"><code class="name flex">
+<span>def <span class="ident">action_cancel_pipeline</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_cancel_pipeline(self) -&gt; None:
+    &#34;&#34;&#34;Signal the orchestrator to stop after the current stage.&#34;&#34;&#34;
+    self._orchestrator.cancel_pipeline()
+    summary = self.query_one(&#34;#summary&#34;, Static)
+    summary.update(&#34;🚫 Cancelling… (current stage will finish)&#34;)</code></pre>
+</details>
+<div class="desc"><p>Signal the orchestrator to stop after the current stage.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.action_copy_log"><code class="name flex">
+<span>def <span class="ident">action_copy_log</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_copy_log(self) -&gt; None:
+    &#34;&#34;&#34;Copy the active tab&#39;s log content to the system clipboard.&#34;&#34;&#34;
+    status_widget = self.query_one(&#34;#copy-status&#34;, Static)
+    try:
+        tabbed = self.query_one(TabbedContent)
+        active_id = tabbed.active
+        if not active_id:
+            status_widget.update(&#34;No active tab&#34;)
+            return
+        rich_log = self.query_one(f&#34;#{active_id} RichLog&#34;, RichLog)
+        text = _extract_richlog_text(rich_log)
+        if not text.strip():
+            status_widget.update(&#34;Nothing to copy&#34;)
+            return
+        if _copy_to_clipboard(text):
+            # Show which job was copied
+            job_name = next((name for name, tid in self._job_tab_ids.items() if tid == active_id), active_id)
+            status_widget.update(f&#34;✅ Copied {len(text.splitlines())} lines from [{job_name}]&#34;)
+        else:
+            status_widget.update(&#34;⚠️  Clipboard unavailable — try selecting text with mouse&#34;)
+    except Exception as exc:
+        status_widget.update(f&#34;❌ Copy failed: {exc}&#34;)</code></pre>
+</details>
+<div class="desc"><p>Copy the active tab's log content to the system clipboard.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.action_quit_app"><code class="name flex">
+<span>def <span class="ident">action_quit_app</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_quit_app(self) -&gt; None:
+    &#34;&#34;&#34;Quit with appropriate exit code.&#34;&#34;&#34;
+    code = 0 if self._pipeline_success else 1
+    self.exit(code)</code></pre>
+</details>
+<div class="desc"><p>Quit with appropriate exit code.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.action_restart_job"><code class="name flex">
+<span>def <span class="ident">action_restart_job</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_restart_job(self) -&gt; None:
+    &#34;&#34;&#34;Re-run the job shown in the active tab.&#34;&#34;&#34;
+    try:
+        tabbed = self.query_one(TabbedContent)
+        active_id = tabbed.active
+        if not active_id:
+            return
+        job_name = next((n for n, tid in self._job_tab_ids.items() if tid == active_id), None)
+        if not job_name:
+            return
+        job = next((j for j in self._pipeline.jobs if j.name == job_name), None)
+        if not job:
+            return
+
+        # Guard: don&#39;t restart a job that is still running
+        tab = tabbed.get_tab(active_id)
+        if tab and _STATUS_ICONS[&#34;running&#34;] in str(tab.label):
+            self.query_one(&#34;#copy-status&#34;, Static).update(&#34;Job is still running.&#34;)
+            return
+
+        # Clear the log for this specific job
+        rich_log = self.query_one(f&#34;#{active_id} RichLog&#34;, RichLog)
+        rich_log.clear()
+
+        # Run the job in a new background thread
+        self.run_worker(
+            lambda: self._orchestrator.run_job_inline(job, self),
+            thread=True,
+            name=f&#34;restart-{job_name}&#34;,
+        )
+    except Exception:  # nosec B110
+        pass</code></pre>
+</details>
+<div class="desc"><p>Re-run the job shown in the active tab.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.action_restart_pipeline"><code class="name flex">
+<span>def <span class="ident">action_restart_pipeline</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action_restart_pipeline(self) -&gt; None:
+    &#34;&#34;&#34;Reset all UI state and re-run the entire pipeline from scratch.&#34;&#34;&#34;
+    # Guard: don&#39;t restart while pipeline is actively running (no cancel set, not yet done)
+    if self._pipeline_success is None and not self._orchestrator._cancel_event.is_set():
+        self.query_one(&#34;#copy-status&#34;, Static).update(&#34;Cancel the pipeline first before restarting.&#34;)
+        return
+
+    # Reset orchestrator state
+    self._orchestrator.reset()
+    self._pipeline_success = None
+
+    # Reset all tabs: clear logs and reset labels to pending
+    tabbed = self.query_one(TabbedContent)
+    for job in self._pipeline.jobs:
+        tab_id = self._job_tab_ids[job.name]
+        try:
+            tab = tabbed.get_tab(tab_id)
+            if tab:
+                tab.label = self._job_label_for(job.name, &#34;pending&#34;)  # type: ignore[assignment]
+            rich_log = self.query_one(f&#34;#{tab_id} RichLog&#34;, RichLog)
+            rich_log.clear()
+        except Exception:  # nosec B110
+            pass
+
+    summary = self.query_one(&#34;#summary&#34;, Static)
+    summary.update(&#34;Restarting pipeline…&#34;)
+
+    # Re-launch the pipeline worker
+    self.run_worker(self._run_pipeline_worker, thread=True, name=&#34;pipeline-runner&#34;)</code></pre>
+</details>
+<div class="desc"><p>Reset all UI state and re-run the entire pipeline from scratch.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.compose"><code class="name flex">
+<span>def <span class="ident">compose</span></span>(<span>self) ‑> Iterable[textual.widget.Widget]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def compose(self) -&gt; ComposeResult:
+    &#34;&#34;&#34;Build the initial widget tree.&#34;&#34;&#34;
+    yield Header()
+    yield Static(&#34;Initializing pipeline…&#34;, id=&#34;summary&#34;)
+    with Static(id=&#34;action-bar&#34;):
+        yield Button(&#34;🚫 Cancel  [X]&#34;, id=&#34;cancel-pipeline-btn&#34;, variant=&#34;warning&#34;)
+        yield Button(&#34;↺ Restart pipeline&#34;, id=&#34;restart-pipeline-btn&#34;, variant=&#34;primary&#34;)
+        yield Button(&#34;↩ Restart job&#34;, id=&#34;restart-job-btn&#34;, variant=&#34;default&#34;)
+        yield Button(&#34;✕ Cancel job&#34;, id=&#34;cancel-job-btn&#34;, variant=&#34;error&#34;)
+    with TabbedContent():
+        for job in self._pipeline.jobs:
+            tab_id = self._make_tab_id(job.name)
+            self._job_tab_ids[job.name] = tab_id
+            label = f&#34;{_STATUS_ICONS[&#39;pending&#39;]} {job.stage}/{job.name}&#34;
+            yield TabPane(label, RichLog(highlight=False, markup=False), id=tab_id)
+    with Static(id=&#34;copy-bar&#34;):
+        yield Static(&#34;&#34;, id=&#34;copy-status&#34;)
+        yield Button(&#34;📋 Copy log  [c]&#34;, id=&#34;copy-btn&#34;, variant=&#34;default&#34;)
+    yield Footer()</code></pre>
+</details>
+<div class="desc"><p>Build the initial widget tree.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.on_button_pressed"><code class="name flex">
+<span>def <span class="ident">on_button_pressed</span></span>(<span>self, event: Button.Pressed) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_button_pressed(self, event: Button.Pressed) -&gt; None:
+    &#34;&#34;&#34;Handle button clicks.&#34;&#34;&#34;
+    bid = event.button.id
+    if bid == &#34;copy-btn&#34;:
+        self.action_copy_log()
+    elif bid == &#34;cancel-pipeline-btn&#34;:
+        self.action_cancel_pipeline()
+    elif bid == &#34;restart-pipeline-btn&#34;:
+        self.action_restart_pipeline()
+    elif bid == &#34;restart-job-btn&#34;:
+        self.action_restart_job()
+    elif bid == &#34;cancel-job-btn&#34;:
+        self.action_cancel_job()</code></pre>
+</details>
+<div class="desc"><p>Handle button clicks.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.on_job_output"><code class="name flex">
+<span>def <span class="ident">on_job_output</span></span>(<span>self,<br>message: <a title="bitrab.tui.app.JobOutput" href="#bitrab.tui.app.JobOutput">JobOutput</a>) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_job_output(self, message: JobOutput) -&gt; None:
+    &#34;&#34;&#34;Route job output text to the correct RichLog.&#34;&#34;&#34;
+    tab_id = self._job_tab_ids.get(message.job_name)
+    if not tab_id:
+        return
+    try:
+        rich_log = self.query_one(f&#34;#{tab_id} RichLog&#34;, RichLog)
+        # text is a full line from shell.py line-based streaming.
+        # RichLog.write() appends its own newline, so strip trailing one first.
+        for line in message.text.splitlines():
+            rich_log.write(line)
+    except Exception:  # nosec B110
+        pass</code></pre>
+</details>
+<div class="desc"><p>Route job output text to the correct RichLog.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.on_job_status_changed"><code class="name flex">
+<span>def <span class="ident">on_job_status_changed</span></span>(<span>self,<br>message: <a title="bitrab.tui.app.JobStatusChanged" href="#bitrab.tui.app.JobStatusChanged">JobStatusChanged</a>) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_job_status_changed(self, message: JobStatusChanged) -&gt; None:
+    &#34;&#34;&#34;Update the tab label with status icon and switch active tab to running jobs.&#34;&#34;&#34;
+    tab_id = self._job_tab_ids.get(message.job_name)
+    if not tab_id:
+        return
+
+    job_label = self._job_label_for(message.job_name, message.status)
+    try:
+        tabbed = self.query_one(TabbedContent)
+        tab = tabbed.get_tab(tab_id)
+        if tab:
+            tab.label = job_label  # type: ignore[assignment]
+        if message.status == &#34;running&#34;:
+            tabbed.active = tab_id
+    except Exception:  # nosec B110
+        pass</code></pre>
+</details>
+<div class="desc"><p>Update the tab label with status icon and switch active tab to running jobs.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.on_mount"><code class="name flex">
+<span>async def <span class="ident">on_mount</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">async def on_mount(self) -&gt; None:
+    &#34;&#34;&#34;Start the pipeline worker once the UI is ready.&#34;&#34;&#34;
+    self.run_worker(self._run_pipeline_worker, thread=True, name=&#34;pipeline-runner&#34;)</code></pre>
+</details>
+<div class="desc"><p>Start the pipeline worker once the UI is ready.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.on_pipeline_cancelled"><code class="name flex">
+<span>def <span class="ident">on_pipeline_cancelled</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_pipeline_cancelled(self) -&gt; None:
+    &#34;&#34;&#34;Called by orchestrator when the pipeline is cancelled by user.&#34;&#34;&#34;
+    self._pipeline_success = False
+    summary = self.query_one(&#34;#summary&#34;, Static)
+    summary.update(&#34;🚫 Pipeline cancelled.&#34;)
+    # Mark any still-running tabs as cancelled
+    tabbed = self.query_one(TabbedContent)
+    for job_name, tab_id in self._job_tab_ids.items():
+        try:
+            tab = tabbed.get_tab(tab_id)
+            if tab and _STATUS_ICONS[&#34;running&#34;] in str(tab.label):
+                tab.label = self._job_label_for(job_name, &#34;cancelled&#34;)  # type: ignore[assignment]
+        except Exception:  # nosec B110
+            pass</code></pre>
+</details>
+<div class="desc"><p>Called by orchestrator when the pipeline is cancelled by user.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.on_pipeline_complete"><code class="name flex">
+<span>def <span class="ident">on_pipeline_complete</span></span>(<span>self, success: bool) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_pipeline_complete(self, success: bool) -&gt; None:
+    &#34;&#34;&#34;Called by orchestrator when the whole pipeline finishes.&#34;&#34;&#34;
+    self._pipeline_success = success
+    summary = self.query_one(&#34;#summary&#34;, Static)
+    if success:
+        summary.update(&#34;🎉 Pipeline completed successfully!&#34;)
+    else:
+        summary.update(&#34;❌ Pipeline failed.&#34;)</code></pre>
+</details>
+<div class="desc"><p>Called by orchestrator when the whole pipeline finishes.</p></div>
+</dd>
+<dt id="bitrab.tui.app.PipelineApp.update_stage_status"><code class="name flex">
+<span>def <span class="ident">update_stage_status</span></span>(<span>self, stage: str, job_count: int) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def update_stage_status(self, stage: str, job_count: int) -&gt; None:
+    &#34;&#34;&#34;Update summary bar with current stage info.&#34;&#34;&#34;
+    summary = self.query_one(&#34;#summary&#34;, Static)
+    summary.update(f&#34;Stage: [{stage}]  Running {job_count} job(s)…&#34;)</code></pre>
+</details>
+<div class="desc"><p>Update summary bar with current stage info.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab.tui" href="index.html">bitrab.tui</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="bitrab.tui.app.JobOutput" href="#bitrab.tui.app.JobOutput">JobOutput</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.tui.app.JobOutput.bubble" href="#bitrab.tui.app.JobOutput.bubble">bubble</a></code></li>
+<li><code><a title="bitrab.tui.app.JobOutput.handler_name" href="#bitrab.tui.app.JobOutput.handler_name">handler_name</a></code></li>
+<li><code><a title="bitrab.tui.app.JobOutput.no_dispatch" href="#bitrab.tui.app.JobOutput.no_dispatch">no_dispatch</a></code></li>
+<li><code><a title="bitrab.tui.app.JobOutput.verbose" href="#bitrab.tui.app.JobOutput.verbose">verbose</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.tui.app.JobStatusChanged" href="#bitrab.tui.app.JobStatusChanged">JobStatusChanged</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.tui.app.JobStatusChanged.bubble" href="#bitrab.tui.app.JobStatusChanged.bubble">bubble</a></code></li>
+<li><code><a title="bitrab.tui.app.JobStatusChanged.handler_name" href="#bitrab.tui.app.JobStatusChanged.handler_name">handler_name</a></code></li>
+<li><code><a title="bitrab.tui.app.JobStatusChanged.no_dispatch" href="#bitrab.tui.app.JobStatusChanged.no_dispatch">no_dispatch</a></code></li>
+<li><code><a title="bitrab.tui.app.JobStatusChanged.verbose" href="#bitrab.tui.app.JobStatusChanged.verbose">verbose</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.tui.app.PipelineApp" href="#bitrab.tui.app.PipelineApp">PipelineApp</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.tui.app.PipelineApp.BINDINGS" href="#bitrab.tui.app.PipelineApp.BINDINGS">BINDINGS</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.CSS" href="#bitrab.tui.app.PipelineApp.CSS">CSS</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.TITLE" href="#bitrab.tui.app.PipelineApp.TITLE">TITLE</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.action_cancel_job" href="#bitrab.tui.app.PipelineApp.action_cancel_job">action_cancel_job</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.action_cancel_pipeline" href="#bitrab.tui.app.PipelineApp.action_cancel_pipeline">action_cancel_pipeline</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.action_copy_log" href="#bitrab.tui.app.PipelineApp.action_copy_log">action_copy_log</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.action_quit_app" href="#bitrab.tui.app.PipelineApp.action_quit_app">action_quit_app</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.action_restart_job" href="#bitrab.tui.app.PipelineApp.action_restart_job">action_restart_job</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.action_restart_pipeline" href="#bitrab.tui.app.PipelineApp.action_restart_pipeline">action_restart_pipeline</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.compose" href="#bitrab.tui.app.PipelineApp.compose">compose</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.on_button_pressed" href="#bitrab.tui.app.PipelineApp.on_button_pressed">on_button_pressed</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.on_job_output" href="#bitrab.tui.app.PipelineApp.on_job_output">on_job_output</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.on_job_status_changed" href="#bitrab.tui.app.PipelineApp.on_job_status_changed">on_job_status_changed</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.on_mount" href="#bitrab.tui.app.PipelineApp.on_mount">on_mount</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.on_pipeline_cancelled" href="#bitrab.tui.app.PipelineApp.on_pipeline_cancelled">on_pipeline_cancelled</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.on_pipeline_complete" href="#bitrab.tui.app.PipelineApp.on_pipeline_complete">on_pipeline_complete</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.update_stage_status" href="#bitrab.tui.app.PipelineApp.update_stage_status">update_stage_status</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

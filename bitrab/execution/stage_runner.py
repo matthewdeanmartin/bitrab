@@ -320,7 +320,8 @@ class StagePipelineRunner:
         for job in stage_jobs:
             job_dir = self._make_job_dir(job)
             cb.on_job_start(job)
-            inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+            if not self.job_executor.dry_run:
+                inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
             ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
             ctx = cb.enrich_context(ctx)
@@ -339,7 +340,8 @@ class StagePipelineRunner:
                     allowed_failure=allowed,
                 )
             finally:
-                collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                if not self.job_executor.dry_run:
+                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
                 self._completed_jobs.append(job.name)
 
             outcomes.append(outcome)
@@ -366,7 +368,8 @@ class StagePipelineRunner:
             for job in stage_jobs:
                 job_dir = self._make_job_dir(job)
                 cb.on_job_start(job)
-                inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                if not self.job_executor.dry_run:
+                    inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
                 extra = cb.make_worker_args(job, job_dir)
                 fut = pool.submit(worker_func, job, self.job_executor, job_dir, **extra)
                 futures[fut] = job
@@ -398,7 +401,8 @@ class StagePipelineRunner:
                             error=exc,
                             allowed_failure=allowed,
                         )
-                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                    if not self.job_executor.dry_run:
+                        collect_artifacts(job, self.job_executor.project_dir, succeeded)
                     self._completed_jobs.append(job.name)
 
                     outcomes.append(outcome)
@@ -409,7 +413,8 @@ class StagePipelineRunner:
     def _make_job_dir(self, job: JobConfig) -> Path:
         """Create and return the per-job directory."""
         job_dir = self.job_executor.project_dir / ".bitrab" / sanitize_job_name(job.name)
-        job_dir.mkdir(parents=True, exist_ok=True)
+        if not self.job_executor.dry_run:
+            job_dir.mkdir(parents=True, exist_ok=True)
         return job_dir
 
 

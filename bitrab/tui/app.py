@@ -97,6 +97,8 @@ def _extract_richlog_text(rich_log: RichLog) -> str:
     for line in rich_log.lines:
         if isinstance(line, Text):
             lines.append(line.plain)
+        elif hasattr(line, "text"):
+            lines.append(line.text)
         else:
             lines.append(str(line))
     return "\n".join(lines)
@@ -184,10 +186,11 @@ class PipelineApp(App[int]):
         Binding("R", "restart_job", "Restart job", show=True),
     ]
 
-    def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator) -> None:
+    def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False) -> None:
         super().__init__()
         self._pipeline = pipeline
         self._orchestrator = orchestrator
+        self._close_on_completion = close_on_completion
         # Map job name → tab_id for fast lookup
         self._job_tab_ids: dict[str, str] = {}
         # Track pipeline success for exit code
@@ -250,6 +253,8 @@ class PipelineApp(App[int]):
             summary.update("🎉 Pipeline completed successfully!")
         else:
             summary.update("❌ Pipeline failed.")
+        if self._close_on_completion:
+            self.exit(0 if success else 1)
 
     def on_pipeline_cancelled(self) -> None:
         """Called by orchestrator when the pipeline is cancelled by user."""
@@ -265,6 +270,8 @@ class PipelineApp(App[int]):
                     tab.label = self._job_label_for(job_name, "cancelled")  # type: ignore[assignment]
             except Exception:  # nosec B110
                 pass
+        if self._close_on_completion:
+            self.exit(1)
 
     # ------------------------------------------------------------------
     # Message handlers (run on event loop thread)

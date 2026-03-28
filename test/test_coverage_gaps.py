@@ -240,6 +240,46 @@ class TestJobDryRun:
         ex.execute_job(job, job_dir=tmp_path, output_writer=buf)
         assert "echo something" in buf.getvalue()
 
+    def test_dry_run_reports_all_script_sections(self, tmp_path):
+        buf = StringIO()
+        buf.flush = lambda: None
+        vm = VariableManager({}, project_dir=tmp_path)
+        ex = JobExecutor(vm, dry_run=True, project_dir=tmp_path)
+        job = _make_job(
+            before_script=["echo before"],
+            script=["echo main"],
+            after_script=["echo after"],
+        )
+
+        ex.execute_job(job, job_dir=tmp_path, output_writer=buf)
+
+        output = buf.getvalue()
+        assert "echo before" in output
+        assert "echo main" in output
+        assert "echo after" in output
+        assert "dry-run preview only" in output
+
+    def test_stage_runner_dry_run_skips_job_dirs_and_artifacts(self, tmp_path):
+        artifact_file = tmp_path / "artifact.txt"
+        artifact_file.write_text("artifact")
+        pipeline = PipelineConfig(
+            stages=["build"],
+            jobs=[
+                _make_job(
+                    name="build job",
+                    stage="build",
+                    script=["echo build"],
+                    artifacts_paths=["artifact.txt"],
+                )
+            ],
+        )
+        vm = VariableManager({}, project_dir=tmp_path)
+        ex = JobExecutor(vm, dry_run=True, project_dir=tmp_path)
+
+        StagePipelineRunner(ex, maximum_degree_of_parallelism=1).execute_pipeline(pipeline)
+
+        assert not (tmp_path / ".bitrab").exists()
+
 
 # ===========================================================================
 # execution/shell.py
@@ -728,3 +768,38 @@ class TestLocalGitLabRunnerFilters:
             stage_filter=["test"],
         )
         assert marker.exists()
+
+    def test_dry_run_in_ci_mode_uses_streaming_runner(self, tmp_path, monkeypatch):
+        ci = self._write_ci(tmp_path)
+        runner = LocalGitLabRunner(base_path=tmp_path)
+        stage_called = False
+        tui_called = False
+
+        class DummyStageOrchestrator:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def execute_pipeline(self, pipeline):
+                nonlocal stage_called
+                stage_called = True
+
+        class DummyTUIOrchestrator:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def execute_pipeline_ci(self, pipeline):
+                nonlocal tui_called
+                tui_called = True
+
+        monkeypatch.setattr("bitrab.plan.StageOrchestrator", DummyStageOrchestrator)
+        monkeypatch.setattr("bitrab.tui.orchestrator.TUIOrchestrator", DummyTUIOrchestrator)
+
+        runner.run_pipeline(
+            config_path=ci,
+            maximum_degree_of_parallelism=1,
+            dry_run=True,
+            ci_mode=True,
+        )
+
+        assert stage_called is True
+        assert tui_called is False

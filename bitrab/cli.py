@@ -103,6 +103,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         use_tui = should_use_tui(args)
         ci_mode = is_ci_mode() and not use_tui
 
+        if args.dry_run:
+            print("🔎 Dry-run mode enabled — jobs will only report what would run and will succeed.")
+
         runner.run_pipeline(
             config_path=config_path,
             maximum_degree_of_parallelism=args.parallel,
@@ -270,6 +273,9 @@ def cmd_lint(args: argparse.Namespace) -> None:
 def cmd_graph(args: argparse.Namespace) -> None:
     """Generate a visual dependency graph of the pipeline."""
     print("📊 Pipeline Dependency Graph")
+    if getattr(args, "dry_run", False):
+        print("🔎 Dry-run mode enabled — would generate the pipeline dependency graph without writing files.")
+        return
     print("⚠️  Graph generation not yet implemented")
     print("   This would create a visual representation of job dependencies")
     sys.exit(1)
@@ -294,6 +300,9 @@ def cmd_debug(args: argparse.Namespace) -> None:
 def cmd_clean(args: argparse.Namespace) -> None:
     """Clean up artifacts and temporary files."""
     print("🧹 Clean Pipeline Artifacts")
+    if getattr(args, "dry_run", False):
+        print("🔎 Dry-run mode enabled — would remove build artifacts, cache files, and temporary files.")
+        return
     print("⚠️  Cleanup not yet implemented")
     print("   This would remove build artifacts, cache files, etc.")
 
@@ -380,6 +389,7 @@ Version: {__version__}
         help="Generate pipeline dependency graph",
         description="Create visual representation of job dependencies (not implemented)",
     )
+    graph_parser.add_argument("--dry-run", action="store_true", help="Show what graph output would be generated without writing files")
     graph_parser.set_defaults(func=cmd_graph)
 
     # Debug command
@@ -392,6 +402,7 @@ Version: {__version__}
 
     # Clean command
     clean_parser = subparsers.add_parser("clean", help="Clean up artifacts", description="Remove build artifacts and temporary files (not implemented)")
+    clean_parser.add_argument("--dry-run", action="store_true", help="Show what would be removed without deleting files")
     clean_parser.set_defaults(func=cmd_clean)
 
     return parser

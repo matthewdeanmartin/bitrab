@@ -274,13 +274,13 @@ class JobExecutor:
             lines.append(script)
 
         full_script = "\n".join(lines)
-        _print(f"    $ {full_script}")
+        for line in lines:
+            _print(f"    $ {line}")
 
         target_cwd = cwd or self.project_dir
 
         if self.dry_run:
-            _print("Not running...")
-            _print(full_script)
+            _print("    ↪ dry-run preview only")
             result = RunResult(0, "", "")
         else:
             remaining: float | None = None

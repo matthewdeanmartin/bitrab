@@ -13,8 +13,14 @@ from bitrab.models.pipeline import JobConfig, PipelineConfig
 class _StreamingCallbacks(PipelineCallbacks):
     """Callbacks that print status updates to stdout (original StageOrchestrator behaviour)."""
 
+    def __init__(self, dry_run: bool = False) -> None:
+        self._dry_run = dry_run
+
     def on_pipeline_start(self, pipeline: PipelineConfig, max_workers: int) -> None:
-        print("🚀 Starting GitLab CI pipeline execution")
+        if self._dry_run:
+            print("🚀 Starting GitLab CI pipeline dry run")
+        else:
+            print("🚀 Starting GitLab CI pipeline execution")
         print(f"📋 Stages: {', '.join(pipeline.stages)}")
         print(f"🧠 Parallel workers per stage: {max_workers}")
 
@@ -23,7 +29,8 @@ class _StreamingCallbacks(PipelineCallbacks):
             print("\n🎉 Pipeline completed successfully!")
 
     def on_stage_start(self, stage: str, jobs: list[JobConfig]) -> None:
-        print(f"\n🎯 Executing stage in parallel: {stage} ({len(jobs)} job(s))")
+        verb = "Previewing" if self._dry_run else "Executing"
+        print(f"\n🎯 {verb} stage in parallel: {stage} ({len(jobs)} job(s))")
 
     def on_stage_skip(self, stage: str) -> None:
         print(f"⏭️  Skipping empty stage: {stage}")
@@ -58,7 +65,7 @@ class StageOrchestrator:
         self.job_executor = job_executor
         self._runner = StagePipelineRunner(
             job_executor=job_executor,
-            callbacks=_StreamingCallbacks(),
+            callbacks=_StreamingCallbacks(dry_run=dry_run),
             maximum_degree_of_parallelism=maximum_degree_of_parallelism,
         )
 

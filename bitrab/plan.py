@@ -367,7 +367,7 @@ class LocalGitLabRunner:
         variable_manager = VariableManager(pipeline.variables, project_dir=self.base_path)
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-        if use_tui or ci_mode:
+        if use_tui or (ci_mode and not dry_run):
             from bitrab.tui.orchestrator import TUIOrchestrator
 
             tui_orchestrator = TUIOrchestrator(
