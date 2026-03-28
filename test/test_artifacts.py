@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 from bitrab.execution.artifacts import collect_artifacts, inject_dependencies, _artifact_dir
 from bitrab.models.pipeline import JobConfig

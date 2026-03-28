@@ -12,10 +12,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from bitrab.config.capabilities import check_capabilities
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.config.validate_pipeline import GitLabCIValidator
 from bitrab.exceptions import BitrabError, GitlabRunnerError
-from bitrab.plan import LocalGitLabRunner, PipelineProcessor, filter_pipeline
+from bitrab.plan import LocalGitLabRunner, PipelineProcessor
 
 # emoji support
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
@@ -184,9 +185,16 @@ def cmd_validate(args: argparse.Namespace) -> None:
                 print(f"   • {error}")
             sys.exit(1)
 
-        # 2. Structural/Semantic Validation
+        # 2. Capability validation (informational only — does not block execution)
         raw_config, pipeline_config = load_and_process_config(config_path)
 
+        cap_diags = check_capabilities(raw_config)
+        if cap_diags:
+            print("ℹ️  Local execution notes (these features behave differently or are skipped locally):")
+            for d in cap_diags:
+                print(f"   • {d}")
+
+        # 3. Structural/Semantic Validation
         errors = []
         warnings = []
 

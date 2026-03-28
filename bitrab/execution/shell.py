@@ -198,10 +198,10 @@ def run_bash(
         ) as proc:
             try:
                 out, err = proc.communicate(robust_script_content, timeout=timeout)
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as toe:
                 proc.kill()
                 proc.communicate()
-                raise JobTimeoutError(f"Job timed out after {timeout}s")
+                raise JobTimeoutError(f"Job timed out after {timeout}s") from toe
             rc = proc.returncode
         result = RunResult(rc, out, err)
         if check:
@@ -262,6 +262,7 @@ def run_bash(
 
         cancel_timer = threading.Event()
         if timeout is not None:
+
             def _kill_on_timeout() -> None:
                 nonlocal _process_killed_by_timeout
                 if not cancel_timer.wait(timeout):

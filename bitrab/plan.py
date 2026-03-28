@@ -50,10 +50,10 @@ def parse_duration(value: Any) -> float | None:
 
 
 def filter_pipeline(
-    pipeline: "PipelineConfig",
+    pipeline: PipelineConfig,
     jobs: list[str] | None = None,
     stages: list[str] | None = None,
-) -> "PipelineConfig":
+) -> PipelineConfig:
     """Return a copy of *pipeline* with jobs and stages filtered.
 
     Args:
