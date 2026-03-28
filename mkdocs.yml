@@ -1,0 +1,16 @@
+site_name: Bitrab
+site_description: Run GitLab CI pipelines locally — no Docker, no admin rights
+site_url: https://bitrab.readthedocs.io/en/latest/
+repo_url: https://github.com/matthewdeanmartin/bitrab
+repo_name: matthewdeanmartin/bitrab
+
+theme:
+  name: readthedocs
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Running pipelines: running.md
+  - CLI reference: cli.md
+  - Key concepts: concepts.md
+  - Local vs GitLab: differences.md
