@@ -7,6 +7,8 @@ Keybindings:
   q       quit
   c       copy active tab's log to clipboard
   X       cancel pipeline (stops after current stage)
+  r       restart entire pipeline
+  R       restart active job only
 """
 
 from __future__ import annotations
@@ -178,6 +180,8 @@ class PipelineApp(App[int]):
         Binding("q", "quit_app", "Quit", show=True),
         Binding("c", "copy_log", "Copy log", show=True),
         Binding("X", "cancel_pipeline", "Cancel pipeline", show=True),
+        Binding("r", "restart_pipeline", "Restart pipeline", show=True),
+        Binding("R", "restart_job", "Restart job", show=True),
     ]
 
     def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator) -> None:
@@ -199,8 +203,8 @@ class PipelineApp(App[int]):
         yield Static("Initializing pipeline…", id="summary")
         with Static(id="action-bar"):
             yield Button("🚫 Cancel  [X]", id="cancel-pipeline-btn", variant="warning")
-            yield Button("↺ Restart pipeline", id="restart-pipeline-btn", variant="primary")
-            yield Button("↩ Restart job", id="restart-job-btn", variant="default")
+            yield Button("↺ Restart pipeline  [r]", id="restart-pipeline-btn", variant="primary")
+            yield Button("↩ Restart job  [R]", id="restart-job-btn", variant="default")
             yield Button("✕ Cancel job", id="cancel-job-btn", variant="error")
         with TabbedContent():
             for job in self._pipeline.jobs:
@@ -364,8 +368,8 @@ class PipelineApp(App[int]):
 
     def action_restart_pipeline(self) -> None:
         """Reset all UI state and re-run the entire pipeline from scratch."""
-        # Guard: don't restart while pipeline is actively running (no cancel set, not yet done)
-        if self._pipeline_success is None and not self._orchestrator._cancel_event.is_set():
+        # Guard: don't restart while pipeline is actively running (not cancelled, not yet done)
+        if self._pipeline_success is None and self._orchestrator.is_running():
             self.query_one("#copy-status", Static).update("Cancel the pipeline first before restarting.")
             return
 

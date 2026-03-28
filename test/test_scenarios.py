@@ -9,6 +9,7 @@ Covers four broad scenarios:
 Each scenario exercises real bitrab behaviours: DAGs, parallel stages,
 allow_failure, artifacts, when conditions, variable precedence.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -29,7 +30,6 @@ from bitrab.execution.stage_runner import (
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 from bitrab.plan import LocalGitLabRunner, PipelineProcessor, filter_pipeline, parse_duration
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -236,9 +236,7 @@ class TestConfigurationLoader:
     def test_recursive_include_prevention(self, tmp_path):
         """A file that includes itself should not loop forever."""
         ci = tmp_path / ".gitlab-ci.yml"
-        ci.write_text(
-            "include:\n  - local: .gitlab-ci.yml\nstages: [test]\njob:\n  script: [echo hi]\n"
-        )
+        ci.write_text("include:\n  - local: .gitlab-ci.yml\nstages: [test]\njob:\n  script: [echo hi]\n")
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(ci)
         assert "job" in raw  # loaded successfully, recursion was skipped
@@ -1151,8 +1149,7 @@ class TestMultiIncludeConfig:
 
         shared_yml = tmp_path / "shared.yml"
         shared_yml.write_text(
-            "include:\n  - local: variables.yml\n"
-            "shared_test:\n  stage: test\n  script:\n    - echo shared\n"
+            "include:\n  - local: variables.yml\n" "shared_test:\n  stage: test\n  script:\n    - echo shared\n"
         )
 
         _write_ci(

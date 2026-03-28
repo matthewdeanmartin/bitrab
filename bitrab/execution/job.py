@@ -5,6 +5,7 @@ import subprocess  # nosec
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
 from bitrab.exceptions import BitrabError, JobExecutionError, JobTimeoutError
 from bitrab.execution.shell import RunResult, TextWriter, run_bash
 from bitrab.execution.variables import VariableManager

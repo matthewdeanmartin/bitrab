@@ -1,10 +1,9 @@
 """Tests for FEATURE-8 (--jobs filtering) and FEATURE-9 (--stage filtering)."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 from bitrab.models.pipeline import PipelineConfig
 from bitrab.plan import PipelineProcessor, filter_pipeline
-
 
 # ---------------------------------------------------------------------------
 # Helpers

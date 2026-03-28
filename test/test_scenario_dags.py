@@ -10,6 +10,7 @@ topological structure from the spec.  Tests verify:
 
 No external tooling is installed — jobs use echo / exit / mkdir.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -22,7 +23,6 @@ from bitrab.exceptions import JobExecutionError
 from bitrab.execution.artifacts import _artifact_dir
 from bitrab.execution.stage_runner import has_dag_jobs
 from bitrab.plan import LocalGitLabRunner, PipelineProcessor
-
 
 # ---------------------------------------------------------------------------
 # Helpers

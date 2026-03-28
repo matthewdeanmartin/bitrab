@@ -22,13 +22,8 @@ from queue import Empty
 from typing import TYPE_CHECKING, Any
 
 from bitrab.execution.job import JobExecutor, RunResult
-from bitrab.execution.stage_runner import (
-    JobOutcome,
-    PipelineCallbacks,
-    StagePipelineRunner,
-    sanitize_job_name,
-)
 from bitrab.execution.shell import TextWriter
+from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner, sanitize_job_name
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 
 if TYPE_CHECKING:
@@ -290,6 +285,10 @@ class TUIOrchestrator:
         self._cancel_event: threading.Event = threading.Event()
         # job_name -> worker OS PID (populated via Manager().dict() in parallel path)
         self._worker_pids: dict[str, int] = {}
+
+    def is_running(self) -> bool:
+        """Return True if the pipeline is actively running (not cancelled, not done)."""
+        return not self._cancel_event.is_set()
 
     def reset(self) -> None:
         """Reset orchestrator state for a fresh pipeline run."""

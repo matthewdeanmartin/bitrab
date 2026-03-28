@@ -1,8 +1,8 @@
 """Tests for FEATURE-4: ``needs:`` keyword and DAG execution."""
 
-import pytest
-
 from graphlib import CycleError
+
+import pytest
 
 from bitrab.exceptions import JobExecutionError
 from bitrab.plan import LocalGitLabRunner

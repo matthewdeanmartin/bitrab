@@ -10,7 +10,6 @@ from bitrab.execution.scheduler import StageOrchestrator
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import DefaultConfig, JobConfig, PipelineConfig
 
-
 _DURATION_RE = re.compile(
     r"""
     (?:(\d+)\s*w(?:eeks?)?)?\s*

@@ -340,7 +340,12 @@ Version: {__version__}
         help="Number of parallel jobs per stage (default: number of CPU cores)",
     )
     run_parser.add_argument("--jobs", nargs="*", metavar="JOB", help="Run only specified jobs (if not specified, run all jobs)")
-    run_parser.add_argument("--stage", nargs="*", metavar="STAGE", help="Run only jobs in specified stages (if not specified, run all stages)")
+    run_parser.add_argument(
+        "--stage",
+        nargs="*",
+        metavar="STAGE",
+        help="Run only jobs in specified stages (if not specified, run all stages)",
+    )
     run_parser.add_argument(
         "--no-tui",
         action="store_true",

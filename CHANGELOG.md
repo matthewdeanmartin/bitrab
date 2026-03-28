@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed for any bug fixes.
 - Security in case of vulnerabilities.
 
+## [0.2.0] - 2026-03-27
+
+### Added
+
+- Supports more gitlab syntax, validation command to tell you what syntax will be ignored.
+
+
 ## [0.1.0] - 2025-09-07
 
 ### Added

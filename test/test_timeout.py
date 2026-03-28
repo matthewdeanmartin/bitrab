@@ -1,4 +1,5 @@
 """Tests for FEATURE-5: job timeout support."""
+
 from __future__ import annotations
 
 import os
@@ -8,8 +9,7 @@ import pytest
 
 from bitrab.exceptions import JobTimeoutError
 from bitrab.execution.shell import run_bash
-from bitrab.plan import parse_duration, PipelineProcessor
-
+from bitrab.plan import PipelineProcessor, parse_duration
 
 # ---------------------------------------------------------------------------
 # Helpers

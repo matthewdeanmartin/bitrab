@@ -1,13 +1,8 @@
 """Tests for ARCH-3: Capability validation layer."""
+
 from __future__ import annotations
 
-
-from bitrab.config.capabilities import (
-    CapabilityDiagnostic,
-    DiagnosticLevel,
-    check_capabilities,
-)
-
+from bitrab.config.capabilities import CapabilityDiagnostic, DiagnosticLevel, check_capabilities
 
 # ---------------------------------------------------------------------------
 # Helpers

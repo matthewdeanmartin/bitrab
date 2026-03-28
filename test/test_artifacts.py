@@ -1,13 +1,12 @@
 """Tests for FEATURE-6: artifacts support."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
-
-from bitrab.execution.artifacts import collect_artifacts, inject_dependencies, _artifact_dir
+from bitrab.execution.artifacts import _artifact_dir, collect_artifacts, inject_dependencies
 from bitrab.models.pipeline import JobConfig
 from bitrab.plan import PipelineProcessor
-
 
 # ---------------------------------------------------------------------------
 # Helpers
