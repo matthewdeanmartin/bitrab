@@ -108,45 +108,45 @@ fix-ci: format-check
 # Run read-only Ruff checks.
 ruff-only:
     @echo "Running ruff"
-    {{NO_COLOR_ENV}} {{venv}} ruff check .
+    {{venv}} ruff check .
 
 ruff: uv-lock install-plugins ruff-only
 
 # Run mypy type checking.
 mypy-only:
     @echo "Running mypy"
-    {{NO_COLOR_ENV}} {{venv}} mypy bitrab --ignore-missing-imports --check-untyped-defs
+    {{venv}} mypy bitrab --ignore-missing-imports --check-untyped-defs
 
 mypy: uv-lock install-plugins mypy-only
 
 # Run pylint checks.
 pylint-only:
     @echo "Running pylint"
-    {{NO_COLOR_ENV}} {{venv}} pylint bitrab --fail-under 9.8 --rcfile=.pylintrc
+    {{venv}} pylint bitrab --fail-under 9.8 --rcfile=.pylintrc
 
 pylint: uv-lock install-plugins pylint-only
 
 # Run Bandit security checks.
 bandit-only:
     @echo "Running bandit"
-    {{NO_COLOR_ENV}} {{venv}} bandit bitrab -r --quiet
+    {{venv}} bandit bitrab -r --quiet
 
 bandit: uv-lock install-plugins bandit-only
 
 # Run the pytest suite with coverage output.
 pytest-only:
     @echo "Running unit tests"
-    {{NO_COLOR_ENV}} {{venv}} pytest test -vv \
+    {{venv}} pytest test -vv \
       --cov=bitrab --cov-report=html --cov-fail-under 35 --cov-branch \
       --cov-report=xml --junitxml=junit.xml -o junit_family=legacy \
-      --timeout=15 --session-timeout=600 --color=no
+      --timeout=15 --session-timeout=600
 
 pytest: clean uv-lock install-plugins pytest-only
 
 # Run CLI smoke tests.
 smoke-only:
     @echo "Running CLI smoke checks"
-    {{NO_COLOR_ENV}} {{venv}} bash scripts/basic_checks.sh
+    {{venv}} bash scripts/basic_checks.sh
 
 smoke: uv-lock install-plugins smoke-only
 
@@ -210,17 +210,17 @@ triage: fast-verify
 # Run serial verification to simplify local debugging.
 repro: clean uv-lock install-plugins
     @echo "Running serial reproduction-friendly verification"
-    {{NO_COLOR_ENV}} {{venv}} pytest test -n 0 -vv --maxfail=1 \
+    {{venv}} pytest test -n 0 -vv --maxfail=1 \
       --cov=bitrab --cov-report=xml --cov-branch --junitxml=junit.xml \
-      -o junit_family=legacy --timeout=15 --session-timeout=600 --color=no
-    {{NO_COLOR_ENV}} {{venv}} bash scripts/basic_checks.sh
+      -o junit_family=legacy --timeout=15 --session-timeout=600
+    {{venv}} bash scripts/basic_checks.sh
 
 bugs: fix-ci ruff mypy pylint bandit repro smoke
 
 # Run benchmark-focused tests.
 benchmark: uv-lock install-plugins
     @echo "Running performance benchmarks"
-    {{NO_COLOR_ENV}} {{venv}} pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1 --color=no
+    {{venv}} pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1
 
 pre-commit: uv-lock install-plugins
     @echo "Running pre-commit hooks"

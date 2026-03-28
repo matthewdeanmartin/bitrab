@@ -131,7 +131,7 @@ fix-ci: format-check
 .PHONY: ruff-only
 ruff-only:
 	@echo "Running ruff"
-	$(NO_COLOR_ENV) $(VENV) ruff check .
+	$(VENV) ruff check .
 
 .PHONY: ruff
 ruff: uv-lock install-plugins ruff-only
@@ -139,7 +139,7 @@ ruff: uv-lock install-plugins ruff-only
 .PHONY: mypy-only
 mypy-only:
 	@echo "Running mypy"
-	$(NO_COLOR_ENV) $(VENV) mypy bitrab --ignore-missing-imports --check-untyped-defs
+	$(VENV) mypy bitrab --ignore-missing-imports --check-untyped-defs
 
 .PHONY: mypy
 mypy: uv-lock install-plugins mypy-only
@@ -147,7 +147,7 @@ mypy: uv-lock install-plugins mypy-only
 .PHONY: pylint-only
 pylint-only:
 	@echo "Running pylint"
-	$(NO_COLOR_ENV) $(VENV) pylint bitrab --fail-under 9.8
+	$(VENV) pylint bitrab --fail-under 9.8
 
 .PHONY: pylint
 pylint: uv-lock install-plugins pylint-only
@@ -155,7 +155,7 @@ pylint: uv-lock install-plugins pylint-only
 .PHONY: bandit-only
 bandit-only:
 	@echo "Running bandit"
-	$(NO_COLOR_ENV) $(VENV) bandit bitrab -r --quiet
+	$(VENV) bandit bitrab -r --quiet
 
 .PHONY: bandit
 bandit: uv-lock install-plugins bandit-only
@@ -163,7 +163,7 @@ bandit: uv-lock install-plugins bandit-only
 .PHONY: pytest-only
 pytest-only:
 	@echo "Running unit tests"
-	$(NO_COLOR_ENV) $(VENV) pytest test -vv --cov=bitrab --cov-report=html --cov-fail-under 35 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600 --color=no
+	$(VENV) pytest test -vv --cov=bitrab --cov-report=html --cov-fail-under 35 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600
 
 .PHONY: pytest
 pytest: clean uv-lock install-plugins pytest-only
@@ -171,7 +171,7 @@ pytest: clean uv-lock install-plugins pytest-only
 .PHONY: smoke-only
 smoke-only:
 	@echo "Running CLI smoke checks"
-	$(NO_COLOR_ENV) $(VENV) bash ./scripts/basic_checks.sh
+	$(VENV) bash ./scripts/basic_checks.sh
 
 .PHONY: smoke
 smoke: uv-lock install-plugins smoke-only
@@ -205,8 +205,8 @@ triage: fast-verify
 .PHONY: repro
 repro: clean uv-lock install-plugins
 	@echo "Running serial reproduction-friendly verification"
-	$(NO_COLOR_ENV) $(VENV) pytest test -n 0 -vv --maxfail=1 --cov=bitrab --cov-report=xml --cov-branch --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600 --color=no
-	$(NO_COLOR_ENV) $(VENV) bash ./scripts/basic_checks.sh
+	$(VENV) pytest test -n 0 -vv --maxfail=1 --cov=bitrab --cov-report=xml --cov-branch --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600
+	$(VENV) bash ./scripts/basic_checks.sh
 
 .PHONY: bugs
 bugs: fix-ci ruff mypy pylint bandit repro smoke
@@ -214,7 +214,7 @@ bugs: fix-ci ruff mypy pylint bandit repro smoke
 .PHONY: benchmark
 benchmark: uv-lock install-plugins
 	@echo "Running performance benchmarks"
-	$(NO_COLOR_ENV) $(VENV) pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1 --color=no
+	$(VENV) pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1
 
 .PHONY: pre-commit
 pre-commit: uv-lock install-plugins

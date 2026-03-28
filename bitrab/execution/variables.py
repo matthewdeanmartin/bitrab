@@ -21,6 +21,11 @@ class VariableManager:
         self.project_dir = project_dir or Path.cwd()
         self.gitlab_ci_vars = self._get_gitlab_ci_variables()
 
+        # Pre-compute the shared base environment (os.environ + built-ins + base vars)
+        self._shared_base_env = os.environ.copy()
+        self._shared_base_env.update(self.gitlab_ci_vars)
+        self._shared_base_env.update(self.base_variables)
+
     def _get_gitlab_ci_variables(self) -> dict[str, str]:
         """
         Get GitLab CI built-in variables that we can simulate.
@@ -45,14 +50,11 @@ class VariableManager:
         Returns:
             A dictionary of prepared environment variables.
         """
-        env = os.environ.copy()
+        # Start from the pre-computed base instead of os.environ.copy()
+        env = self._shared_base_env.copy()
 
-        # Apply variables in order: built-in -> base -> job
-        env.update(self.gitlab_ci_vars)
-        env.update(self.base_variables)
+        # Apply job-specific variables
         env.update(job.variables)
-
-        # Set job-specific variables
         env["CI_JOB_STAGE"] = job.stage
         env["CI_JOB_NAME"] = job.name
 

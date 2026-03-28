@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent.parent
 MAKEFILE = ROOT / "Makefile"
 JUSTFILE = ROOT / "Justfile"
@@ -81,3 +80,16 @@ def test_makefile_exposes_job_listing_target() -> None:
     make_targets = _make_targets(MAKEFILE)
 
     assert "list-jobs" in make_targets
+
+
+def test_human_targets_do_not_force_no_color() -> None:
+    makefile_text = MAKEFILE.read_text(encoding="utf-8")
+    justfile_text = JUSTFILE.read_text(encoding="utf-8")
+
+    make_pytest_only = makefile_text.split(".PHONY: pytest-only", 1)[1].split(".PHONY: pytest", 1)[0]
+    just_pytest_only = justfile_text.split("pytest-only:", 1)[1].split("pytest:", 1)[0]
+
+    assert "$(NO_COLOR_ENV) $(VENV) pytest test -vv" not in make_pytest_only
+    assert "--color=no" not in make_pytest_only
+    assert "{{NO_COLOR_ENV}} {{venv}} pytest test -vv" not in just_pytest_only
+    assert "--color=no" not in just_pytest_only

@@ -4,6 +4,13 @@ import re
 
 from bitrab.models.pipeline import JobConfig, RuleConfig
 
+# Pre-compiled regexes for rule evaluation
+_RE_VARIABLE = re.compile(r"^\$(\w+)\s*$")
+_RE_EQUALITY = re.compile(r'^\$(\w+)\s*==\s*"([^"]*)"$')
+_RE_INEQUALITY = re.compile(r'^\$(\w+)\s*!=\s*"([^"]*)"$')
+_RE_REGEX_MATCH = re.compile(r"^\$(\w+)\s*=~\s*/([^/]*)/$")
+_RE_REGEX_NOT_MATCH = re.compile(r"^\$(\w+)\s*!~\s*/([^/]*)/$")
+
 
 def evaluate_rules(job: JobConfig, env: dict[str, str]) -> None:
     """
@@ -64,31 +71,25 @@ def _evaluate_if(expr: str, env: dict[str, str]) -> bool:
     """
     # Simple implementation for now:
     # 1. Variable existence/non-empty check: "$CI_COMMIT_TAG"
-    if (
-        expr.startswith("$")
-        and " " not in expr
-        and "==" not in expr
-        and "!=" not in expr
-        and "=~" not in expr
-        and "!~" not in expr
-    ):
-        var_name = expr[1:].strip('"')
+    var_match = _RE_VARIABLE.match(expr)
+    if var_match:
+        var_name = var_match.group(1)
         return bool(env.get(var_name))
 
     # 2. Equality: '$CI_COMMIT_BRANCH == "main"'
-    eq_match = re.match(r'^\$(\w+)\s*==\s*"([^"]*)"$', expr)
+    eq_match = _RE_EQUALITY.match(expr)
     if eq_match:
         var_name, value = eq_match.groups()
         return env.get(var_name, "") == value
 
     # 3. Inequality: '$CI_COMMIT_BRANCH != "main"'
-    neq_match = re.match(r'^\$(\w+)\s*!=\s*"([^"]*)"$', expr)
+    neq_match = _RE_INEQUALITY.match(expr)
     if neq_match:
         var_name, value = neq_match.groups()
         return env.get(var_name, "") != value
 
     # 4. Regex match: '$CI_COMMIT_TAG =~ /^v/'
-    re_match = re.match(r"^\$(\w+)\s*=~\s*/([^/]*)/$", expr)
+    re_match = _RE_REGEX_MATCH.match(expr)
     if re_match:
         var_name, pattern = re_match.groups()
         try:
@@ -97,7 +98,7 @@ def _evaluate_if(expr: str, env: dict[str, str]) -> bool:
             return False
 
     # 5. Regex non-match: '$CI_COMMIT_TAG !~ /^v/'
-    nre_match = re.match(r"^\$(\w+)\s*!~\s*/([^/]*)/$", expr)
+    nre_match = _RE_REGEX_NOT_MATCH.match(expr)
     if nre_match:
         var_name, pattern = nre_match.groups()
         try:

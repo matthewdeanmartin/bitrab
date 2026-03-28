@@ -133,19 +133,30 @@ _BASH_WINDOWS_CANDIDATES = [
     r"C:\msys\usr\bin\bash.exe",
 ]
 
+_CACHED_BASH_PATH: str | None = None
+
 
 def _find_bash_windows() -> str:
     """Find bash on Windows: env override → PATH → common locations → fallback."""
+    global _CACHED_BASH_PATH
+    if _CACHED_BASH_PATH:
+        return _CACHED_BASH_PATH
+
     override = os.environ.get("BITRAB_BASH_PATH")
     if override:
+        _CACHED_BASH_PATH = override
         return override
     on_path = shutil.which("bash")
     if on_path:
+        _CACHED_BASH_PATH = on_path
         return on_path
     for candidate in _BASH_WINDOWS_CANDIDATES:
         if os.path.isfile(candidate):
+            _CACHED_BASH_PATH = candidate
             return candidate
-    return _BASH_WINDOWS_CANDIDATES[0]
+
+    _CACHED_BASH_PATH = _BASH_WINDOWS_CANDIDATES[0]
+    return _CACHED_BASH_PATH
 
 
 def _pick_bash(login_shell: bool) -> list[str]:
@@ -212,25 +223,30 @@ def run_bash(
     err_buf = _Buffer(stderr_target or sys.stderr)
 
     def _stream(pipe: IO[str], color: str, buf: _Buffer) -> None:
-        # Read char-by-char for true streaming (no line-buffering delay).
-        # Accumulate into a line and flush the whole line at once so that
-        # downstream consumers (e.g. QueueWriter → TUI) receive coherent lines
-        # rather than individual characters.
+        # Read in blocks for efficiency while still streaming lines.
+        # Downstream consumers (e.g. QueueWriter → TUI) receive coherent lines.
         try:
             pending: list[str] = []
             while True:
-                ch = pipe.read(1)
-                if not ch:
+                chunk = pipe.read(1024)
+                if not chunk:
                     # EOF: flush any remaining partial line
                     if pending:
                         buf.write(f"{color}{''.join(pending)}{reset}")
                         buf.flush()
                     break
-                pending.append(ch)
-                if ch == "\n":
-                    buf.write(f"{color}{''.join(pending)}{reset}")
-                    buf.flush()
-                    pending = []
+
+                # Split the chunk into lines, keeping track of any partial line at the end
+                lines = chunk.splitlines(keepends=True)
+                if not lines:
+                    continue
+
+                for _i, line in enumerate(lines):
+                    pending.append(line)
+                    if line.endswith(("\n", "\r")):
+                        buf.write(f"{color}{''.join(pending)}{reset}")
+                        buf.flush()
+                        pending = []
         finally:
             try:
                 pipe.close()
