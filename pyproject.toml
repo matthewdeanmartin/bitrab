@@ -1,6 +1,6 @@
 [project]
 name = "bitrab"
-version = "0.2.0"
+version = "0.3.0"
 description = "Compile bash to gitlab pipeline yaml"
 readme = "README.md"
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
@@ -12,26 +12,21 @@ dependencies = [
     "ruamel.yaml", # required to read yaml
     "jsonschema", # required to validate
     "importlib_resources", # Used by validator to get schema document
-
     # native libs to speed things up
     "urllib3",
     "orjson",
     "certifi",
     # "rapidyaml==0.9.0", # API too radically different to use yet.
-
     # Extensibility
     # "pluggy", # ... not yet.
-
     # Extras
-
     # CLI
     "argcomplete", # could be optional
     # UI
     "textual", # could be optional
     "colorlog", # could be optional
     "rich", # could be optional - interative/init/tui
-    # "watchdog>=3.0.0", # optional
-
+    "watchdog>=3.0.0",
     # update checker
     "packaging", # could be optional
     # Config
@@ -306,5 +301,12 @@ app_author = "matth"
 source_folder = "bitrab"
 # ctags_file = "code_tags.tags"
 
-# [tool.bitrab]
-# nothing yet
+[tool.bitrab]
+# Set to true to warn when a job modifies files outside the whitelist.
+warn_on_mutation = false
+
+[tool.bitrab.mutation]
+# Glob patterns (relative to project root) that are safe to ignore.
+# These are added to the built-in list (.mypy_cache/**, .pytest_cache/**,
+# **/__pycache__/**, .bitrab/**, *.pyc, .coverage, etc.).
+whitelist = []

@@ -61,15 +61,15 @@ def test_include_local_no_diagnostic():
     assert "include:component" not in _features(diags)
 
 
-def test_include_remote_is_warning():
+def test_include_remote_no_warning():
+    # remote: includes are now supported (HTTP fetch) — no diagnostic emitted
     raw = {
         "include": [{"remote": "https://example.com/ci.yml"}],
         "job": {"script": ["echo hi"]},
     }
     diags = check_capabilities(raw)
     assert not _errors(diags)
-    warns = _warnings(diags)
-    assert any(d.feature == "include:remote/template" for d in warns)
+    assert not any(d.feature == "include:remote/template" for d in diags)
 
 
 def test_include_project_is_warning():

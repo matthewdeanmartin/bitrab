@@ -9,6 +9,7 @@ from typing import Any, Union
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.config.rules import evaluate_rules
 from bitrab.console import safe_print
+from bitrab.exceptions import GitlabRunnerError
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.scheduler import StageOrchestrator
 from bitrab.execution.variables import VariableManager
@@ -110,6 +111,7 @@ class PipelineProcessor:
         "after_script",
         "cache",
         "artifacts",
+        "extends",
     }
 
     def process_config(self, raw_config: dict[str, Any]) -> PipelineConfig:
@@ -125,19 +127,107 @@ class PipelineProcessor:
         # Deep-copy to avoid mutating the caller's dict (BUG-4)
         raw_config = copy.deepcopy(raw_config)
 
+        # Resolve extends: directives before building job objects
+        raw_config = self._resolve_extends(raw_config)
+
         # Extract global configuration
         stages = raw_config.get("stages", ["test"])
         global_variables = raw_config.get("variables", {})
         default_config = self._process_default_config(raw_config.get("default", {}))
 
-        # Process jobs
+        # Process jobs — skip reserved keywords and hidden templates (`.name`)
         jobs = []
         for name, job_data in raw_config.items():
-            if name not in self.RESERVED_KEYWORDS and isinstance(job_data, dict):
+            if name not in self.RESERVED_KEYWORDS and not name.startswith(".") and isinstance(job_data, dict):
                 job = self._process_job(name, job_data, default_config, global_variables)
                 jobs.append(job)
 
         return PipelineConfig(stages=stages, variables=global_variables, default=default_config, jobs=jobs)
+
+    def _resolve_extends(self, raw_config: dict[str, Any]) -> dict[str, Any]:
+        """Resolve all ``extends:`` directives in *raw_config*.
+
+        GitLab semantics:
+        - ``extends:`` may be a string (single parent) or list (multiple
+          parents; later entries take precedence, child overrides all).
+        - Hidden jobs (keys starting with ``.``) are valid base templates.
+        - Circular references raise ``GitlabRunnerError``.
+        - ``extends:`` is removed from each job after resolution.
+
+        Args:
+            raw_config: The deep-copied configuration dictionary (will be
+                mutated in-place and returned).
+
+        Returns:
+            The same dict with all ``extends:`` chains resolved.
+        """
+        # Collect all job-like blocks (real jobs and hidden templates)
+        all_jobs: dict[str, dict[str, Any]] = {
+            name: data
+            for name, data in raw_config.items()
+            if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS
+        }
+
+        resolved: dict[str, dict[str, Any]] = {}
+
+        def _resolve_one(name: str, chain: list[str]) -> dict[str, Any]:
+            if name in resolved:
+                return resolved[name]
+            if name in chain:
+                raise GitlabRunnerError(
+                    f"`extends:` circular reference detected: {' -> '.join(chain + [name])}"
+                )
+            if name not in all_jobs:
+                raise GitlabRunnerError(
+                    f"`extends:` references unknown job or template: {name!r}"
+                )
+
+            job_data = dict(all_jobs[name])
+            parents_raw = job_data.pop("extends", None)
+            if parents_raw is None:
+                resolved[name] = job_data
+                return job_data
+
+            parents: list[str] = [parents_raw] if isinstance(parents_raw, str) else list(parents_raw)
+
+            merged: dict[str, Any] = {}
+            for parent in parents:
+                parent_resolved = _resolve_one(parent, chain + [name])
+                merged = self._deep_merge(merged, parent_resolved)
+
+            resolved[name] = self._deep_merge(merged, job_data)
+            return resolved[name]
+
+        for name in list(all_jobs):
+            _resolve_one(name, [])
+
+        for name, data in resolved.items():
+            raw_config[name] = data
+
+        return raw_config
+
+    @staticmethod
+    def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+        """Deep-merge *overlay* on top of *base*.
+
+        Dicts are merged recursively. All other types (lists, scalars) are
+        fully replaced by the overlay value, matching GitLab ``extends:``
+        semantics where a child list completely replaces the parent list.
+
+        Args:
+            base: The base dictionary.
+            overlay: The overlay dictionary whose values take precedence.
+
+        Returns:
+            A new merged dictionary.
+        """
+        result = base.copy()
+        for key, value in overlay.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = PipelineProcessor._deep_merge(result[key], value)
+            else:
+                result[key] = value
+        return result
 
     def _process_default_config(self, default_data: dict[str, Any]) -> DefaultConfig:
         """
@@ -421,6 +511,10 @@ class LocalGitLabRunner:
 
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
+        from bitrab.mutation import load_mutation_config
+
+        mutation_config = load_mutation_config(self.base_path)
+
         event_collector = None
         started_at = __import__("time").time()
 
@@ -430,6 +524,7 @@ class LocalGitLabRunner:
             tui_orchestrator = TUIOrchestrator(
                 self.job_executor,
                 maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+                mutation_config=mutation_config,
             )
             if use_tui:
                 from bitrab.tui.app import PipelineApp
@@ -443,7 +538,10 @@ class LocalGitLabRunner:
             event_collector = tui_orchestrator.event_collector
         else:
             self.orchestrator = StageOrchestrator(
-                self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run
+                self.job_executor,
+                maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+                dry_run=dry_run,
+                mutation_config=mutation_config,
             )
             self.orchestrator.execute_pipeline(pipeline)
             event_collector = getattr(self.orchestrator, "event_collector", None)

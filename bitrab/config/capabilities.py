@@ -63,9 +63,13 @@ _UNSUPPORTED_RULES_KEYS = {"changes"}
 
 
 def _iter_jobs(raw_config: dict[str, Any]):
-    """Yield (name, job_dict) for every job definition in *raw_config*."""
+    """Yield (name, job_dict) for every job definition in *raw_config*.
+
+    Hidden templates (keys starting with ``.'``) are skipped — they are not
+    real jobs and are only used as ``extends:`` base templates.
+    """
     for name, value in raw_config.items():
-        if name not in _TOP_LEVEL_NON_JOBS and isinstance(value, dict):
+        if name not in _TOP_LEVEL_NON_JOBS and not name.startswith(".") and isinstance(value, dict):
             yield name, value
 
 
@@ -106,16 +110,16 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                             message="Component includes are not supported locally. Remove or replace with a local include.",
                         )
                     )
-                elif "remote" in entry or "template" in entry:
+                elif "template" in entry:
                     diags.append(
                         CapabilityDiagnostic(
                             level=DiagnosticLevel.WARNING,
-                            feature="include:remote/template",
-                            message=(
-                                f"Remote/template include ({next(k for k in entry if k in ('remote', 'template'))!r}) will be skipped; only local includes are fetched."
-                            ),
+                            feature="include:template",
+                            message="GitLab template includes are not supported locally and will be skipped.",
                         )
                     )
+                elif "url" in entry:
+                    pass  # include: url: is supported (HTTP fetch)
                 elif "project" in entry:
                     diags.append(
                         CapabilityDiagnostic(

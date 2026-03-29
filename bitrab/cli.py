@@ -164,7 +164,20 @@ def cmd_run(args: argparse.Namespace) -> None:
     """Execute the pipeline or specific jobs."""
     from bitrab.tui.ci_mode import is_ci_mode, should_use_tui
 
+    explicit_config = bool(args.config)
     config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
+
+    # Preferential .bitrab-ci.yml detection (only when user has not given an explicit path)
+    if not explicit_config:
+        bitrab_ci = Path(".bitrab-ci.yml")
+        gitlab_ci = Path(".gitlab-ci.yml")
+        if bitrab_ci.exists():
+            if gitlab_ci.exists():
+                safe_print(
+                    "⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. "
+                    "Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one."
+                )
+            config_path = bitrab_ci
 
     if not config_path.exists():
         safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
@@ -348,6 +361,27 @@ def cmd_lint(_args: argparse.Namespace) -> None:
     sys.exit(1)
 
 
+def cmd_watch(args: argparse.Namespace) -> None:
+    """Watch for CI config file changes and re-run the pipeline."""
+    from bitrab.watch import run_watch
+
+    config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
+    if not config_path.exists():
+        safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    runner_kwargs = {
+        "maximum_degree_of_parallelism": args.parallel,
+        "dry_run": args.dry_run,
+        "use_tui": False,  # TUI and watch mode are incompatible
+        "ci_mode": False,
+        "job_filter": args.jobs if args.jobs else None,
+        "stage_filter": args.stage if args.stage else None,
+    }
+
+    run_watch(config_path.resolve(), runner_kwargs)
+
+
 def cmd_graph(args: argparse.Namespace) -> None:
     """Generate a visual dependency graph of the pipeline."""
     from bitrab.graph import render_pipeline_graph
@@ -517,6 +551,8 @@ Examples:
   bitrab run --dry-run                # Show what would be executed
   bitrab run --jobs build test        # Run specific jobs
   bitrab run --parallel 4             # Use 4 parallel workers
+  bitrab watch                        # Watch and re-run on any config change
+  bitrab watch --dry-run              # Dry-run on each file change
   bitrab list                         # List all jobs
   bitrab validate                     # Validate configuration
   bitrab validate --json              # Output pipeline as JSON
@@ -574,6 +610,27 @@ Version: {__version__}
         help="Disable Textual TUI, use plain streaming output",
     )
     run_parser.set_defaults(func=cmd_run)
+
+    # Watch command
+    watch_parser = subparsers.add_parser(
+        "watch",
+        help="Re-run pipeline on file changes",
+        description=(
+            "Watch .gitlab-ci.yml and local include files for changes, "
+            "re-running the pipeline automatically on each save."
+        ),
+    )
+    watch_parser.add_argument(
+        "--dry-run", action="store_true", help="Use dry-run mode on each triggered run"
+    )
+    watch_parser.add_argument(
+        "--parallel", "-j", type=int, metavar="N", help="Number of parallel jobs per stage"
+    )
+    watch_parser.add_argument("--jobs", nargs="*", metavar="JOB", help="Run only specified jobs")
+    watch_parser.add_argument(
+        "--stage", nargs="*", metavar="STAGE", help="Run only jobs in specified stages"
+    )
+    watch_parser.set_defaults(func=cmd_watch)
 
     # List command
     list_parser = subparsers.add_parser(

@@ -1,0 +1,5 @@
+- Something about tree pollution, i.e. if you run a format tasks, maybe it should raise a loud error and fail.
+- Cheap isolation?
+- support .bitrab-ci.yml file. If it exists it take precidence locally, so you can do bitrab locally and gitlab in the cloud.
+- Implement matrix.
+- - Fix readme. It overpromises

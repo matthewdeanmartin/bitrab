@@ -29,6 +29,7 @@ from bitrab.execution.artifacts import collect_artifacts, inject_dependencies
 from bitrab.execution.job import JobExecutor, JobRuntimeContext, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.models.pipeline import JobConfig, PipelineConfig
+from bitrab.mutation import MutationConfig, MutationSnapshot
 
 WorkerFunc = Callable[[JobConfig, JobExecutor, Path], list[RunResult]]
 
@@ -235,6 +236,7 @@ class StagePipelineRunner:
         callbacks: PipelineCallbacks | None = None,
         maximum_degree_of_parallelism: int | None = None,
         mp_ctx: Any = None,
+        mutation_config: MutationConfig | None = None,
     ) -> None:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
@@ -248,6 +250,7 @@ class StagePipelineRunner:
             else:
                 mp_ctx = mp.get_context("spawn")
         self._mp_ctx = mp_ctx
+        self._mutation_config = mutation_config or MutationConfig()
         # Tracks names of all jobs that have completed (for artifact injection)
         self._completed_jobs: list[str] = []
 
@@ -263,6 +266,7 @@ class StagePipelineRunner:
                 callbacks=self.callbacks,
                 maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
                 mp_ctx=self._mp_ctx,
+                mutation_config=self._mutation_config,
             )
             dag_runner.execute_pipeline(pipeline)
             return
@@ -341,6 +345,15 @@ class StagePipelineRunner:
             ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
             ctx = cb.enrich_context(ctx)
             succeeded = True
+
+            snap: MutationSnapshot | None = None
+            if self._mutation_config.enabled and not self.job_executor.dry_run:
+                snap = MutationSnapshot(
+                    project_dir=self.job_executor.project_dir,
+                    config=self._mutation_config,
+                )
+                snap.take()
+
             try:
                 self.job_executor.execute_job(ctx=ctx)
                 outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
@@ -358,6 +371,9 @@ class StagePipelineRunner:
                 if not self.job_executor.dry_run:
                     collect_artifacts(job, self.job_executor.project_dir, succeeded)
                 self._completed_jobs.append(job.name)
+
+            if snap is not None:
+                _report_mutations(job.name, snap, writer)
 
             outcomes.append(outcome)
             cb.on_job_complete(outcome)
@@ -478,6 +494,22 @@ def _build_dag(pipeline: PipelineConfig) -> TopologicalSorter:
 # ---------------------------------------------------------------------------
 
 
+def _report_mutations(job_name: str, snap: MutationSnapshot, writer: Any) -> None:
+    """Emit a warning for each unexpected mutation detected after a job ran."""
+    from bitrab.console import safe_print
+
+    changed = snap.mutations()
+    if changed:
+        _print = (lambda msg: safe_print(msg, file=writer)) if writer else safe_print
+        _print(f"⚠️  [mutation] Job '{job_name}' modified {len(changed)} unexpected file(s):")
+        for path in changed:
+            _print(f"   • {path}")
+        _print(
+            "   If these are intentional, add the pattern(s) to "
+            "[tool.bitrab.mutation] whitelist in pyproject.toml"
+        )
+
+
 class DagPipelineRunner:
     """Execute a pipeline using DAG scheduling based on ``needs:`` dependencies.
 
@@ -492,6 +524,7 @@ class DagPipelineRunner:
         callbacks: PipelineCallbacks | None = None,
         maximum_degree_of_parallelism: int | None = None,
         mp_ctx: Any = None,
+        mutation_config: MutationConfig | None = None,
     ) -> None:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
@@ -502,6 +535,7 @@ class DagPipelineRunner:
         if mp_ctx is None:
             mp_ctx = mp.get_context("spawn")
         self._mp_ctx = mp_ctx
+        self._mutation_config = mutation_config or MutationConfig()
         self._completed_jobs: list[str] = []
 
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
@@ -624,6 +658,15 @@ class DagPipelineRunner:
             ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
             ctx = cb.enrich_context(ctx)
             succeeded = True
+
+            snap: MutationSnapshot | None = None
+            if self._mutation_config.enabled:
+                snap = MutationSnapshot(
+                    project_dir=self.job_executor.project_dir,
+                    config=self._mutation_config,
+                )
+                snap.take()
+
             try:
                 self.job_executor.execute_job(ctx=ctx)
                 outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
@@ -640,6 +683,10 @@ class DagPipelineRunner:
             finally:
                 collect_artifacts(job, self.job_executor.project_dir, succeeded)
                 self._completed_jobs.append(job.name)
+
+            if snap is not None:
+                _report_mutations(job.name, snap, writer)
+
             outcomes.append(outcome)
             cb.on_job_complete(outcome)
         return outcomes

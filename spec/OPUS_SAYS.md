@@ -174,9 +174,9 @@ when you want to understand what will and won't work locally.
 |----|----------------------------------------|--------|--------------------------|
 | D1 | Isolated workspace mode (git worktree) | L      | Opus design, Sonnet impl |
 | D2 | `parallel:` keyword (matrix jobs)      | L      | Opus                     |
-| D3 | Remote include support (HTTP fetch)    | M      | Sonnet                   |
-| D4 | Watch mode (re-run on file changes)    | M      | Sonnet                   |
-| D5 | `extends:` keyword (job inheritance)   | M      | Sonnet                   |
+| ~~D3~~ | ~~Remote include support (HTTP fetch)~~    | ~~M~~      | ~~Sonnet~~                   | Done — `include: remote:` and `include: url:` fetched via urllib3 |
+| ~~D4~~ | ~~Watch mode (re-run on file changes)~~    | ~~M~~      | ~~Sonnet~~                   | Done — `bitrab watch` command; watchdog-based, 1s debounce |
+| ~~D5~~ | ~~`extends:` keyword (job inheritance)~~   | ~~M~~      | ~~Sonnet~~                   | Done — preprocessing pass in `PipelineProcessor`; hidden jobs (`.name`) excluded from output |
 | D6 | `!reference` tag support               | M      | Opus                     |
 
 ---
@@ -227,10 +227,11 @@ What's left, in impact order:
 | dependencies                                         | Supported         | None / [] / [list]               |
 | --jobs / --stage filtering                           | Supported         |                                  |
 | cache                                                | **Not supported** | Planned                          |
-| extends                                              | Not supported     | Phase D                          |
+| extends                                              | Supported         | Full chain + multi-parent + hidden templates |
 | !reference                                           | Not supported     | Phase D                          |
 | parallel (matrix)                                    | Not supported     | Phase D                          |
-| include: remote/template                             | Not supported     | Skipped with warning             |
+| include: remote / url                                | Supported         | HTTP fetch via urllib3+certifi   |
+| include: template                                    | Not supported     | Skipped with warning             |
 | include: component                                   | Not planned       | Error                            |
 | image / services                                     | Ignored           | Warning via validate             |
 | trigger                                              | Not planned       | Error                            |

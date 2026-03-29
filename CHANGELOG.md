@@ -12,6 +12,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed for any bug fixes.
 - Security in case of vulnerabilities.
 
+## [0.3.0] - 2026-03-29
+
+### Added
+
+- **D3: Remote include support.** `include: remote:` and `include: url:` entries
+  are now fetched over HTTP/HTTPS using `urllib3` + `certifi` (both already
+  runtime dependencies). Fetched YAML is parsed in memory, merged exactly like
+  a local include, and can itself contain further includes. Duplicate URLs
+  within the same load are de-duplicated. `bitrab validate` no longer warns on
+  `remote:` includes; `template:` includes still warn (unsupported).
+- **D4: Watch mode (`bitrab watch`).** New subcommand that runs the pipeline
+  once immediately, then watches `.gitlab-ci.yml` and all transitively included
+  local files for changes, re-running automatically on each save. Uses the
+  `watchdog` library (now a runtime dependency). Features a 1-second debounce
+  to coalesce rapid saves. TUI mode is disabled in watch mode (incompatible
+  event loops). Stop with Ctrl+C.
+- **D5: `extends:` keyword (job inheritance).** Jobs can now inherit from other
+  jobs or hidden template jobs (keys starting with `.`) via `extends:`. Supports
+  a single string or a list of parents (later parents take precedence; child
+  overrides all). Merges are deep on dicts; lists and scalars are fully replaced
+  by the child — matching GitLab CI semantics. Multi-level chains are resolved
+  in the correct order. Circular references and references to unknown templates
+  raise a clear error. Hidden template jobs (`.name`) are excluded from the
+  final pipeline job list.
+
 ## [0.2.0] - 2026-03-28
 
 ### Added
