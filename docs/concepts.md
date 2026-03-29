@@ -2,7 +2,8 @@
 
 ## Stages
 
-Jobs are grouped into stages. All jobs in a stage run before the next stage starts. Stages are defined at the top level:
+Jobs are grouped into stages. In the default execution model, bitrab runs stages in order and stops later `on_success`
+work after a hard failure.[^stage]
 
 ```yaml
 stages:
@@ -11,31 +12,22 @@ stages:
   - deploy
 ```
 
-If a job doesn't specify a stage it defaults to `test`.
-
-If any job in a stage fails (and is not marked `allow_failure`), subsequent stages are skipped.
-
 ## Jobs
 
-A job is any top-level key that isn't a reserved keyword (`stages`, `variables`, `default`, `include`, etc.).
+A job is any top-level mapping that is not a reserved CI keyword.
 
 ```yaml
 compile:
   stage: build
   script:
     - make build
-
-unit_tests:
-  stage: test
-  script:
-    - make test
 ```
 
-Each job runs its `before_script`, then `script`, then `after_script` — in that order.
+Each job executes `before_script`, then `script`, then `after_script`.[^plan][^job]
 
-## DAG with `needs:`
+## `needs:` and DAG execution
 
-By default jobs in the same stage run independently (or in parallel). `needs:` lets you express explicit dependencies that bypass stage ordering:
+If any job declares `needs:`, bitrab switches from pure stage scheduling to DAG scheduling.
 
 ```yaml
 build_a:
@@ -48,168 +40,127 @@ build_b:
 
 test_combined:
   stage: test
-  needs: [build_a, build_b]
+  needs: [ build_a, build_b ]
   script: make test-combined
 ```
 
-`test_combined` will wait for both `build_a` and `build_b` to finish, regardless of stage boundaries.
-
-When any job in the pipeline has `needs:`, bitrab switches to DAG execution mode and uses topological ordering across all jobs.
+That means `test_combined` waits on the listed jobs, not the entire prior stage.[^stage]
 
 ## Variables
 
-Variables are available as environment variables inside job scripts.
+Bitrab builds each job environment from built-in CI-style variables plus pipeline variables plus job variables.
 
 ```yaml
 variables:
   DEPLOY_ENV: staging
 
 deploy:
-  stage: deploy
   variables:
-    DEPLOY_ENV: production   # overrides global
-  script:
-    - echo "Deploying to $DEPLOY_ENV"
+    DEPLOY_ENV: production
 ```
 
-**Precedence** (highest wins): job-level variables → global variables → built-in CI variables.
+Job-level values override broader ones.[^vars]
 
-Built-in variables bitrab injects include `CI=true`, `CI_PROJECT_DIR`, `CI_JOB_NAME`, `CI_JOB_STAGE`, and others.
+## `rules:`
 
-## `when:` conditions
+Bitrab supports a practical local subset of `rules:`:
 
-Controls when a job runs relative to the success or failure of earlier jobs.
+- `if`
+- `exists`
+- `when`
+- `allow_failure`
+- `variables`
+- `needs`
 
-| Value | Runs when |
-|---|---|
-| `on_success` | All prior jobs (or direct `needs:`) succeeded (default) |
-| `on_failure` | At least one prior job failed |
-| `always` | Regardless of prior job outcomes |
-| `manual` | Only when explicitly triggered (not run automatically) |
-| `never` | Never (effectively disables the job) |
+Rules are evaluated in order, and the first match wins. If no rule matches, the job becomes `when: never`.
+`rules: changes` is not evaluated locally.[^rules][^capabilities]
 
-```yaml
-notify_on_failure:
-  stage: notify
-  when: on_failure
-  script:
-    - send-slack-alert.sh
+## `when:` and `allow_failure`
 
-cleanup:
-  stage: teardown
-  when: always
-  script:
-    - rm -rf tmp/
-```
+Bitrab applies `when:` during scheduling:
 
-## `allow_failure:`
+- `on_success` runs when prior required work succeeded
+- `on_failure` runs after a prior failure
+- `always` always runs
+- `manual` is not auto-run by normal local scheduling
+- `never` is skipped
 
-Mark a job as non-blocking. If it fails, the pipeline continues. The job is still reported as failed, but it does not prevent later stages from running — unless you use `when: on_success` downstream, which will still be skipped because a failure occurred.
-
-```yaml
-lint:
-  stage: test
-  allow_failure: true
-  script:
-    - ruff check .
-
-deploy:
-  stage: deploy
-  when: always    # use 'always' if you want this to run regardless
-  script:
-    - deploy.sh
-```
-
-`allow_failure` can also accept a list of exit codes:
-
-```yaml
-flaky_test:
-  allow_failure:
-    exit_codes: [2, 5]
-```
+`allow_failure` keeps a failing job from hard-failing the pipeline, though it still affects `on_failure`
+logic.[^stage][^plan]
 
 ## Retry
+
+Bitrab parses GitLab-style retry config:
 
 ```yaml
 flaky_job:
   retry:
     max: 3
-    when: [script_failure]
+    when: [ script_failure ]
 ```
 
-Supported `when` values: `always`, `script_failure`, `runner_system_failure`, `stuck_or_timeout_failure`, `runner_unsupported`, `stale_schedule`, `job_execution_timeout`, `archived_failure`, `unmet_prerequisites`, `scheduler_failure`, `data_integrity_failure`.
+It also supports `exit_codes` filters and configurable backoff timing through environment variables.[^plan][^job]
 
-You can also filter retries by exit code:
+## Artifacts and dependencies
 
-```yaml
-retry:
-  max: 2
-  exit_codes: [1, 127]
-```
-
-Retries use exponential backoff by default. Set `BITRAB_RETRY_STRATEGY=constant` to use a fixed delay.
-
-## Artifacts
-
-Jobs can declare files to preserve after they finish:
+Bitrab supports local artifact collection and dependency injection:
 
 ```yaml
 build:
-  stage: build
-  script:
-    - make dist/app
   artifacts:
     paths:
       - dist/
-    when: on_success   # on_success | on_failure | always
-```
 
-Artifacts are stored under `.bitrab/artifacts/<job_name>/`. Downstream jobs that list the producing job in `dependencies:` (or via `needs:`) will have those files copied into their working directory before they run.
-
-```yaml
 test:
-  stage: test
-  needs: [build]
-  dependencies: [build]
-  script:
-    - ./dist/app --test
+  dependencies: [ build ]
 ```
 
-Set `dependencies: []` to explicitly receive no artifacts.
+Artifacts are copied into `.bitrab/artifacts/<job_name>/`, then copied back into the workspace for downstream jobs that
+request them, or for all prior artifact-producing jobs when `dependencies` is omitted.[^artifacts]
 
-## `include:` files
+## `parallel:` and matrix expansion
 
-Split large configs into smaller files:
+Bitrab expands both forms of GitLab job fan-out:
 
-```yaml
-include:
-  - local: ci/build.yml
-  - local: ci/test.yml
-```
+- `parallel: 4`
+- `parallel: { matrix: ... }`
 
-Only local file includes are supported. Remote URLs, GitLab project includes, templates, and components are not fetched.
+Expanded jobs receive `CI_NODE_INDEX` and `CI_NODE_TOTAL`, and downstream `needs:` or `dependencies:` can be rewritten
+to point at the expanded job names.[^plan]
+
+## Includes
+
+Bitrab merges includes before processing jobs. Local includes are supported, remote HTTP includes are fetched, and some
+GitLab-specific include forms are intentionally not supported or are only warned about.[^loader][^capabilities]
+
+## Mutation detection
+
+Mutation detection is a bitrab-specific feature for policing "read-only" jobs.
+
+When enabled in `pyproject.toml`, bitrab:
+
+1. snapshots the project tree before a job starts
+2. snapshots again after the job finishes
+3. reports files created or modified outside the built-in and custom whitelist
+
+This is especially useful for keeping `verify`-style jobs honest when tools secretly write caches or generated
+files.[^mutation]
 
 ## Timeout
 
-```yaml
-long_job:
-  timeout: 30m
-  script:
-    - run-long-process.sh
-```
+Bitrab parses GitLab-style timeout strings such as `30m` or `1h 30m` and passes the resolved limit into job
+execution.[^plan]
 
-Supported units: `s`/`sec`/`second(s)`, `m`/`min`/`minute(s)`, `h`/`hr`/`hour(s)`, `d`/`day(s)`. Combinations like `1h 30m` also work.
-
-## `default:` block
-
-Set defaults that apply to every job:
-
-```yaml
-default:
-  before_script:
-    - source .env
-  after_script:
-    - cleanup.sh
-```
-
-Jobs can override individual fields.
+[^stage]:
+Source: [bitrab/execution/stage_runner.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/execution/stage_runner.py)
+[^plan]: Source: [bitrab/plan.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/plan.py)
+[^job]: Source: [bitrab/execution/job.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/execution/job.py)
+[^vars]:
+Source: [bitrab/execution/variables.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/execution/variables.py)
+[^rules]: Source: [bitrab/config/rules.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/config/rules.py)
+[^capabilities]:
+Source: [bitrab/config/capabilities.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/config/capabilities.py)
+[^artifacts]:
+Source: [bitrab/execution/artifacts.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/execution/artifacts.py)
+[^mutation]: Source: [bitrab/mutation.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/mutation.py)
+and [bitrab/execution/stage_runner.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/execution/stage_runner.py)

@@ -1,58 +1,52 @@
-# Bitrab
+# Bitrab 🐰
 
-**Run GitLab CI pipelines locally — no Docker, no admin rights, no GitLab required.**
+Bitrab runs GitLab-style pipelines on a plain machine, using your existing shell and tools instead of spinning up a
+GitLab-managed container runner.
 
-Bitrab reads your `.gitlab-ci.yml` and runs jobs directly in your shell, on your machine, using your existing tools. Think of it as `make` or `just`, but with GitLab CI syntax.
+The value proposition is speed:
 
-It works on any host with Python: your laptop, GitHub Actions, AWS CodeBuild, or any other build runner.
+- test CI changes before pushing
+- reuse `.gitlab-ci.yml` outside GitLab
+- cut "push, wait, repeat" cycle time
+- reduce CI startup overhead by running several jobs in parallel inside one host or container
 
----
+## What bitrab does well
 
-## What it is
+Bitrab is strongest when your pipeline is mostly shell commands and your goal is fast feedback. It can:
 
-Bitrab is a lightweight Python tool that interprets GitLab CI YAML and executes jobs as native shell processes. It respects stage ordering, DAG `needs:` dependencies, retry logic, `when:` conditions, variable substitution, and artifact passing — without spinning up containers or talking to a GitLab server.
+- load `.gitlab-ci.yml` or `.bitrab-ci.yml`
+- merge includes
+- validate against GitLab's schema plus local capability checks
+- execute stage-based or DAG-based pipelines
+- expand `parallel:` and `parallel: matrix:`
+- collect and inject local artifacts
+- re-run on config file changes
+- warn when a supposedly read-only job mutates the tree
 
-## What it is not
+## What bitrab does not try to fake
 
-Bitrab is **not** a drop-in replacement for the official GitLab Runner. It does not:
+Bitrab is intentionally honest about boundaries:
 
-- Run jobs inside Docker containers
-- Pull images
-- Talk to the GitLab API
-- Handle secrets from GitLab's vault
-- Enforce `rules:` branch/tag conditions
+- no container isolation
+- no `image:` pulling
+- no `services:` sidecars
+- no GitLab deployment, Pages, release, or secret-management APIs
+- some GitLab config keys are ignored or only partly meaningful locally
 
-If you need full GitLab Runner behavior with container isolation, use the [official GitLab Runner](https://docs.gitlab.com/runner/). Bitrab trades isolation for simplicity and speed.
+If you need full runner semantics, use GitLab Runner. If you want faster local feedback from the same pipeline file,
+bitrab is the better fit.[^loader][^runner][^capabilities]
 
-## Why use it?
+## Start here
 
-| Situation | Bitrab helps |
-|---|---|
-| Debugging a CI config without pushing commits | Yes |
-| Running a build pipeline on a plain host without Docker | Yes |
-| Fast iteration on pipeline logic | Yes |
-| Reproducible container-isolated builds | No — use GitLab Runner |
-| Accessing GitLab-specific secrets or environments | No |
+- [Quick start](quickstart.md)
+- [Installation](installation.md)
+- [Running pipelines](running.md)
+- [CLI reference](cli.md)
+- [Key concepts](concepts.md)
+- [Local vs GitLab differences](differences.md)
 
-## Quick start
-
-```bash
-pipx install bitrab
-
-cd your-project
-bitrab
-```
-
-That's it. Bitrab picks up `.gitlab-ci.yml` from the current directory and runs it.
-
----
-
-## Documentation
-
-- [Installation](installation.md) — how to install and verify
-- [Running pipelines](running.md) — `bitrab run` and its options
-- [CLI reference](cli.md) — all commands and flags
-- [Key concepts](concepts.md) — stages, DAGs, variables, artifacts, `when:`
-- [Local vs GitLab differences](differences.md) — what works, what's skipped, what's blocked
-
-GITLAB is a trademark of GitLab Inc. Bitrab is not affiliated with, endorsed by, or approved by GitLab Inc.
+[^loader]:
+Source: [bitrab/config/loader.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/config/loader.py)
+[^runner]: Source: [bitrab/plan.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/plan.py)
+[^capabilities]:
+Source: [bitrab/config/capabilities.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/config/capabilities.py)

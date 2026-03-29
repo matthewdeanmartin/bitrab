@@ -2,117 +2,115 @@
 
 ## Global options
 
-These apply to every subcommand:
-
 | Flag | Description |
 |---|---|
-| `-c, --config PATH` | Path to config file (default: `.gitlab-ci.yml`) |
-| `-v, --verbose` | Enable debug-level logging |
-| `-q, --quiet` | Suppress everything except errors |
-| `--version` | Print version and exit |
-| `--license` | Print license text and exit |
-
----
+| `-c, --config PATH` | Path to config file |
+| `-v, --verbose` | Debug logging |
+| `-q, --quiet` | Errors only |
+| `--version` | Print version |
+| `--license` | Print license text |
 
 ## `bitrab run`
 
 Execute the pipeline.
 
-```
+```bash
 bitrab run [options]
 ```
 
 | Flag | Description |
 |---|---|
-| `--dry-run` | Print what would run without executing |
-| `--parallel N`, `-j N` | Max concurrent jobs per stage |
-| `--jobs JOB...` | Run only the named jobs |
-| `--stage STAGE...` | Run only jobs in the named stages |
-| `--no-tui` | Disable the Textual TUI; use plain output |
+| `--dry-run` | Show what would execute |
+| `--parallel N`, `-j N` | Maximum local concurrency |
+| `--jobs JOB...` | Run only named jobs |
+| `--stage STAGE...` | Run only selected stages |
+| `--no-tui` | Disable the Textual interface |
 
-Running `bitrab` with no subcommand is equivalent to `bitrab run`.
+Running plain `bitrab` is equivalent to `bitrab run`.[^cli]
 
----
+## `bitrab watch`
+
+Re-run the pipeline when the root config or local include files change.
+
+```bash
+bitrab watch
+bitrab watch --dry-run
+```
+
+Supports the same `--parallel`, `--jobs`, and `--stage` filters as `run`.[^watch]
 
 ## `bitrab list`
 
-Show all jobs organized by stage.
+List jobs grouped by stage.
 
-```
+```bash
 bitrab list
-bitrab list -c other-ci.yml
 ```
-
-Output example:
-
-```
-📋 Pipeline Jobs:
-   Stages: build, test, deploy
-
-🎯 Stage: build
-   • compile
-   • lint (retry: 2)
-
-🎯 Stage: test
-   • unit_tests
-   • integration_tests
-```
-
----
 
 ## `bitrab validate`
 
-Validate the configuration file.
+Validate the configuration.
 
-```
+```bash
 bitrab validate
 bitrab validate --json
 ```
 
-Runs three checks in order:
-
-1. **Schema validation** — checks against the official GitLab CI JSON schema.
-2. **Capability check** — warns about features bitrab cannot execute locally (e.g. `image:`, `trigger:`, remote includes).
-3. **Semantic check** — verifies stages exist, jobs have scripts, etc.
-
-| Flag | Description |
-|---|---|
-| `--json` | Also print the parsed pipeline as JSON |
-
-Exits with code 0 if valid, 1 if not.
-
----
-
-## `bitrab debug`
-
-Print debug information about the pipeline and environment.
-
-```
-bitrab debug
-```
-
-Shows:
-
-- Config file path and whether it exists
-- Number of jobs and stages found
-- Global variable count
-
-Useful as a quick sanity check before running.
-
----
-
-## `bitrab lint`
-
-*Not yet implemented.* Will validate against the GitLab server-side linter API. Use `bitrab validate` for local checks.
-
----
+This performs schema validation, capability checks, and semantic checks.[^cli][^validate]
 
 ## `bitrab graph`
 
-*Not yet implemented.* Will render a visual dependency graph of the pipeline DAG.
+Render the pipeline structure.
 
----
+```bash
+bitrab graph
+bitrab graph --format dot
+```
+
+`text` is the default. `dot` emits Graphviz DOT output.[^graph]
+
+## `bitrab debug`
+
+Show quick environment and pipeline facts.
+
+```bash
+bitrab debug
+```
 
 ## `bitrab clean`
 
-*Not yet implemented.* Will remove `.bitrab/` artifacts and cache directories.
+Clean `.bitrab/` workspace data.
+
+```bash
+bitrab clean
+bitrab clean --dry-run
+bitrab clean --what artifacts
+```
+
+## `bitrab logs`
+
+Manage persisted run logs.
+
+```bash
+bitrab logs
+bitrab logs show
+bitrab logs rm --keep 5
+```
+
+## `bitrab folder`
+
+Inspect or clean the `.bitrab/` folder with a size breakdown.
+
+```bash
+bitrab folder
+bitrab folder clean --dry-run
+```
+
+## `bitrab lint`
+
+Reserved for GitLab server-side linting. The command exists, but today it only reports that server-side linting is not implemented yet.[^cli]
+
+[^cli]: Source: [bitrab/cli.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/cli.py)
+[^watch]: Source: [bitrab/watch.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/watch.py)
+[^validate]: Source: [bitrab/config/validate_pipeline.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/config/validate_pipeline.py) and [bitrab/config/capabilities.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/config/capabilities.py)
+[^graph]: Source: [bitrab/graph.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/graph.py) and [bitrab/folder.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/folder.py)

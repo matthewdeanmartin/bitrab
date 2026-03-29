@@ -9,6 +9,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Quick start: quickstart.md
   - Installation: installation.md
   - Running pipelines: running.md
   - CLI reference: cli.md

@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Python 3.8 or newer
+- Python 3.9 or newer
 - A shell (`bash` on Linux/macOS; `bash` or WSL on Windows)
 
 No Docker. No admin rights. No GitLab account.
