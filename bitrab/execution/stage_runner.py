@@ -19,7 +19,7 @@ import re
 import subprocess  # nosec
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
@@ -29,7 +29,7 @@ from bitrab.execution.artifacts import collect_artifacts, inject_dependencies
 from bitrab.execution.job import JobExecutor, JobRuntimeContext, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.models.pipeline import JobConfig, PipelineConfig
-from bitrab.mutation import MutationConfig, MutationSnapshot
+from bitrab.mutation import MutationConfig, MutationSnapshot, ParallelBackendConfig
 
 WorkerFunc = Callable[[JobConfig, JobExecutor, Path], list[RunResult]]
 
@@ -237,6 +237,7 @@ class StagePipelineRunner:
         maximum_degree_of_parallelism: int | None = None,
         mp_ctx: Any = None,
         mutation_config: MutationConfig | None = None,
+        parallel_backend: ParallelBackendConfig | None = None,
     ) -> None:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
@@ -251,6 +252,7 @@ class StagePipelineRunner:
                 mp_ctx = mp.get_context("spawn")
         self._mp_ctx = mp_ctx
         self._mutation_config = mutation_config or MutationConfig()
+        self._parallel_backend = parallel_backend or ParallelBackendConfig()
         # Tracks names of all jobs that have completed (for artifact injection)
         self._completed_jobs: list[str] = []
 
@@ -267,6 +269,7 @@ class StagePipelineRunner:
                 maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
                 mp_ctx=self._mp_ctx,
                 mutation_config=self._mutation_config,
+                parallel_backend=self._parallel_backend,
             )
             dag_runner.execute_pipeline(pipeline)
             return
@@ -383,18 +386,24 @@ class StagePipelineRunner:
 
         return outcomes
 
+    def _make_pool(self, max_workers: int):
+        """Create the appropriate executor pool based on backend config."""
+        if self._parallel_backend.backend == "thread":
+            return ThreadPoolExecutor(max_workers=max_workers)
+        return ProcessPoolExecutor(
+            max_workers=max_workers,
+            mp_context=self._mp_ctx,
+        )
+
     def _run_stage_parallel(self, stage_jobs: list[JobConfig]) -> list[JobOutcome]:
-        """Run jobs across processes using ProcessPoolExecutor."""
+        """Run jobs across processes/threads using the configured pool executor."""
         cb = self.callbacks
         outcomes: list[JobOutcome] = []
 
         _wf = cb.get_worker_func()
         worker_func: WorkerFunc = _wf if _wf is not None else _default_worker
 
-        with ProcessPoolExecutor(
-            max_workers=self.maximum_degree_of_parallelism,
-            mp_context=self._mp_ctx,
-        ) as pool:
+        with self._make_pool(self.maximum_degree_of_parallelism) as pool:
             futures = {}
             for job in stage_jobs:
                 job_dir = self._make_job_dir(job)
@@ -525,6 +534,7 @@ class DagPipelineRunner:
         maximum_degree_of_parallelism: int | None = None,
         mp_ctx: Any = None,
         mutation_config: MutationConfig | None = None,
+        parallel_backend: ParallelBackendConfig | None = None,
     ) -> None:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
@@ -536,6 +546,7 @@ class DagPipelineRunner:
             mp_ctx = mp.get_context("spawn")
         self._mp_ctx = mp_ctx
         self._mutation_config = mutation_config or MutationConfig()
+        self._parallel_backend = parallel_backend or ParallelBackendConfig()
         self._completed_jobs: list[str] = []
 
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
@@ -691,18 +702,24 @@ class DagPipelineRunner:
             cb.on_job_complete(outcome)
         return outcomes
 
+    def _make_pool(self, max_workers: int):
+        """Create the appropriate executor pool based on backend config."""
+        if self._parallel_backend.backend == "thread":
+            return ThreadPoolExecutor(max_workers=max_workers)
+        return ProcessPoolExecutor(
+            max_workers=max_workers,
+            mp_context=self._mp_ctx,
+        )
+
     def _run_batch_parallel(self, jobs: list[JobConfig]) -> list[JobOutcome]:
-        """Run jobs across processes using ProcessPoolExecutor."""
+        """Run jobs across processes/threads using the configured pool executor."""
         cb = self.callbacks
         outcomes: list[JobOutcome] = []
 
         _wf = cb.get_worker_func()
         worker_func: WorkerFunc = _wf if _wf is not None else _default_worker
 
-        with ProcessPoolExecutor(
-            max_workers=min(self.maximum_degree_of_parallelism, len(jobs)),
-            mp_context=self._mp_ctx,
-        ) as pool:
+        with self._make_pool(min(self.maximum_degree_of_parallelism, len(jobs))) as pool:
             futures = {}
             for job in jobs:
                 job_dir = self._make_job_dir(job)

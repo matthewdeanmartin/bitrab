@@ -26,7 +26,7 @@ from bitrab.execution.job import JobExecutor, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner, sanitize_job_name
 from bitrab.models.pipeline import JobConfig, PipelineConfig
-from bitrab.mutation import MutationConfig
+from bitrab.mutation import MutationConfig, ParallelBackendConfig
 
 if TYPE_CHECKING:
     from bitrab.tui.app import PipelineApp
@@ -276,6 +276,7 @@ class TUIOrchestrator:
         maximum_degree_of_parallelism: int | None = None,
         mp_ctx: Any = None,
         mutation_config: MutationConfig | None = None,
+        parallel_backend: ParallelBackendConfig | None = None,
     ) -> None:
         self.job_executor = job_executor
         cpu_cnt = os.cpu_count() or 1
@@ -289,6 +290,7 @@ class TUIOrchestrator:
                 mp_ctx = mp.get_context("spawn")
         self._mp_ctx = mp_ctx
         self._mutation_config = mutation_config or MutationConfig()
+        self._parallel_backend = parallel_backend or ParallelBackendConfig()
 
         # Cancel/control state
         self._cancel_event: threading.Event = threading.Event()
@@ -365,6 +367,7 @@ class TUIOrchestrator:
                 maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
                 mp_ctx=self._mp_ctx,
                 mutation_config=self._mutation_config,
+                parallel_backend=self._parallel_backend,
             )
             runner.execute_pipeline(pipeline)
         finally:
@@ -380,6 +383,7 @@ class TUIOrchestrator:
             maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
             mp_ctx=self._mp_ctx,
             mutation_config=self._mutation_config,
+            parallel_backend=self._parallel_backend,
         )
         runner.execute_pipeline(pipeline)
         summary = self._event_collector.summary()

@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any, Union
 
+import itertools
+
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.config.rules import evaluate_rules
 from bitrab.console import safe_print
@@ -141,6 +143,12 @@ class PipelineProcessor:
             if name not in self.RESERVED_KEYWORDS and not name.startswith(".") and isinstance(job_data, dict):
                 job = self._process_job(name, job_data, default_config, global_variables)
                 jobs.append(job)
+
+        # Expand parallel: N and parallel: matrix: directives
+        jobs = self._expand_parallel_jobs(jobs, raw_config)
+
+        # Resolve needs references to expanded matrix/parallel jobs
+        jobs = self._resolve_expanded_needs(jobs)
 
         return PipelineConfig(stages=stages, variables=global_variables, default=default_config, jobs=jobs)
 
@@ -413,6 +421,149 @@ class PipelineProcessor:
             dependencies=dependencies,
         )
 
+    def _expand_parallel_jobs(
+        self,
+        jobs: list[JobConfig],
+        raw_config: dict[str, Any],
+    ) -> list[JobConfig]:
+        """Expand jobs that use ``parallel: N`` or ``parallel: matrix:`` into multiple jobs.
+
+        GitLab CI semantics:
+        - ``parallel: N`` creates N copies named ``job_name N/N`` with
+          ``CI_NODE_INDEX`` (1-based) and ``CI_NODE_TOTAL`` set.
+        - ``parallel: matrix: [...]`` computes the Cartesian product of the
+          variable lists and creates one job per combination, named
+          ``job_name: [VAR1=val1, VAR2=val2]``.
+        """
+        expanded: list[JobConfig] = []
+
+        for job in jobs:
+            raw_job = raw_config.get(job.name, {})
+            parallel_raw = raw_job.get("parallel") if isinstance(raw_job, dict) else None
+
+            if parallel_raw is None:
+                expanded.append(job)
+                continue
+
+            if isinstance(parallel_raw, int):
+                # parallel: N — create N copies
+                n = max(1, min(parallel_raw, 200))
+                for idx in range(1, n + 1):
+                    clone = copy.deepcopy(job)
+                    clone.name = f"{job.name} {idx}/{n}"
+                    clone.parallel_total = n
+                    clone.parallel_index = idx
+                    clone.variables["CI_NODE_INDEX"] = str(idx)
+                    clone.variables["CI_NODE_TOTAL"] = str(n)
+                    expanded.append(clone)
+
+            elif isinstance(parallel_raw, dict) and "matrix" in parallel_raw:
+                matrix_entries = parallel_raw["matrix"]
+                if not isinstance(matrix_entries, list):
+                    expanded.append(job)
+                    continue
+
+                # Each matrix entry is a dict where values can be scalars or lists.
+                # We compute the Cartesian product within each entry, then concatenate
+                # all entries to get the full set of combinations.
+                all_combos: list[dict[str, str]] = []
+                for entry in matrix_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    keys = sorted(entry.keys())
+                    value_lists: list[list[str]] = []
+                    for key in keys:
+                        val = entry[key]
+                        if isinstance(val, list):
+                            value_lists.append([str(v) for v in val])
+                        else:
+                            value_lists.append([str(val)])
+                    for combo in itertools.product(*value_lists):
+                        all_combos.append(dict(zip(keys, combo)))
+
+                if not all_combos:
+                    expanded.append(job)
+                    continue
+
+                total = len(all_combos)
+                for idx, combo in enumerate(all_combos, 1):
+                    clone = copy.deepcopy(job)
+                    # GitLab names matrix jobs as: "job_name: [K1=V1, K2=V2]"
+                    label = ", ".join(f"{k}={v}" for k, v in sorted(combo.items()))
+                    clone.name = f"{job.name}: [{label}]"
+                    clone.parallel_total = total
+                    clone.parallel_index = idx
+                    clone.variables.update(combo)
+                    clone.variables["CI_NODE_INDEX"] = str(idx)
+                    clone.variables["CI_NODE_TOTAL"] = str(total)
+                    expanded.append(clone)
+            else:
+                expanded.append(job)
+
+        return expanded
+
+    @staticmethod
+    def _resolve_expanded_needs(jobs: list[JobConfig]) -> list[JobConfig]:
+        """Rewrite ``needs`` entries that reference a job that was expanded by ``parallel:``.
+
+        If job A has ``needs: [B]`` but B was expanded into ``B 1/3``, ``B 2/3``,
+        ``B 3/3``, then A's needs list is rewritten to depend on all three
+        expanded instances.  References that match an existing job name are left
+        unchanged.
+        """
+        existing_names = {j.name for j in jobs}
+
+        # Build a map: original_name -> list of expanded names
+        # Expanded jobs have parallel_total > 0 and their name differs from
+        # the original.  We derive the original name by stripping the suffix.
+        expanded_map: dict[str, list[str]] = {}
+        for job in jobs:
+            if job.parallel_total > 0:
+                # Parallel: N pattern: "original N/N"
+                # Matrix pattern: "original: [KEY=VAL]"
+                # We need the original name. We can infer it:
+                #   - For "name K/N": everything before " K/N"
+                #   - For "name: [...]": everything before ": ["
+                if ": [" in job.name:
+                    orig = job.name.split(": [")[0]
+                elif "/" in job.name:
+                    # "original 1/3" -> strip " 1/3"
+                    parts = job.name.rsplit(" ", 1)
+                    orig = parts[0] if len(parts) == 2 and "/" in parts[1] else job.name
+                else:
+                    continue
+                expanded_map.setdefault(orig, []).append(job.name)
+
+        if not expanded_map:
+            return jobs
+
+        for job in jobs:
+            # Resolve needs
+            if job.needs:
+                new_needs: list[str] = []
+                for dep in job.needs:
+                    if dep in existing_names:
+                        new_needs.append(dep)
+                    elif dep in expanded_map:
+                        new_needs.extend(expanded_map[dep])
+                    else:
+                        new_needs.append(dep)
+                job.needs = new_needs
+
+            # Resolve dependencies (artifact injection)
+            if job.dependencies is not None:
+                new_deps: list[str] = []
+                for dep in job.dependencies:
+                    if dep in existing_names:
+                        new_deps.append(dep)
+                    elif dep in expanded_map:
+                        new_deps.extend(expanded_map[dep])
+                    else:
+                        new_deps.append(dep)
+                job.dependencies = new_deps
+
+        return jobs
+
     def _ensure_list(self, value: Union[str, list[str]]) -> list[str]:
         """
         Ensure a value is a list of strings.
@@ -511,9 +662,10 @@ class LocalGitLabRunner:
 
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-        from bitrab.mutation import load_mutation_config
+        from bitrab.mutation import load_mutation_config, load_parallel_config
 
         mutation_config = load_mutation_config(self.base_path)
+        parallel_config = load_parallel_config(self.base_path)
 
         event_collector = None
         started_at = __import__("time").time()
@@ -525,6 +677,7 @@ class LocalGitLabRunner:
                 self.job_executor,
                 maximum_degree_of_parallelism=maximum_degree_of_parallelism,
                 mutation_config=mutation_config,
+                parallel_backend=parallel_config,
             )
             if use_tui:
                 from bitrab.tui.app import PipelineApp
@@ -542,6 +695,7 @@ class LocalGitLabRunner:
                 maximum_degree_of_parallelism=maximum_degree_of_parallelism,
                 dry_run=dry_run,
                 mutation_config=mutation_config,
+                parallel_backend=parallel_config,
             )
             self.orchestrator.execute_pipeline(pipeline)
             event_collector = getattr(self.orchestrator, "event_collector", None)

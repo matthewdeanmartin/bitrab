@@ -74,6 +74,13 @@ class JobConfig:
     # None = inherit all (GitLab default); [] = no artifacts
     dependencies: list[str] | None = None
 
+    # parallel: job duplication / matrix expansion
+    # parallel_total: total number of parallel instances (set by parallel: N or matrix expansion)
+    # parallel_index: 1-based index of this instance within the parallel group
+    # These are populated after matrix expansion; the original job has both as 0.
+    parallel_total: int = 0
+    parallel_index: int = 0
+
 
 @dataclass
 class DefaultConfig:

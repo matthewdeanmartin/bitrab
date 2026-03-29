@@ -305,6 +305,11 @@ source_folder = "bitrab"
 # Set to true to warn when a job modifies files outside the whitelist.
 warn_on_mutation = false
 
+# Parallel execution backend: "process" (default) or "thread".
+#   process: full isolation via ProcessPoolExecutor (GIL-free, heavier)
+#   thread:  shared memory via ThreadPoolExecutor (lighter, GIL-bound)
+parallel_backend = "process"
+
 [tool.bitrab.mutation]
 # Glob patterns (relative to project root) that are safe to ignore.
 # These are added to the built-in list (.mypy_cache/**, .pytest_cache/**,

@@ -65,6 +65,54 @@ class MutationConfig:
         return _BUILTIN_WHITELIST + self.whitelist
 
 
+@dataclass
+class ParallelBackendConfig:
+    """Configuration for the parallel execution backend.
+
+    Attributes:
+        backend: ``"process"`` (default) or ``"thread"``.
+            - ``"process"``: uses ``ProcessPoolExecutor`` (full isolation, GIL-free).
+            - ``"thread"``: uses ``ThreadPoolExecutor`` (lighter weight, shared memory,
+              but subject to the GIL for CPU-bound work).
+    """
+
+    backend: str = "process"  # "process" | "thread"
+
+    def __post_init__(self) -> None:
+        if self.backend not in ("process", "thread"):
+            self.backend = "process"
+
+
+def load_parallel_config(project_dir: Path) -> ParallelBackendConfig:
+    """Read ``[tool.bitrab]`` from ``pyproject.toml`` and return parallel config.
+
+    Returns the default (process) config if ``pyproject.toml`` is missing or
+    the section is absent.
+    """
+    pyproject = project_dir / "pyproject.toml"
+    if not pyproject.exists():
+        return ParallelBackendConfig()
+
+    try:
+        try:
+            import tomllib  # type: ignore[import]  # 3.11+
+        except ImportError:
+            try:
+                import tomli as tomllib  # type: ignore[import,no-redef]
+            except ImportError:
+                import toml as tomllib  # type: ignore[import,no-redef]
+
+        with open(pyproject, "rb") as fh:
+            data: dict[str, Any] = tomllib.load(fh)  # type: ignore[attr-defined]
+    except Exception:
+        return ParallelBackendConfig()
+
+    bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
+    backend = str(bitrab_section.get("parallel_backend", "process")).lower()
+
+    return ParallelBackendConfig(backend=backend)
+
+
 def load_mutation_config(project_dir: Path) -> MutationConfig:
     """Read ``[tool.bitrab]`` from ``pyproject.toml`` and return a MutationConfig.
 
