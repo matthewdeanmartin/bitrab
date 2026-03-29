@@ -12,6 +12,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed for any bug fixes.
 - Security in case of vulnerabilities.
 
+## [Unreleased]
+
+### Added
+
+- **RULES-1: `rules: exists` support.** Rules can now include an `exists:` list
+  of file glob patterns. A rule matches only if at least one listed path exists
+  under the project root. Both `if:` and `exists:` must pass when both are
+  present (AND semantics), matching GitLab CI behavior.
+- **RULES-2: `&&` / `||` compound `if` expressions.** `rules: if:` expressions
+  now support `&&` and `||` at the top level. `&&` binds tighter than `||`
+  (standard precedence). Quoted string values containing `&&`/`||` are not split.
+  Covers the vast majority of real-world compound rules without parentheses.
+
+### Fixed
+
+- **BUG-4: Config loader no longer mutates caller's dict.** `PipelineProcessor.process_config()`
+  now deep-copies `raw_config` before processing, so calling code that holds a
+  reference to the original dict is not affected.
+
+- **ARCH-4: Structured execution events.** `EventCollector` wraps any
+  `PipelineCallbacks` instance and records a typed `PipelineEvent` for every
+  lifecycle hook (pipeline start/complete, stage start/skip/complete, job
+  start/complete, cancellation, awaiting-manual). Events carry monotonic
+  timestamps, wall-clock times, and a typed `data` payload.
+- `PipelineSummary`: built from events via `from_events()`. Holds per-job and
+  per-stage timing, status (`success`/`failed`/`allowed_failure`), and flags
+  for cancellation and awaiting-manual state. `format_text()` renders a concise
+  human-readable summary printed at the end of every execution mode.
+- **ARCH-5: `bitrab graph` command.** Renders a visual representation of the
+  pipeline's stages and jobs. Supports two output formats:
+  - `--format text` (default): ASCII terminal tree with stage headers, job
+    bullets, `↓` separators between stages, `↳ needs:` annotations for DAG
+    dependencies, `allow_failure`/`when` attribute labels, and a summary line.
+  - `--format dot`: Graphviz DOT output. Stages become labeled clusters; jobs
+    become nodes with color coding (yellow for `when: manual`, salmon for
+    `allow_failure`); edges follow `needs:` in DAG mode or stage ordering
+    otherwise. Pipe output to `dot -Tpng` or paste into any Graphviz viewer.
+
 ## [0.2.1] - 2026-03-28
 
 ### Added

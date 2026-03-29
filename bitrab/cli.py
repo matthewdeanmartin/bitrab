@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 from bitrab.__about__ import __version__
-from bitrab.console import configure_stdio
-from bitrab.console import safe_print
+from bitrab.console import configure_stdio, safe_print
 from bitrab.exceptions import BitrabError, GitlabRunnerError
 
 if TYPE_CHECKING:
@@ -351,13 +350,19 @@ def cmd_lint(_args: argparse.Namespace) -> None:
 
 def cmd_graph(args: argparse.Namespace) -> None:
     """Generate a visual dependency graph of the pipeline."""
-    safe_print("📊 Pipeline Dependency Graph")
-    if getattr(args, "dry_run", False):
-        safe_print("🔎 Dry-run mode enabled — would generate the pipeline dependency graph without writing files.")
-        return
-    safe_print("⚠️  Graph generation not yet implemented")
-    safe_print("   This would create a visual representation of job dependencies")
-    sys.exit(1)
+    from bitrab.graph import render_pipeline_graph
+
+    config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
+
+    if not config_path.exists():
+        safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    _, pipeline_config = load_and_process_config(config_path)
+
+    fmt = getattr(args, "format", "text") or "text"
+    output = render_pipeline_graph(pipeline_config, fmt=fmt)
+    safe_print(output)
 
 
 def cmd_debug(args: argparse.Namespace) -> None:
@@ -476,10 +481,13 @@ Version: {__version__}
     graph_parser = subparsers.add_parser(
         "graph",
         help="Generate pipeline dependency graph",
-        description="Create visual representation of job dependencies (not implemented)",
+        description="Render a visual representation of pipeline stages and job dependencies.",
     )
     graph_parser.add_argument(
-        "--dry-run", action="store_true", help="Show what graph output would be generated without writing files"
+        "--format",
+        choices=["text", "dot"],
+        default="text",
+        help="Output format: 'text' (default, ASCII terminal) or 'dot' (Graphviz DOT)",
     )
     graph_parser.set_defaults(func=cmd_graph)
 

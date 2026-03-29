@@ -21,6 +21,7 @@ class RuleConfig:
     allow_failure: bool | None = None
     variables: dict[str, str] = field(default_factory=dict)
     needs: list[str] | None = None
+    exists: list[str] | None = None
 
 
 @dataclass

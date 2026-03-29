@@ -27,6 +27,7 @@ else:
     except ImportError:
         files = None
 
+
 class GitLabCIValidator:
     """Validates GitLab CI YAML files against the official schema."""
 

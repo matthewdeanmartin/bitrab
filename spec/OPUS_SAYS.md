@@ -53,6 +53,16 @@ These items from the original plan have been implemented and verified:
 - **Python 3.9 minimum:** Done. `requires-python = ">=3.9"` in pyproject.toml.
   `graphlib` used from stdlib.
 - **A9 (end-of-run summary):** Handled via `PipelineCallbacks.on_pipeline_complete`.
+- **ARCH-4 (Structured execution events):** Done. `EventCollector` in
+  `execution/events.py` wraps any `PipelineCallbacks` and records typed
+  `PipelineEvent` objects (9 event types) with monotonic timestamps. All three
+  execution modes (streaming, TUI, CI) now wrap their callbacks with
+  `EventCollector`. `PipelineSummary.from_events()` builds per-job/stage
+  timing summaries; `format_text()` is printed at end of every run.
+- **ARCH-5 (`graph` command):** Done. `bitrab graph` renders pipeline stages
+  and jobs. `--format text` (default) gives an ASCII terminal tree with DAG
+  `↳ needs:` annotations. `--format dot` emits Graphviz DOT with stage
+  clusters, colored nodes, and stage/needs edges.
 
 ---
 
@@ -74,76 +84,27 @@ has gaps that need attention.
 
 ### Issues found
 
-**RULES-1: `rules: exists` is claimed but not implemented**
+~~**RULES-1: `rules: exists` is claimed but not implemented**~~
 
-`capabilities.py` line 60 lists `exists` in `_SUPPORTED_RULES_KEYS`, but:
+Done. `RuleConfig` has an `exists` field; `plan.py` parses it; `_rule_matches()`
+checks file existence via glob against project root. `capabilities.py` moved
+`exists` to `_SUPPORTED_RULES_KEYS`. Both `if:` and `exists:` must pass (AND
+semantics). 9 new tests in `test_rules.py::TestRulesExists`.
 
-- `RuleConfig` has no `exists` field
-- `rules.py` never checks file existence
-- `plan.py` doesn't parse `exists:` from rule dicts
+~~**RULES-2: `&&` / `||` compound expressions don't work**~~
 
-This means a rule like `rules: - exists: ["Dockerfile"]` silently matches
-(because `if_expr` is None, so `_rule_matches` returns True) which is wrong --
-it should only match if the file exists.
+Done (option 1). `_evaluate_if()` now splits on `&&`/`||` at the top level
+(respecting quoted strings), with `&&` binding tighter than `||`. Covers the
+vast majority of real-world compound rules. 13 new tests in
+`test_rules.py::TestCompoundExpressions`.
 
-**Fix:**
+~~**RULES-3: The docstring lies about `&&`/`||` support**~~
 
-1. Add `exists: list[str] | None = None` to `RuleConfig`
-2. Parse `exists:` in `PipelineProcessor._process_job()`
-3. In `_rule_matches()`: if `rule.exists` is not None, check that at least one
-   listed path exists relative to project root. Both `if_expr` and `exists`
-   must pass for the rule to match (this is GitLab's behavior).
-4. Pass `project_dir` to `evaluate_rules()` and `_rule_matches()`
-5. Remove `exists` from `_SUPPORTED_RULES_KEYS` in capabilities until actually
-   implemented, or implement it now
+Done. Docstring updated before this session started.
 
-**Assign:** Sonnet. Well-scoped, ~30 lines of code plus tests.
+~~**RULES-4: Fallback behavior on unrecognized expressions is silent**~~
 
-**RULES-2: `&&` / `||` compound expressions don't work**
-
-The docstring on `_evaluate_if()` says "Simple combinations with && and ||
-(basic support)" but the implementation has no such support. Any expression
-that doesn't match one of the five regex patterns returns `False`.
-
-Example that silently fails:
-
-```yaml
-rules:
-  - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
-```
-
-This is a known limitation documented in the original plan (deferred to later).
-The fix is to split on `&&` and `||` with proper precedence, but it's not
-trivial.
-
-**Fix (two options):**
-
-1. **Quick:** Split on `&&`/`||` at the top level (no parentheses), evaluate
-   each sub-expression independently. Covers 90% of real-world compound rules.
-2. **Proper:** Write a small recursive-descent parser for the expression
-   grammar. More correct but more code.
-
-**Assign:** Opus for option 2; Sonnet could handle option 1.
-
-**RULES-3: The docstring lies about `&&`/`||` support**
-
-Line 70 of `rules.py` claims "Simple combinations with && and || (basic
-support)" but no such support exists. The docstring should be updated to
-accurately reflect what's implemented.
-
-**Fix:** Update the docstring. One-line change.
-
-**Assign:** Any LLM.
-
-**RULES-4: Fallback behavior on unrecognized expressions is silent**
-
-When `_evaluate_if()` encounters an expression it can't parse, it returns
-`False` with no warning. This means typos or complex expressions silently
-exclude jobs. A warning log would help users debug unexpected skips.
-
-**Fix:** Add `logger.warning(f"Could not evaluate rules expression: {expr!r} -- treating as non-match")`.
-
-**Assign:** Any LLM.
+Done. `logger.warning(...)` added before this session started.
 
 ---
 
@@ -195,14 +156,14 @@ when you want to understand what will and won't work locally.
 
 | ID        | Task                              | Effort | Assign                 | Notes                            |
 |-----------|-----------------------------------|--------|------------------------|----------------------------------|
-| RULES-1   | `rules: exists` implementation    | S      | Sonnet                 | Claimed as supported but missing |
-| RULES-2   | `&&`/`                            |        | ` compound expressions | M-L                              | Opus or Sonnet | Option 1 vs 2 decision needed |
-| RULES-3   | Fix misleading docstring          | XS     | Any LLM                |                                  |
-| RULES-4   | Warn on unrecognized expressions  | XS     | Any LLM                |                                  |
-| BUG-4     | Config loader mutates input       | S      | Sonnet                 | Deep-copy before mutation        |
+| ~~RULES-1~~ | ~~`rules: exists` implementation~~    | ~~S~~ | ~~Sonnet~~ | Done — see Part 2 |
+| ~~RULES-2~~ | ~~`&&`/`\|\|` compound expressions~~ | ~~M-L~~ | ~~Sonnet~~ | Done — see Part 2 |
+| ~~RULES-3~~ | ~~Fix misleading docstring~~          | ~~XS~~ | ~~Any LLM~~ | Done |
+| ~~RULES-4~~ | ~~Warn on unrecognized expressions~~  | ~~XS~~ | ~~Any LLM~~ | Done |
+| ~~BUG-4~~   | ~~Config loader mutates input~~       | ~~S~~ | ~~Sonnet~~ | Done — deep-copy in `process_config()` |
 | FEATURE-7 | `cache:` support                  | M      | Sonnet                 | symlink/copy to `.bitrab/cache/` |
-| ARCH-4    | Structured execution events       | L      | Opus                   | Medium-term refactor             |
-| ARCH-5    | `graph` command                   | M      | Sonnet                 | Currently stubbed                |
+| ~~ARCH-4~~    | ~~Structured execution events~~ | ~~L~~ | ~~Opus~~           | Done — see Part 1                |
+| ~~ARCH-5~~    | ~~`graph` command~~             | ~~M~~ | ~~Sonnet~~         | Done — see Part 1                |
 | C6        | Log persistence (`.bitrab/logs/`) | S      | Any LLM                |                                  |
 | C7        | TUI flow tab                      | M      | Sonnet                 | Pipeline diagram in TUI          |
 | C8        | `rules: changes` with git diff    | L      | Opus                   | Phase 2 rules                    |
@@ -238,15 +199,10 @@ Unchanged from the original assessment. These remain net-negative for bitrab:
 
 What's left, in impact order:
 
-1. **RULES-1: `exists` implementation** -- claimed as supported, must deliver
-2. **RULES-4: Warn on unrecognized expressions** -- silent failures hurt users
-3. **RULES-3: Fix docstring** -- trivial housekeeping
-4. **RULES-2: `&&`/`||` expressions** -- unlocks most real-world rules
-5. **FEATURE-7: `cache:`** -- common in real configs
-6. **BUG-4: Immutable config loading** -- correctness
-7. **ARCH-5: `graph` command** -- useful with DAG support now in place
-8. **C8: `rules: changes`** -- requires git integration
-9. **ARCH-4: Structured events** -- enables log persistence, web UI, summaries
+1. **FEATURE-7: `cache:`** -- common in real configs
+2. **C8: `rules: changes`** -- requires git integration
+3. **C6: Log persistence** -- quality of life
+4. **C7: TUI flow tab** -- pipeline diagram in TUI
 
 ---
 
@@ -261,9 +217,9 @@ What's left, in impact order:
 | include: local                                       | Supported         |                                  |
 | allow_failure (bool + exit_codes)                    | Supported         |                                  |
 | when (on_success, on_failure, always, manual, never) | Supported         |                                  |
-| rules: if (simple expressions)                       | Supported         | No `&&`/`                        ||` yet |
+| rules: if (simple + `&&`/`\|\|` compound)            | Supported         |                                  |
 | rules: when / allow_failure / variables / needs      | Supported         |                                  |
-| rules: exists                                        | **Broken**        | Claimed but not implemented      |
+| rules: exists                                        | Supported         | Glob patterns relative to root   |
 | rules: changes                                       | Not supported     | Deferred (needs git diff)        |
 | needs (DAG)                                          | Supported         | Via `graphlib.TopologicalSorter` |
 | timeout                                              | Supported         | Duration string parsing          |

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import glob
 import logging
 import re
+from pathlib import Path
 
 from bitrab.models.pipeline import JobConfig, RuleConfig
 
@@ -14,8 +16,12 @@ _RE_INEQUALITY = re.compile(r'^\$(\w+)\s*!=\s*"([^"]*)"$')
 _RE_REGEX_MATCH = re.compile(r"^\$(\w+)\s*=~\s*/([^/]*)/$")
 _RE_REGEX_NOT_MATCH = re.compile(r"^\$(\w+)\s*!~\s*/([^/]*)/$")
 
+# Tokenizer for && / || splitting (handles quoted strings so we don't split inside them)
+_RE_AND = re.compile(r"\s*&&\s*")
+_RE_OR = re.compile(r"\s*\|\|\s*")
 
-def evaluate_rules(job: JobConfig, env: dict[str, str]) -> None:
+
+def evaluate_rules(job: JobConfig, env: dict[str, str], project_dir: Path | None = None) -> None:
     """
     Evaluate rules for a job and update its configuration accordingly.
 
@@ -30,7 +36,7 @@ def evaluate_rules(job: JobConfig, env: dict[str, str]) -> None:
 
     matched_rule = None
     for rule in job.rules:
-        if _rule_matches(rule, env):
+        if _rule_matches(rule, env, project_dir):
             matched_rule = rule
             break
 
@@ -52,28 +58,58 @@ def evaluate_rules(job: JobConfig, env: dict[str, str]) -> None:
         job.when = "never"
 
 
-def _rule_matches(rule: RuleConfig, env: dict[str, str]) -> bool:
-    """Check if a single rule matches the current environment."""
-    if rule.if_expr is None:
-        return True  # A rule with no 'if' always matches (e.g. 'when: always' or 'when: never')
+def _rule_matches(rule: RuleConfig, env: dict[str, str], project_dir: Path | None = None) -> bool:
+    """Check if a single rule matches the current environment.
 
-    return _evaluate_if(rule.if_expr, env)
+    Both ``if_expr`` and ``exists`` must pass (AND semantics) when both are present.
+    """
+    if rule.if_expr is not None:
+        if not _evaluate_if(rule.if_expr, env):
+            return False
+
+    if rule.exists is not None:
+        if not _evaluate_exists(rule.exists, project_dir):
+            return False
+
+    return True
+
+
+def _evaluate_exists(patterns: list[str], project_dir: Path | None) -> bool:
+    """Return True if at least one pattern matches an existing file under project_dir."""
+    base = project_dir or Path(".")
+    for pattern in patterns:
+        # glob.glob handles wildcards; also do a plain exists check for literal paths
+        matches = glob.glob(str(base / pattern), recursive=True)
+        if matches:
+            return True
+    return False
 
 
 def _evaluate_if(expr: str, env: dict[str, str]) -> bool:
     """
     Evaluate a GitLab CI 'if' expression.
 
-    Currently supports:
+    Supports:
     - $VAR (true if non-empty)
     - $VAR == "value"
     - $VAR != "value"
     - $VAR =~ /regex/
     - $VAR !~ /regex/
-
-    NOT yet supported: compound expressions with && or ||.
+    - Compound expressions with && and || (top-level, no parentheses)
+      && binds tighter than ||, matching standard operator precedence.
     """
-    # Simple implementation for now:
+    # Handle || at the top level (lowest precedence): split on ' || ' outside quotes
+    or_parts = _split_top_level(expr, "||")
+    if len(or_parts) > 1:
+        return any(_evaluate_if(part.strip(), env) for part in or_parts)
+
+    # Handle && (higher precedence)
+    and_parts = _split_top_level(expr, "&&")
+    if len(and_parts) > 1:
+        return all(_evaluate_if(part.strip(), env) for part in and_parts)
+
+    # --- atomic expressions ---
+
     # 1. Variable existence/non-empty check: "$CI_COMMIT_TAG"
     var_match = _RE_VARIABLE.match(expr)
     if var_match:
@@ -113,3 +149,33 @@ def _evaluate_if(expr: str, env: dict[str, str]) -> bool:
     # Fallback: unrecognized expression — warn and treat as non-match
     logger.warning("Could not evaluate rules expression: %r — treating as non-match", expr)
     return False
+
+
+def _split_top_level(expr: str, operator: str) -> list[str]:
+    """Split *expr* on *operator* (``&&`` or ``||``) while respecting quoted strings.
+
+    Returns a list with a single element (the original expression) if the
+    operator is not found at the top level.
+    """
+    parts: list[str] = []
+    current: list[str] = []
+    i = 0
+    op_len = len(operator)
+    in_double_quote = False
+
+    while i < len(expr):
+        ch = expr[i]
+        if ch == '"':
+            in_double_quote = not in_double_quote
+            current.append(ch)
+            i += 1
+        elif not in_double_quote and expr[i : i + op_len] == operator:
+            parts.append("".join(current))
+            current = []
+            i += op_len
+        else:
+            current.append(ch)
+            i += 1
+
+    parts.append("".join(current))
+    return parts if len(parts) > 1 else [expr]

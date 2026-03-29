@@ -103,14 +103,22 @@ def test_create_parser_parses_run_dry_run_flag():
     assert args.func is cmd_run
 
 
-def test_create_parser_parses_graph_dry_run_flag():
+def test_create_parser_parses_graph_format_flag():
     parser = create_parser()
 
-    args = parser.parse_args(["graph", "--dry-run"])
+    args = parser.parse_args(["graph", "--format", "dot"])
 
     assert args.command == "graph"
-    assert args.dry_run is True
+    assert args.format == "dot"
     assert args.func is cmd_graph
+
+
+def test_create_parser_graph_default_format():
+    parser = create_parser()
+
+    args = parser.parse_args(["graph"])
+
+    assert args.format == "text"
 
 
 def test_create_parser_parses_clean_dry_run_flag():
@@ -143,14 +151,27 @@ def test_main_run_dry_run_dispatches_flag(mock_setup_logging, mock_runner_class,
     assert mock_runner.run_pipeline.call_args.kwargs["dry_run"] is True
 
 
-def test_cmd_graph_dry_run_reports_preview(capsys):
-    args = argparse.Namespace(dry_run=True)
+def test_cmd_graph_renders_text(capsys, tmp_path):
+    ci_file = tmp_path / ".gitlab-ci.yml"
+    ci_file.write_text("stages:\n  - test\njob1:\n  stage: test\n  script:\n    - echo hi\n")
+    args = argparse.Namespace(config=str(ci_file), format="text")
 
     cmd_graph(args)
 
     captured = capsys.readouterr()
-    assert "Dry-run mode enabled" in captured.out
-    assert "would generate the pipeline dependency graph" in captured.out
+    assert "Stage: test" in captured.out
+    assert "job1" in captured.out
+
+
+def test_cmd_graph_renders_dot(capsys, tmp_path):
+    ci_file = tmp_path / ".gitlab-ci.yml"
+    ci_file.write_text("stages:\n  - test\njob1:\n  stage: test\n  script:\n    - echo hi\n")
+    args = argparse.Namespace(config=str(ci_file), format="dot")
+
+    cmd_graph(args)
+
+    captured = capsys.readouterr()
+    assert "digraph pipeline" in captured.out
 
 
 def test_cmd_clean_dry_run_reports_preview(capsys):

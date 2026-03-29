@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bitrab.execution.events import EventCollector, EventType, PipelineSummary
+from bitrab.execution.events import EventCollector, EventType
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 

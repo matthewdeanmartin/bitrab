@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 import re
 from pathlib import Path
@@ -121,6 +122,9 @@ class PipelineProcessor:
         Returns:
             A structured PipelineConfig object.
         """
+        # Deep-copy to avoid mutating the caller's dict (BUG-4)
+        raw_config = copy.deepcopy(raw_config)
+
         # Extract global configuration
         stages = raw_config.get("stages", ["test"])
         global_variables = raw_config.get("variables", {})
@@ -274,6 +278,14 @@ class PipelineProcessor:
                                 elif isinstance(item, dict) and "job" in item:
                                     rule_needs.append(str(item["job"]))
 
+                    rule_exists: list[str] | None = None
+                    if "exists" in r:
+                        _ex = r["exists"]
+                        if isinstance(_ex, list):
+                            rule_exists = [str(p) for p in _ex]
+                        elif isinstance(_ex, str):
+                            rule_exists = [_ex]
+
                     rules.append(
                         RuleConfig(
                             if_expr=r.get("if"),
@@ -281,6 +293,7 @@ class PipelineProcessor:
                             allow_failure=r.get("allow_failure"),
                             variables=r.get("variables", {}),
                             needs=rule_needs,
+                            exists=rule_exists,
                         )
                     )
 
@@ -404,7 +417,7 @@ class LocalGitLabRunner:
         base_env.update(variable_manager.base_variables)
 
         for job in pipeline.jobs:
-            evaluate_rules(job, base_env)
+            evaluate_rules(job, base_env, project_dir=self.base_path)
 
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
