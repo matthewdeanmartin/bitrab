@@ -64,6 +64,10 @@ help:
 	@echo "  refresh-schema       Refresh vendored GitLab schema files"
 	@echo "  build-dist           Build the distribution package"
 	@echo "  publish              Run prerelease checks then build the distribution"
+	@echo "  bitrab-status        Show .bitrab/ folder size breakdown"
+	@echo "  clean-bitrab         Clean all .bitrab/ workspace content"
+	@echo "  clean-bitrab-dry     Preview what clean-bitrab would remove"
+	@echo "  bitrab-logs          List recent pipeline run logs"
 
 .PHONY: list-jobs
 list-jobs: help
@@ -398,3 +402,23 @@ update-schema:
 
 .PHONY: refresh-schema
 refresh-schema: update-schema
+
+.PHONY: bitrab-status
+bitrab-status:
+	@echo "Checking .bitrab/ folder status"
+	$(VENV) bitrab folder
+
+.PHONY: clean-bitrab
+clean-bitrab:
+	@echo "Cleaning .bitrab/ workspace"
+	$(VENV) bitrab folder clean
+
+.PHONY: clean-bitrab-dry
+clean-bitrab-dry:
+	@echo "Preview: what would be cleaned from .bitrab/"
+	$(VENV) bitrab folder clean --dry-run
+
+.PHONY: bitrab-logs
+bitrab-logs:
+	@echo "Recent pipeline runs:"
+	$(VENV) bitrab logs

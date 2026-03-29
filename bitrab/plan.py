@@ -421,6 +421,9 @@ class LocalGitLabRunner:
 
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
+        event_collector = None
+        started_at = __import__("time").time()
+
         if use_tui or (ci_mode and not dry_run):
             from bitrab.tui.orchestrator import TUIOrchestrator
 
@@ -437,11 +440,61 @@ class LocalGitLabRunner:
                     raise RuntimeError("Pipeline failed — see TUI output for details")
             else:
                 tui_orchestrator.execute_pipeline_ci(pipeline)
+            event_collector = tui_orchestrator.event_collector
         else:
             self.orchestrator = StageOrchestrator(
                 self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run
             )
             self.orchestrator.execute_pipeline(pipeline)
+            event_collector = getattr(self.orchestrator, "event_collector", None)
+
+        if not dry_run and event_collector is not None:
+            _persist_run_log(self.base_path, event_collector, started_at, pipeline)
+
+
+def _persist_run_log(
+    project_dir: Path,
+    event_collector: Any,
+    started_at: float,
+    pipeline: Any,
+) -> None:
+    """Write a run log to .bitrab/logs/<run_id>/ — silently ignore errors."""
+    import logging
+
+    try:
+        from bitrab.folder import maybe_warn_size, write_run_log
+
+        summary = event_collector.summary()
+        events = event_collector.events
+
+        events_json = [
+            {
+                "event_type": e.event_type.value,
+                "timestamp": e.timestamp,
+                "wall_time": e.wall_time,
+                "stage": e.stage,
+                "job": e.job,
+                "data": e.data,
+            }
+            for e in events
+        ]
+
+        meta = {
+            "started_at": started_at,
+            "success": summary.success,
+            "total_duration_s": summary.total_duration_s,
+            "job_count": len(pipeline.jobs),
+        }
+
+        write_run_log(project_dir, events_json, summary.format_text(), meta)
+
+        warn = maybe_warn_size(project_dir)
+        if warn:
+            from bitrab.console import safe_print
+
+            safe_print(warn)
+    except Exception as exc:  # pylint: disable=broad-except
+        logging.debug("Failed to persist run log: %s", exc)
 
 
 def best_efforts_run(config_path: Path) -> None:

@@ -382,13 +382,126 @@ def cmd_debug(args: argparse.Namespace) -> None:
 
 
 def cmd_clean(args: argparse.Namespace) -> None:
-    """Clean up artifacts and temporary files."""
-    safe_print("🧹 Clean Pipeline Artifacts")
-    if getattr(args, "dry_run", False):
-        safe_print("🔎 Dry-run mode enabled — would remove build artifacts, cache files, and temporary files.")
+    """Clean up artifacts and temporary files in .bitrab/."""
+    from bitrab.folder import clean_artifacts, clean_job_dirs, scan_folder
+
+    project_dir = Path(args.config).parent if getattr(args, "config", None) else Path.cwd()
+    dry_run = getattr(args, "dry_run", False)
+    what = getattr(args, "what", "all")
+
+    summary = scan_folder(project_dir)
+    if not summary.exists:
+        safe_print("  .bitrab/ does not exist — nothing to clean.")
         return
-    safe_print("⚠️  Cleanup not yet implemented")
-    safe_print("   This would remove build artifacts, cache files, etc.")
+
+    if dry_run:
+        safe_print("🔎 Dry-run: would remove:")
+        if what in ("all", "artifacts"):
+            safe_print(f"   artifacts  {summary.artifacts_human}")
+        if what in ("all", "jobs"):
+            safe_print(f"   job dirs   {summary.job_dirs_human}")
+        if what == "all":
+            safe_print(f"   logs       {summary.logs_human}  ({summary.run_count} run(s))")
+        safe_print(f"   total      {summary.total_human}")
+        return
+
+    freed = 0
+    if what in ("all", "artifacts"):
+        freed += clean_artifacts(project_dir)
+    if what in ("all", "jobs"):
+        freed += clean_job_dirs(project_dir)
+    if what == "all":
+        from bitrab.folder import clean_logs
+
+        freed += clean_logs(project_dir)
+
+    from bitrab.folder import _human_size  # pylint: disable=import-outside-toplevel
+
+    safe_print(f"🧹 Cleaned {_human_size(freed)} from .bitrab/")
+
+
+def cmd_logs(args: argparse.Namespace) -> None:
+    """List, show, or prune persisted pipeline run logs."""
+    from bitrab.folder import list_runs, prune_runs
+
+    project_dir = Path(args.config).parent if getattr(args, "config", None) else Path.cwd()
+    subcommand = getattr(args, "logs_cmd", "list")
+
+    if subcommand == "list":
+        runs = list_runs(project_dir)
+        if not runs:
+            safe_print("  No runs recorded yet.")
+            return
+        safe_print(f"{'Run ID':<26}  {'Started':<19}  {'Status':<7}  {'Duration':>8}  {'Size':>8}")
+        safe_print("-" * 78)
+        for r in runs:
+            status = "ok" if r.success else "FAIL"
+            safe_print(
+                f"{r.run_id:<26}  {r.started_at_iso:<19}  {status:<7}  "
+                f"{r.total_duration_s:>7.1f}s  {r.human_size:>8}"
+            )
+        safe_print(f"\n  {len(runs)} run(s) total")
+
+    elif subcommand == "show":
+        run_id = getattr(args, "run_id", None)
+        runs = list_runs(project_dir)
+        if not runs:
+            safe_print("  No runs recorded yet.")
+            return
+        if run_id:
+            matches = [r for r in runs if r.run_id == run_id or r.run_id.startswith(run_id)]
+            if not matches:
+                safe_print(f"❌ Run not found: {run_id}", file=sys.stderr)
+                sys.exit(1)
+            rec = matches[0]
+        else:
+            rec = runs[0]  # most recent
+
+        summary_file = rec.run_dir / "summary.txt"
+        if summary_file.exists():
+            safe_print(summary_file.read_text(encoding="utf-8"))
+        else:
+            safe_print(f"  Run ID  : {rec.run_id}")
+            safe_print(f"  Started : {rec.started_at_iso}")
+            safe_print(f"  Status  : {'success' if rec.success else 'FAILED'}")
+            safe_print(f"  Duration: {rec.total_duration_s:.1f}s")
+            safe_print(f"  Jobs    : {rec.job_count}")
+            safe_print("  (no summary.txt)")
+
+    elif subcommand == "rm":
+        keep = getattr(args, "keep", 0)
+        if keep is not None and keep > 0:
+            deleted = prune_runs(project_dir, keep=keep)
+            if deleted:
+                safe_print(f"🗑️  Removed {len(deleted)} old run(s): {', '.join(deleted)}")
+            else:
+                safe_print("  Nothing to remove.")
+        else:
+            # Delete all logs
+            from bitrab.folder import _human_size, clean_logs  # pylint: disable=import-outside-toplevel
+
+            freed = clean_logs(project_dir)
+            safe_print(f"🗑️  Removed all run logs ({_human_size(freed)} freed).")
+
+
+def cmd_folder(args: argparse.Namespace) -> None:
+    """Show .bitrab/ folder status or clean it."""
+    from bitrab.folder import scan_folder
+
+    project_dir = Path(args.config).parent if getattr(args, "config", None) else Path.cwd()
+    subcommand = getattr(args, "folder_cmd", "status")
+
+    if subcommand == "status":
+        summary = scan_folder(project_dir)
+        safe_print("📁 .bitrab/ folder status:")
+        safe_print(summary.format_text())
+
+    elif subcommand == "clean":
+        dry_run = getattr(args, "dry_run", False)
+        what = getattr(args, "what", "all")
+        # Delegate to cmd_clean with a compatible Namespace
+        ns = argparse.Namespace(config=args.config, dry_run=dry_run, what=what)
+        cmd_clean(ns)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -402,11 +515,21 @@ Examples:
   bitrab run                          # Run .gitlab-ci.yml
   bitrab run -c my-ci.yml             # Run specific config file
   bitrab run --dry-run                # Show what would be executed
-  bitrab run --jobs build test        # Run specific jobs (if implemented)
+  bitrab run --jobs build test        # Run specific jobs
   bitrab run --parallel 4             # Use 4 parallel workers
   bitrab list                         # List all jobs
   bitrab validate                     # Validate configuration
   bitrab validate --json              # Output pipeline as JSON
+  bitrab logs                         # List all recorded pipeline runs
+  bitrab logs show                    # Show summary of most recent run
+  bitrab logs show abc123             # Show summary of a specific run
+  bitrab logs rm --keep 5             # Keep 5 most recent runs, delete the rest
+  bitrab logs rm                      # Delete all run logs
+  bitrab folder                       # Show .bitrab/ folder status and size
+  bitrab folder clean                 # Clean everything in .bitrab/
+  bitrab folder clean --what jobs     # Clean only job working directories
+  bitrab clean                        # Clean .bitrab/ (same as folder clean)
+  bitrab clean --dry-run              # Preview what would be cleaned
 
 Version: {__version__}
 """,
@@ -501,12 +624,72 @@ Version: {__version__}
 
     # Clean command
     clean_parser = subparsers.add_parser(
-        "clean", help="Clean up artifacts", description="Remove build artifacts and temporary files (not implemented)"
+        "clean",
+        help="Clean up .bitrab/ artifacts and job dirs",
+        description="Remove build artifacts, job directories, and optionally logs from .bitrab/",
     )
     clean_parser.add_argument(
         "--dry-run", action="store_true", help="Show what would be removed without deleting files"
     )
+    clean_parser.add_argument(
+        "--what",
+        choices=["all", "artifacts", "jobs"],
+        default="all",
+        help="What to clean: all (default), artifacts only, or job dirs only",
+    )
     clean_parser.set_defaults(func=cmd_clean)
+
+    # Logs command
+    logs_parser = subparsers.add_parser(
+        "logs",
+        help="Manage persisted pipeline run logs",
+        description="List, inspect, or prune .bitrab/logs/ run records",
+    )
+    logs_sub = logs_parser.add_subparsers(dest="logs_cmd", metavar="ACTION")
+    logs_sub.required = False
+
+    logs_list = logs_sub.add_parser("list", help="List all recorded runs (default)")
+    logs_list.set_defaults(func=cmd_logs, logs_cmd="list")
+
+    logs_show = logs_sub.add_parser("show", help="Show summary of a run")
+    logs_show.add_argument("run_id", nargs="?", help="Run ID prefix (default: most recent)")
+    logs_show.set_defaults(func=cmd_logs, logs_cmd="show")
+
+    logs_rm = logs_sub.add_parser("rm", help="Remove old run logs")
+    logs_rm.add_argument(
+        "--keep",
+        type=int,
+        metavar="N",
+        default=0,
+        help="Keep the N most recent runs; delete the rest (0 = delete all)",
+    )
+    logs_rm.set_defaults(func=cmd_logs, logs_cmd="rm")
+
+    logs_parser.set_defaults(func=cmd_logs, logs_cmd="list")
+
+    # Folder command
+    folder_parser = subparsers.add_parser(
+        "folder",
+        help="Manage the .bitrab/ workspace folder",
+        description="Inspect and clean the .bitrab/ workspace folder",
+    )
+    folder_sub = folder_parser.add_subparsers(dest="folder_cmd", metavar="ACTION")
+    folder_sub.required = False
+
+    folder_status = folder_sub.add_parser("status", help="Show folder size breakdown (default)")
+    folder_status.set_defaults(func=cmd_folder, folder_cmd="status")
+
+    folder_clean = folder_sub.add_parser("clean", help="Clean the folder")
+    folder_clean.add_argument("--dry-run", action="store_true", help="Preview what would be removed")
+    folder_clean.add_argument(
+        "--what",
+        choices=["all", "artifacts", "jobs"],
+        default="all",
+        help="What to clean: all (default), artifacts only, or job dirs only",
+    )
+    folder_clean.set_defaults(func=cmd_folder, folder_cmd="clean")
+
+    folder_parser.set_defaults(func=cmd_folder, folder_cmd="status")
 
     return parser
 

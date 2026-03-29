@@ -81,7 +81,7 @@ check "bitrab clean --dry-run"               run_bitrab clean --dry-run
 echo ""
 echo "--- graph (dry-run) ---"
 check "bitrab graph --help"                  run_bitrab graph --help
-check "bitrab graph --dry-run"               run_bitrab graph --dry-run
+check "bitrab graph"               run_bitrab graph
 
 echo ""
 echo "--- expected failures ---"
