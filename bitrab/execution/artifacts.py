@@ -65,10 +65,12 @@ def collect_artifacts(
     dest_root.mkdir(parents=True, exist_ok=True)
 
     for pattern in job.artifacts_paths:
-        # glob.glob with recursive=True supports ** patterns
-        matches = glob.glob(pattern, root_dir=str(project_dir), recursive=True)
-        for rel_path in matches:
-            src = project_dir / rel_path
+        # For Python 3.9 compatibility (root_dir= was added in 3.10)
+        import os
+        full_pattern = os.path.join(str(project_dir), pattern)
+        for abs_path in glob.glob(full_pattern, recursive=True):
+            rel_path = os.path.relpath(abs_path, str(project_dir))
+            src = Path(abs_path)
             if not src.exists():
                 continue
             dest = dest_root / rel_path

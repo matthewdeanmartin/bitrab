@@ -45,7 +45,7 @@ import sys
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import IO, Protocol, runtime_checkable
+from typing import IO, Any, Protocol, runtime_checkable
 
 from bitrab.exceptions import BitrabError, JobTimeoutError
 
@@ -54,8 +54,8 @@ from bitrab.exceptions import BitrabError, JobTimeoutError
 class TextWriter(Protocol):
     """Minimal write/flush interface for job output targets."""
 
-    def write(self, s: str) -> object: ...
-    def flush(self) -> object: ...
+    def write(self, s: str) -> Any: ...
+    def flush(self) -> Any: ...
 
 
 # ---------- Color helpers ----------
@@ -109,7 +109,7 @@ def merge_env(env: dict[str, str] | None = None) -> dict[str, str]:
 class _Buffer:
     """A very small helper to collect text while also acting like a file-like object."""
 
-    def __init__(self, target: TextWriter | None = None) -> None:
+    def __init__(self, target: Any = None) -> None:
         self._buf: list[str] = []
         self._target = target
 

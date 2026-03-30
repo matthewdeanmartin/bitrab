@@ -195,11 +195,11 @@ class EventCollector(PipelineCallbacks):
     def is_cancelled(self) -> bool:
         return self._inner.is_cancelled()
 
-    def make_output_writer(self, job: JobConfig, job_dir: Path) -> TextWriter | None:
-        return self._inner.make_output_writer(job, job_dir)
+    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -> TextWriter | None:
+        return self._inner.make_output_writer(_job, _job_dir)
 
-    def make_worker_args(self, job: JobConfig, job_dir: Path) -> dict[str, Any]:
-        return self._inner.make_worker_args(job, job_dir)
+    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -> dict[str, Any]:
+        return self._inner.make_worker_args(_job, _job_dir)
 
     def get_worker_func(self) -> WorkerFunc | None:
         return self._inner.get_worker_func()

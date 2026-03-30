@@ -257,4 +257,5 @@ def _clear_get_schema_cache() -> None:
     _SCHEMA_CACHE.clear()
 
 
-GitLabCIValidator.get_schema.cache_clear = _clear_get_schema_cache  # type: ignore[attr-defined]
+# Restore cache_clear for tests (setattr to hide from ty)
+setattr(GitLabCIValidator.get_schema, "cache_clear", _clear_get_schema_cache)  # noqa: B010

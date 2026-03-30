@@ -1,8 +1,10 @@
 """Moderate performance benchmarks to verify optimizations."""
 
-import yaml
+from ruamel.yaml import YAML
 
 from bitrab.plan import LocalGitLabRunner
+
+yaml = YAML(typ="safe")
 
 
 def create_config(stages=5, jobs_per_stage=2):

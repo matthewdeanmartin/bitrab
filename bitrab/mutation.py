@@ -83,6 +83,26 @@ class ParallelBackendConfig:
             self.backend = "process"
 
 
+def _load_toml(file_path: Path) -> dict[str, Any]:
+    """Load a TOML file with compatibility for tomllib/tomli/toml."""
+    try:
+        try:
+            import tomllib  # type: ignore[import]  # 3.11+
+            with open(file_path, "rb") as fh:
+                return tomllib.load(fh)
+        except ImportError:
+            try:
+                import tomli  # type: ignore[import]
+                with open(file_path, "rb") as fh:
+                    return tomli.load(fh)
+            except ImportError:
+                import toml  # type: ignore[import]
+                with open(file_path, encoding="utf-8") as f:
+                    return toml.load(f)
+    except Exception:
+        return {}
+
+
 def load_parallel_config(project_dir: Path) -> ParallelBackendConfig:
     """Read ``[tool.bitrab]`` from ``pyproject.toml`` and return parallel config.
 
@@ -93,20 +113,7 @@ def load_parallel_config(project_dir: Path) -> ParallelBackendConfig:
     if not pyproject.exists():
         return ParallelBackendConfig()
 
-    try:
-        try:
-            import tomllib  # type: ignore[import]  # 3.11+
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore[import,no-redef]
-            except ImportError:
-                import toml as tomllib  # type: ignore[import,no-redef]
-
-        with open(pyproject, "rb") as fh:
-            data: dict[str, Any] = tomllib.load(fh)  # type: ignore[attr-defined]
-    except Exception:
-        return ParallelBackendConfig()
-
+    data = _load_toml(pyproject)
     bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
     backend = str(bitrab_section.get("parallel_backend", "process")).lower()
 
@@ -123,20 +130,7 @@ def load_mutation_config(project_dir: Path) -> MutationConfig:
     if not pyproject.exists():
         return MutationConfig()
 
-    try:
-        try:
-            import tomllib  # type: ignore[import]  # 3.11+
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore[import,no-redef]
-            except ImportError:
-                import toml as tomllib  # type: ignore[import,no-redef]
-
-        with open(pyproject, "rb") as fh:
-            data: dict[str, Any] = tomllib.load(fh)  # type: ignore[attr-defined]
-    except Exception:
-        return MutationConfig()
-
+    data = _load_toml(pyproject)
     bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
     enabled: bool = bool(bitrab_section.get("warn_on_mutation", False))
     mutation_section: dict[str, Any] = bitrab_section.get("mutation", {})

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess  # nosec
 import time
+from typing import Any
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -35,7 +36,7 @@ class JobRuntimeContext:
     env: dict[str, str] = field(default_factory=dict)
     job_dir: Path = field(default_factory=Path)
     project_dir: Path = field(default_factory=Path)
-    output_writer: TextWriter | None = None
+    output_writer: Any | None = None
     timeout: float | None = None
 
 
@@ -97,7 +98,7 @@ class JobExecutor:
         self,
         job: JobConfig,
         job_dir: Path | None = None,
-        output_writer: TextWriter | None = None,
+        output_writer: Any | None = None,
         timeout: float | None = None,
         extra_env: dict[str, str] | None = None,
     ) -> JobRuntimeContext:
@@ -108,6 +109,10 @@ class JobExecutor:
         passed to :meth:`execute_job`.
 
         Args:
+            job: The job configuration.
+            job_dir: Optional custom directory for job execution.
+            output_writer: Optional writer for job output.
+            timeout: Optional maximum duration for the job.
             extra_env: Additional variables injected *before* job-level
                 ``variables:`` (so job variables still win).  Used by the
                 stage runner to pass dotenv-report variables from upstream

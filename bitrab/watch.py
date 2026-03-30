@@ -42,7 +42,10 @@ class _PipelineRerunHandler(FileSystemEventHandler):
     def on_modified(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
-        if str(Path(event.src_path).resolve()) not in self._watched:
+        src_path = event.src_path
+        if isinstance(src_path, bytes):
+            src_path = src_path.decode("utf-8")
+        if str(Path(src_path).resolve()) not in self._watched:
             return
         now = time.monotonic()
         if now - self._last_triggered < _DEBOUNCE_SECONDS:

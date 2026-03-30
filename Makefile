@@ -174,13 +174,24 @@ bandit-only:
 .PHONY: bandit
 bandit: uv-lock install-plugins bandit-only
 
-.PHONY: pytest-only
-pytest-only:
+PERF_TESTS := test/test_perf.py test/test_perf_fast.py
+
+.PHONY: pytest-unit-only
+pytest-unit-only:
 	@echo "Running unit tests"
-	$(VENV) pytest test -vv --cov=bitrab --cov-report=html --cov-fail-under 35 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600
+	$(VENV) pytest test -vv $(foreach t,$(PERF_TESTS),--ignore=$(t)) --cov=bitrab --cov-report=html --cov-fail-under=35 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600
+
+.PHONY: pytest-perf-only
+pytest-perf-only:
+	@echo "Running performance benchmarks"
+	$(VENV) pytest $(PERF_TESTS) -vv -n 0 --benchmark-min-rounds=5 --benchmark-min-time=0.1
+
+.PHONY: pytest-only
+pytest-only: pytest-unit-only pytest-perf-only
 
 .PHONY: pytest
 pytest: clean uv-lock install-plugins pytest-only
+
 
 .PHONY: smoke-only
 smoke-only:

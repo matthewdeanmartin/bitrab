@@ -155,8 +155,8 @@ class _TUICallbacks(PipelineCallbacks):
     def is_cancelled(self) -> bool:
         return self._cancel_event.is_set()
 
-    def make_output_writer(self, job: JobConfig, _job_dir: Path) -> TextWriter | None:
-        return QueueWriter(self._output_queue, job.name)
+    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -> TextWriter | None:
+        return QueueWriter(self._output_queue, _job.name)
 
     def get_worker_func(self):
         return _run_single_job_queued
@@ -242,18 +242,18 @@ class _CIFileCallbacks(PipelineCallbacks):
         if failures:
             print(f"\n🛑 Stage {stage} failed. Stopping pipeline.")
 
-    def make_output_writer(self, job: JobConfig, job_dir: Path) -> TextWriter | None:
-        log_path = job_dir / "output.log"
+    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -> Any:
+        log_path = _job_dir / "output.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        self._log_paths[job.name] = log_path
+        self._log_paths[_job.name] = log_path
         return open(log_path, "w", encoding="utf-8")  # noqa: SIM115
 
     def get_worker_func(self):
         return _run_single_job_file
 
-    def make_worker_args(self, job: JobConfig, job_dir: Path) -> dict[str, Any]:
-        log_path = job_dir / "output.log"
-        self._log_paths[job.name] = log_path
+    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -> dict[str, Any]:
+        log_path = _job_dir / "output.log"
+        self._log_paths[_job.name] = log_path
         return {"log_path": str(log_path)}
 
 
@@ -355,7 +355,7 @@ class TUIOrchestrator:
         mgr = self._mp_ctx.Manager()
         output_queue = mgr.Queue()
         worker_pids = mgr.dict()
-        self._worker_pids = worker_pids  # type: ignore[assignment]
+        self._worker_pids = worker_pids  # type: ignore
 
         tui_callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event)
         self._event_collector = EventCollector(inner=tui_callbacks)

@@ -497,14 +497,14 @@ class PipelineProcessor:
                     continue
 
                 total = len(all_combos)
-                for idx, combo in enumerate(all_combos, 1):
+                for idx, matrix_combo in enumerate(all_combos, 1):
                     clone = copy.deepcopy(job)
                     # GitLab names matrix jobs as: "job_name: [K1=V1, K2=V2]"
-                    label = ", ".join(f"{k}={v}" for k, v in sorted(combo.items()))
+                    label = ", ".join(f"{k}={v}" for k, v in sorted(matrix_combo.items()))
                     clone.name = f"{job.name}: [{label}]"
                     clone.parallel_total = total
                     clone.parallel_index = idx
-                    clone.variables.update(combo)
+                    clone.variables.update(matrix_combo)
                     clone.variables["CI_NODE_INDEX"] = str(idx)
                     clone.variables["CI_NODE_TOTAL"] = str(total)
                     expanded.append(clone)
@@ -634,6 +634,7 @@ class LocalGitLabRunner:
             ci_mode: CI mode - jobs write to files, output printed after each stage.
             job_filter: If given, only run jobs whose names are in this list.
             stage_filter: If given, only run jobs whose stages are in this list.
+            parallel_backend: Backend name (e.g., 'multiprocessing', 'threading', 'sequential').
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
