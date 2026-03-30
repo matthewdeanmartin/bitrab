@@ -136,6 +136,35 @@ def setup_logging(verbose: bool, quiet: bool) -> None:
     logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
 
 
+def resolve_config_path(explicit_config: str | None) -> Path:
+    """Resolve the config file path, preferring .bitrab-ci.yml over .gitlab-ci.yml.
+
+    When the user supplies an explicit path, use it as-is.  When no path is
+    given, check for .bitrab-ci.yml first; fall back to .gitlab-ci.yml.  A
+    warning is printed only when *both* files coexist and the caller did not
+    specify a path, so the user knows which file was chosen.
+
+    This is intentionally centralised here so that every command (run, validate,
+    list, graph, debug, watch) follows the exact same resolution rule and the
+    user can never accidentally validate one file and run another.
+    """
+    if explicit_config:
+        return Path(explicit_config)
+
+    bitrab_ci = Path(".bitrab-ci.yml")
+    gitlab_ci = Path(".gitlab-ci.yml")
+
+    if bitrab_ci.exists():
+        if gitlab_ci.exists():
+            safe_print(
+                "⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. "
+                "Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one."
+            )
+        return bitrab_ci
+
+    return gitlab_ci
+
+
 def load_and_process_config(config_path: Path) -> tuple[dict, Any]:
     """Load and process configuration, returning raw config and pipeline config."""
     try:
@@ -164,20 +193,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     """Execute the pipeline or specific jobs."""
     from bitrab.tui.ci_mode import is_ci_mode, should_use_tui
 
-    explicit_config = bool(args.config)
-    config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
-
-    # Preferential .bitrab-ci.yml detection (only when user has not given an explicit path)
-    if not explicit_config:
-        bitrab_ci = Path(".bitrab-ci.yml")
-        gitlab_ci = Path(".gitlab-ci.yml")
-        if bitrab_ci.exists():
-            if gitlab_ci.exists():
-                safe_print(
-                    "⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. "
-                    "Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one."
-                )
-            config_path = bitrab_ci
+    config_path = resolve_config_path(args.config)
 
     if not config_path.exists():
         safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
@@ -203,6 +219,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             ci_mode=ci_mode,
             job_filter=job_filter,
             stage_filter=stage_filter,
+            parallel_backend=getattr(args, "parallel_backend", None),
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -224,32 +241,91 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 def cmd_list(args: argparse.Namespace) -> None:
     """List all jobs in the pipeline."""
-    config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
+    config_path = resolve_config_path(args.config)
 
     if not config_path.exists():
         safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
-    _, pipeline_config = load_and_process_config(config_path)
+    raw_config, pipeline_config = load_and_process_config(config_path)
 
     safe_print("📋 Pipeline Jobs:")
     safe_print(f"   Stages: {', '.join(pipeline_config.stages)}")
     safe_print()
 
-    # Group jobs by stage
+    # Build a map from original job name -> parallel info from raw config.
+    # Expanded jobs (e.g. "build 1/3" or "test: [X=1]") share the same
+    # parallel_total; we use that plus the raw config to describe the group.
+    parallel_info: dict[str, str] = {}
+    for job_name, job_data in raw_config.items():
+        if not isinstance(job_data, dict):
+            continue
+        parallel_raw = job_data.get("parallel")
+        if parallel_raw is None:
+            continue
+        if isinstance(parallel_raw, int):
+            parallel_info[job_name] = f"parallel: {parallel_raw} instances"
+        elif isinstance(parallel_raw, dict) and "matrix" in parallel_raw:
+            # Count total combinations
+            matrix_entries = parallel_raw["matrix"]
+            total = 0
+            if isinstance(matrix_entries, list):
+                for entry in matrix_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    counts = []
+                    for val in entry.values():
+                        counts.append(len(val) if isinstance(val, list) else 1)
+                    if counts:
+                        combo_count = 1
+                        for c in counts:
+                            combo_count *= c
+                        total += combo_count
+            parallel_info[job_name] = f"matrix: {total} combinations"
+
+    # Group expanded jobs back to their logical originals for display
+    # so we show one line per logical job with an instance count annotation.
+    seen_originals: set[str] = set()
     jobs_by_stage: dict[str, list[Any]] = {}
     for job in pipeline_config.jobs:
-        jobs_by_stage.setdefault(job.stage, []).append(job)
+        # Determine the logical (pre-expansion) name
+        if job.parallel_total > 0:
+            if ": [" in job.name:
+                orig = job.name.split(": [")[0]
+            elif "/" in job.name:
+                parts = job.name.rsplit(" ", 1)
+                orig = parts[0] if len(parts) == 2 and "/" in parts[1] else job.name
+            else:
+                orig = job.name
+
+            if orig in seen_originals:
+                continue  # already added a representative for this group
+            seen_originals.add(orig)
+
+            # Create a display-only proxy with the original name
+            import copy as _copy
+            display_job = _copy.copy(job)
+            display_job.name = orig
+        else:
+            display_job = job
+
+        jobs_by_stage.setdefault(display_job.stage, []).append(display_job)
 
     for stage in pipeline_config.stages:
         stage_jobs = jobs_by_stage.get(stage, [])
         if stage_jobs:
             safe_print(f"🎯 Stage: {stage}")
             for job in stage_jobs:
-                retry_info = ""
+                annotations = []
                 if job.retry_max > 0:
-                    retry_info = f" (retry: {job.retry_max})"
-                safe_print(f"   • {job.name}{retry_info}")
+                    annotations.append(f"retry: {job.retry_max}")
+                if job.name in parallel_info:
+                    annotations.append(parallel_info[job.name])
+                elif job.parallel_total > 0:
+                    # fallback: the original name wasn't in raw_config (shouldn't happen)
+                    annotations.append(f"parallel: {job.parallel_total} instances")
+                suffix = f" ({', '.join(annotations)})" if annotations else ""
+                safe_print(f"   • {job.name}{suffix}")
             safe_print()
         else:
             safe_print(f"⏭️  Stage: {stage} (no jobs)")
@@ -260,7 +336,12 @@ def cmd_validate(args: argparse.Namespace) -> None:
     """Validate the pipeline configuration."""
     import json
 
-    config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
+    config_path = resolve_config_path(args.config)
+
+    # When --json is requested, all human-readable progress text goes to stderr
+    # so that stdout contains *only* the JSON payload and callers can safely
+    # pipe `bitrab validate --json | jq ...` without filtering noise.
+    human_out = sys.stderr if args.output_json else sys.stdout
 
     if not config_path.exists():
         safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
@@ -268,25 +349,38 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
     try:
         # 1. Official Schema Validation
-        safe_print(f"🔍 Validating {config_path} against GitLab CI schema...")
+        safe_print(f"🔍 Validating {config_path} against GitLab CI schema...", file=human_out)
         validator = _get_gitlab_ci_validator()()
         yaml_content = config_path.read_text(encoding="utf-8")
         is_valid, schema_errors = validator.validate_ci_config(yaml_content)
 
         if not is_valid:
-            safe_print("❌ Schema validation failed:")
+            safe_print("❌ Schema validation failed:", file=sys.stderr)
             for error in schema_errors:
-                safe_print(f"   • {error}")
+                safe_print(f"   • {error}", file=sys.stderr)
             sys.exit(1)
 
-        # 2. Capability validation (informational only — does not block execution)
+        # 2. Capability validation — informational notes only.
+        #
+        # ERROR-level diagnostics (include:component, inputs:, trigger:) are
+        # enforced by the loader via GitlabRunnerError *before* this point, so
+        # load_and_process_config() will have already raised for those cases.
+        # What remains here are WARNING-level diagnostics: features that bitrab
+        # skips silently (image:, services:, workflow:, etc.) because their
+        # absence is cosmetic or GitLab-side only.  We surface them as notes so
+        # the user knows what will differ locally — but we do NOT fail validation
+        # for them.  The whole point is to run one .gitlab-ci.yml both locally
+        # and in GitLab without needing a second file.
         raw_config, pipeline_config = load_and_process_config(config_path)
 
         cap_diags = _get_check_capabilities()(raw_config)
         if cap_diags:
-            safe_print("ℹ️  Local execution notes (these features behave differently or are skipped locally):")
+            safe_print(
+                "ℹ️  Local execution notes (these features behave differently or are skipped locally):",
+                file=human_out,
+            )
             for d in cap_diags:
-                safe_print(f"   • {d}")
+                safe_print(f"   • {d}", file=human_out)
 
         # 3. Structural/Semantic Validation
         errors = []
@@ -309,21 +403,23 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
         # Report results
         if errors:
-            safe_print("❌ Semantic validation failed:")
+            safe_print("❌ Semantic validation failed:", file=sys.stderr)
             for error in errors:
-                safe_print(f"   • {error}")
+                safe_print(f"   • {error}", file=sys.stderr)
             sys.exit(1)
 
         if warnings:
-            safe_print("⚠️  Validation passed with warnings:")
+            safe_print("⚠️  Validation passed with warnings:", file=human_out)
             for warning in warnings:
-                safe_print(f"   • {warning}")
+                safe_print(f"   • {warning}", file=human_out)
 
-        safe_print("✅ Configuration is valid")
-        safe_print(f"   📊 Found {len(pipeline_config.jobs)} jobs across {len(pipeline_config.stages)} stages")
+        safe_print("✅ Configuration is valid", file=human_out)
+        safe_print(
+            f"   📊 Found {len(pipeline_config.jobs)} jobs across {len(pipeline_config.stages)} stages",
+            file=human_out,
+        )
 
         if args.output_json:
-            # Output pipeline config as JSON for further processing
             pipeline_dict = {
                 "stages": pipeline_config.stages,
                 "variables": pipeline_config.variables,
@@ -342,8 +438,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
                     for job in pipeline_config.jobs
                 ],
             }
-            safe_print("\n📄 Pipeline configuration (JSON):")
-            safe_print(json.dumps(pipeline_dict, indent=2))
+            sys.stdout.write(json.dumps(pipeline_dict, indent=2) + "\n")
 
     except Exception as e:
         safe_print(f"❌ Validation error: {e}", file=sys.stderr)
@@ -365,7 +460,7 @@ def cmd_watch(args: argparse.Namespace) -> None:
     """Watch for CI config file changes and re-run the pipeline."""
     from bitrab.watch import run_watch
 
-    config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
+    config_path = resolve_config_path(args.config)
     if not config_path.exists():
         safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
@@ -377,6 +472,7 @@ def cmd_watch(args: argparse.Namespace) -> None:
         "ci_mode": False,
         "job_filter": args.jobs if args.jobs else None,
         "stage_filter": args.stage if args.stage else None,
+        "parallel_backend": getattr(args, "parallel_backend", None),
     }
 
     run_watch(config_path.resolve(), runner_kwargs)
@@ -386,7 +482,7 @@ def cmd_graph(args: argparse.Namespace) -> None:
     """Generate a visual dependency graph of the pipeline."""
     from bitrab.graph import render_pipeline_graph
 
-    config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
+    config_path = resolve_config_path(args.config)
 
     if not config_path.exists():
         safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
@@ -401,7 +497,7 @@ def cmd_graph(args: argparse.Namespace) -> None:
 
 def cmd_debug(args: argparse.Namespace) -> None:
     """Debug pipeline configuration and execution environment."""
-    config_path = Path(args.config) if args.config else Path(".gitlab-ci.yml")
+    config_path = resolve_config_path(args.config)
 
     safe_print("🔧 Debug Information")
     safe_print(f"   Config file: {config_path.absolute()}")
@@ -609,6 +705,12 @@ Version: {__version__}
         action="store_true",
         help="Disable Textual TUI, use plain streaming output",
     )
+    run_parser.add_argument(
+        "--parallel-backend",
+        choices=["thread", "process"],
+        metavar="BACKEND",
+        help="Parallel execution backend: 'thread' or 'process' (overrides pyproject.toml)",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
@@ -629,6 +731,12 @@ Version: {__version__}
     watch_parser.add_argument("--jobs", nargs="*", metavar="JOB", help="Run only specified jobs")
     watch_parser.add_argument(
         "--stage", nargs="*", metavar="STAGE", help="Run only jobs in specified stages"
+    )
+    watch_parser.add_argument(
+        "--parallel-backend",
+        choices=["thread", "process"],
+        metavar="BACKEND",
+        help="Parallel execution backend: 'thread' or 'process' (overrides pyproject.toml)",
     )
     watch_parser.set_defaults(func=cmd_watch)
 
@@ -774,6 +882,7 @@ def main() -> None:
         args.jobs = None
         args.stage = None
         args.no_tui = False
+        args.parallel_backend = None
 
     # Execute the command
     try:

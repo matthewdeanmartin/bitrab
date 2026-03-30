@@ -1,7 +1,7 @@
 [project]
 name = "bitrab"
 version = "0.3.0"
-description = "Compile bash to gitlab pipeline yaml"
+description = "Run GitLab CI pipelines locally"
 readme = "README.md"
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
 keywords = ["bash", "gitlab"]

@@ -341,6 +341,7 @@ class PipelineProcessor:
         # artifacts
         artifacts_paths: list[str] = []
         artifacts_when = "on_success"
+        artifacts_dotenv: str | None = None
         artifacts_raw = job_data.get("artifacts", {})
         if isinstance(artifacts_raw, dict):
             _paths = artifacts_raw.get("paths", [])
@@ -349,6 +350,15 @@ class PipelineProcessor:
             _when = artifacts_raw.get("when", "on_success")
             if _when in {"on_success", "on_failure", "always"}:
                 artifacts_when = _when
+            # artifacts: reports: dotenv: — pipeline variable passing via dotenv file
+            _reports = artifacts_raw.get("reports", {})
+            if isinstance(_reports, dict):
+                _dotenv = _reports.get("dotenv")
+                if isinstance(_dotenv, str) and _dotenv:
+                    artifacts_dotenv = _dotenv
+                elif isinstance(_dotenv, list) and _dotenv:
+                    # GitLab accepts a list; we take the first entry
+                    artifacts_dotenv = str(_dotenv[0])
 
         # dependencies: None means "inherit all" (GitLab default)
         dependencies: list[str] | None = None
@@ -418,6 +428,7 @@ class PipelineProcessor:
             timeout=timeout,
             artifacts_paths=artifacts_paths,
             artifacts_when=artifacts_when,
+            artifacts_dotenv=artifacts_dotenv,
             dependencies=dependencies,
         )
 
@@ -610,6 +621,7 @@ class LocalGitLabRunner:
         ci_mode: bool = False,
         job_filter: list[str] | None = None,
         stage_filter: list[str] | None = None,
+        parallel_backend: str | None = None,
     ) -> None:
         """
         Run the complete pipeline.
@@ -666,6 +678,9 @@ class LocalGitLabRunner:
 
         mutation_config = load_mutation_config(self.base_path)
         parallel_config = load_parallel_config(self.base_path)
+        if parallel_backend is not None:
+            from bitrab.mutation import ParallelBackendConfig
+            parallel_config = ParallelBackendConfig(backend=parallel_backend)
 
         event_collector = None
         started_at = __import__("time").time()
@@ -731,12 +746,40 @@ def _persist_run_log(
             for e in events
         ]
 
+        # Build matrix metadata: for each expanded job record its combination.
+        matrix_jobs: list[dict[str, Any]] = []
+        for job in pipeline.jobs:
+            if job.parallel_total > 0:
+                entry: dict[str, Any] = {
+                    "name": job.name,
+                    "parallel_index": job.parallel_index,
+                    "parallel_total": job.parallel_total,
+                }
+                # Include the variables that differ between instances.
+                # CI_NODE_INDEX / CI_NODE_TOTAL are always present; for matrix
+                # jobs the user-defined combo keys are mixed in as well.
+                entry["ci_node_index"] = job.variables.get("CI_NODE_INDEX")
+                entry["ci_node_total"] = job.variables.get("CI_NODE_TOTAL")
+                if ": [" in job.name:
+                    # matrix job — record the combination variables
+                    label_part = job.name.split(": [", 1)[1].rstrip("]")
+                    combo: dict[str, str] = {}
+                    for pair in label_part.split(", "):
+                        if "=" in pair:
+                            k, v = pair.split("=", 1)
+                            combo[k] = v
+                    if combo:
+                        entry["matrix_combo"] = combo
+                matrix_jobs.append(entry)
+
         meta = {
             "started_at": started_at,
             "success": summary.success,
             "total_duration_s": summary.total_duration_s,
             "job_count": len(pipeline.jobs),
         }
+        if matrix_jobs:
+            meta["matrix_jobs"] = matrix_jobs
 
         write_run_log(project_dir, events_json, summary.format_text(), meta)
 

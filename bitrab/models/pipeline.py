@@ -69,6 +69,9 @@ class JobConfig:
     # artifacts: files to preserve after job completion
     artifacts_paths: list[str] = field(default_factory=list)
     artifacts_when: str = "on_success"  # on_success | on_failure | always
+    # artifacts: reports: dotenv: — path to a dotenv file produced by the job
+    # whose variables are injected into downstream jobs (GitLab pipeline variable passing)
+    artifacts_dotenv: str | None = None
 
     # dependencies: named jobs whose artifacts to copy before this job runs
     # None = inherit all (GitLab default); [] = no artifacts

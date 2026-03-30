@@ -12,6 +12,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed for any bug fixes.
 - Security in case of vulnerabilities.
 
+## [Unreleased]
+
+### Fixed
+
+- **`.env` file loading (GitLab CI/CD Settings simulation).** `VariableManager` now loads `.env`
+  and `.bitrab.env` from the project root at startup, simulating GitLab's CI/CD project-level
+  variables.  Variables from these files are available to all jobs without putting secrets in
+  `.gitlab-ci.yml`.  Resolution order: `os.environ` → built-in CI vars → `.env` → `.bitrab.env`
+  → pipeline `variables:` (pipeline variables always win).  A `parse_dotenv()` helper handles
+  comments, blank lines, `export KEY=VAL` prefix, and single/double-quoted values.
+- **`artifacts: reports: dotenv:` (pipeline variable passing).** Jobs that write a dotenv file
+  via `artifacts: reports: dotenv: deploy.env` now have those variables collected and injected
+  into downstream jobs that depend on them (via `dependencies:` or the default "inherit all"
+  behaviour).  This is GitLab's mechanism for passing dynamic values between jobs (e.g. a build
+  job writing a computed version tag that deploy jobs then read).  Works in both stage-mode and
+  DAG-mode, serial and parallel.
+- **Git-derived CI variables now auto-populated.** `CI_COMMIT_SHA`, `CI_COMMIT_BRANCH`, `CI_COMMIT_TAG`,
+  `CI_COMMIT_REF_NAME`, `CI_COMMIT_REF_SLUG`, `CI_COMMIT_SHORT_SHA`, `CI_COMMIT_TITLE`,
+  `CI_COMMIT_MESSAGE`, `CI_COMMIT_AUTHOR`, `CI_COMMIT_TIMESTAMP`, `CI_PROJECT_NAMESPACE`,
+  `CI_PROJECT_PATH`, `CI_PROJECT_PATH_SLUG`, `CI_PROJECT_URL`, `CI_PIPELINE_ID`, `CI_PIPELINE_SOURCE`,
+  `CI_JOB_ID`, `GITLAB_CI`, and `CI_SERVER` are now populated automatically by running `git` commands
+  against the project directory.  All values fall back to empty string when git is unavailable or the
+  directory is not a repo — matching GitLab semantics (`$CI_COMMIT_TAG` is empty on untagged commits,
+  etc.).  Rules like `$CI_COMMIT_BRANCH == "main"` now evaluate correctly locally without any manual
+  variable overrides.
+- **DAG dry-run side effects.** `--dry-run` with a DAG pipeline (jobs that use `needs:`) no longer
+  creates `.bitrab/` job directories, injects artifact dependencies, takes mutation snapshots, or
+  collects artifacts.  DAG-mode and stage-mode dry-run now have identical side-effect policies.
+- **Config path inconsistency across commands.** All commands (`run`, `validate`, `list`, `graph`,
+  `debug`, `watch`) now go through a single `resolve_config_path()` helper that prefers
+  `.bitrab-ci.yml` over `.gitlab-ci.yml` when both exist.  Previously only `run` applied this
+  preference, so a user could validate one file and run another without realising it.
+- **`include: component` now hard-fails at load time.** Previously the loader silently skipped
+  component includes (a `continue` that made entire job sets disappear without warning).  The loader
+  now raises `GitlabRunnerError` immediately, matching the ERROR-level intent already declared by the
+  capability checker.  `include: template` and `include: project` keep their existing warn-and-skip
+  behaviour.
+- **`validate --json` now emits pure JSON on stdout.** All human-readable progress text is redirected
+  to stderr when `--json` is active, so `bitrab validate --json | jq .` works without filtering.
+- **`_human_size()` float division.** The size formatter used integer floor division, causing values
+  like 1.9 KB to display as 1.0 KB.  It now converts to float first.
+
+### Changed
+
+- **Package description updated.** `pyproject.toml` description changed from the stale
+  "Compile bash to gitlab pipeline yaml" to "Run GitLab CI pipelines locally".
+
+### Docs / Internal
+
+- Added detailed block comments to `DiagnosticLevel` in `capabilities.py` explaining the two-tier
+  ERROR vs WARNING design: ERROR features are enforced by the loader (hard stop); WARNING features
+  are intentionally skipped so one `.gitlab-ci.yml` works both locally and in GitLab.
+- Added matching comment in `cmd_validate()` explaining why capability diagnostics are
+  informational-only notes rather than validation failures.
+
 ## [0.3.0] - 2026-03-29
 
 ### Added

@@ -20,8 +20,21 @@ from typing import Any
 
 
 class DiagnosticLevel(str, Enum):
-    ERROR = "error"  # Feature cannot be emulated; execution should be aborted
-    WARNING = "warning"  # Feature will be silently ignored during local execution
+    # ERROR: the feature cannot be emulated locally and its absence would leave
+    # the pipeline in a materially different or undefined state.  The loader
+    # (config/loader.py) is responsible for raising a hard error at load time
+    # for ERROR-level constructs so that execution never starts.
+    # validate / run both call the loader, so ERROR-level issues surface before
+    # any job runs regardless of which command the user invoked.
+    #
+    # WARNING: the feature is ignored locally but its absence is either cosmetic
+    # (image:, services:) or only affects GitLab-side behaviour (pages deployment,
+    # resource_group, environment tracking).  These are reported as informational
+    # notes by `bitrab validate` — they do NOT fail validation.  This is
+    # intentional: we want a single .gitlab-ci.yml that works both locally and
+    # in GitLab without requiring two separate files.
+    ERROR = "error"
+    WARNING = "warning"
 
 
 @dataclass(frozen=True)

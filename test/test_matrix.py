@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import copy
-from pathlib import Path
 
-import pytest
 
-from bitrab.models.pipeline import JobConfig, PipelineConfig
+from bitrab.models.pipeline import PipelineConfig
 from bitrab.mutation import ParallelBackendConfig, load_parallel_config
 from bitrab.plan import PipelineProcessor
 

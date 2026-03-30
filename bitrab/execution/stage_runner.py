@@ -25,7 +25,7 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Callable
 
-from bitrab.execution.artifacts import collect_artifacts, inject_dependencies
+from bitrab.execution.artifacts import collect_artifacts, collect_dotenv_report, inject_dependencies, load_dotenv_reports
 from bitrab.execution.job import JobExecutor, JobRuntimeContext, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.models.pipeline import JobConfig, PipelineConfig
@@ -342,10 +342,12 @@ class StagePipelineRunner:
         for job in stage_jobs:
             job_dir = self._make_job_dir(job)
             cb.on_job_start(job)
+            dotenv_vars: dict[str, str] = {}
             if not self.job_executor.dry_run:
                 inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
-            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
+            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None)
             ctx = cb.enrich_context(ctx)
             succeeded = True
 
@@ -373,6 +375,7 @@ class StagePipelineRunner:
             finally:
                 if not self.job_executor.dry_run:
                     collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                    collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
                 self._completed_jobs.append(job.name)
 
             if snap is not None:
@@ -410,6 +413,14 @@ class StagePipelineRunner:
                 cb.on_job_start(job)
                 if not self.job_executor.dry_run:
                     inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                    # Bake upstream dotenv-report variables into this job's variables
+                    # so they survive the process boundary.  Job-level variables win
+                    # (they are already in job.variables and override dotenv).
+                    dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
+                    if dotenv_vars:
+                        import dataclasses
+                        merged = {**dotenv_vars, **job.variables}
+                        job = dataclasses.replace(job, variables=merged)
                 extra = cb.make_worker_args(job, job_dir)
                 fut = pool.submit(worker_func, job, self.job_executor, job_dir, **extra)
                 futures[fut] = job
@@ -443,6 +454,7 @@ class StagePipelineRunner:
                         )
                     if not self.job_executor.dry_run:
                         collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                        collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
                     self._completed_jobs.append(job.name)
 
                     outcomes.append(outcome)
@@ -664,14 +676,17 @@ class DagPipelineRunner:
         for job in jobs:
             job_dir = self._make_job_dir(job)
             cb.on_job_start(job)
-            inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+            dotenv_vars: dict[str, str] = {}
+            if not self.job_executor.dry_run:
+                inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
-            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
+            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None)
             ctx = cb.enrich_context(ctx)
             succeeded = True
 
             snap: MutationSnapshot | None = None
-            if self._mutation_config.enabled:
+            if self._mutation_config.enabled and not self.job_executor.dry_run:
                 snap = MutationSnapshot(
                     project_dir=self.job_executor.project_dir,
                     config=self._mutation_config,
@@ -692,7 +707,9 @@ class DagPipelineRunner:
                     allowed_failure=allowed,
                 )
             finally:
-                collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                if not self.job_executor.dry_run:
+                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                    collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
                 self._completed_jobs.append(job.name)
 
             if snap is not None:
@@ -724,7 +741,13 @@ class DagPipelineRunner:
             for job in jobs:
                 job_dir = self._make_job_dir(job)
                 cb.on_job_start(job)
-                inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                if not self.job_executor.dry_run:
+                    inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                    dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
+                    if dotenv_vars:
+                        import dataclasses
+                        merged = {**dotenv_vars, **job.variables}
+                        job = dataclasses.replace(job, variables=merged)
                 extra = cb.make_worker_args(job, job_dir)
                 fut = pool.submit(worker_func, job, self.job_executor, job_dir, **extra)
                 futures[fut] = job
@@ -753,7 +776,9 @@ class DagPipelineRunner:
                             error=exc,
                             allowed_failure=allowed,
                         )
-                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                    if not self.job_executor.dry_run:
+                        collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                        collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
                     self._completed_jobs.append(job.name)
                     outcomes.append(outcome)
                     cb.on_job_complete(outcome)
@@ -763,5 +788,6 @@ class DagPipelineRunner:
     def _make_job_dir(self, job: JobConfig) -> Path:
         """Create and return the per-job directory."""
         job_dir = self.job_executor.project_dir / ".bitrab" / sanitize_job_name(job.name)
-        job_dir.mkdir(parents=True, exist_ok=True)
+        if not self.job_executor.dry_run:
+            job_dir.mkdir(parents=True, exist_ok=True)
         return job_dir

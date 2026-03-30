@@ -155,8 +155,23 @@ class ConfigurationLoader:
                 include_path = (base_dir / include["local"]).resolve()
             elif isinstance(include, dict) and ("remote" in include or "url" in include):
                 remote_url = include.get("remote") or include.get("url")
+            elif isinstance(include, dict) and "component" in include:
+                # ERROR-level: component includes pull in external GitLab registry
+                # components that bitrab has no way to resolve locally.  Silently
+                # skipping would leave the pipeline in an undefined state (jobs
+                # from the component simply vanish), so we raise immediately.
+                raise GitlabRunnerError(
+                    "include: component is not supported locally. "
+                    "Remove it or replace it with a local include. "
+                    "(bitrab cannot fetch GitLab CI components from a registry.)"
+                )
             else:
-                continue  # Unsupported include type (component, project, template)
+                # WARNING-level unsupported types (template, project): skip with no
+                # crash.  These are informational-only features on GitLab that add
+                # jobs we don't have access to locally.  The capability checker in
+                # check_capabilities() will already have warned the user about these
+                # before any execution reaches this point.
+                continue
 
             if remote_url is not None:
                 sentinel = Path(_REMOTE_SENTINEL + remote_url)

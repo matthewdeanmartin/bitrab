@@ -1,7 +1,6 @@
 """Tests for D3: remote include support (HTTP fetch)."""
 from __future__ import annotations
 
-import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

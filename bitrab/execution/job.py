@@ -99,14 +99,31 @@ class JobExecutor:
         job_dir: Path | None = None,
         output_writer: TextWriter | None = None,
         timeout: float | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> JobRuntimeContext:
         """Build a :class:`JobRuntimeContext` for *job*.
 
         This resolves the environment once via :pyattr:`variable_manager` and
         wires in ``CI_JOB_DIR``.  The returned context is frozen and can be
         passed to :meth:`execute_job`.
+
+        Args:
+            extra_env: Additional variables injected *before* job-level
+                ``variables:`` (so job variables still win).  Used by the
+                stage runner to pass dotenv-report variables from upstream
+                jobs — simulating GitLab's pipeline variable passing via
+                ``artifacts: reports: dotenv:``.
         """
         env = self.variable_manager.prepare_environment(job)
+        if extra_env:
+            # extra_env sits between CI built-ins and job-level variables.
+            # We merge it after prepare_environment so that job.variables
+            # (already applied inside prepare_environment) take precedence.
+            # Re-apply job.variables on top to ensure correct priority.
+            env.update(extra_env)
+            env.update(job.variables)
+            env["CI_JOB_STAGE"] = job.stage
+            env["CI_JOB_NAME"] = job.name
         if job_dir is not None:
             env["CI_JOB_DIR"] = str(job_dir)
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -134,7 +134,6 @@ class TestCmdWatch:
     def test_cmd_watch_config_not_found(self, tmp_path):
         """cmd_watch exits with code 1 when config is missing."""
         import argparse
-        import sys
 
         from bitrab.cli import cmd_watch
 
