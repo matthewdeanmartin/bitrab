@@ -186,7 +186,7 @@ pytest-unit-only:
 .PHONY: pytest-perf-only
 pytest-perf-only:
 	@echo "Running performance benchmarks"
-	$(VENV) python scripts/run_benchmarks.py test_perf/test_perf.py test_perf/test_perf_fast.py --benchmark-min-rounds=5 --benchmark-min-time=0.1 -p no:xdist
+	$(VENV) python scripts/run_benchmarks.py test_perf/test_perf.py test_perf/test_perf_fast.py --benchmark-min-rounds=5 --benchmark-min-time=0.1 -p no:xdist --benchmark-compare=auto --benchmark-compare-fail=mean:15%
 
 .PHONY: pytest-only
 pytest-only: pytest-unit-only pytest-perf-only
