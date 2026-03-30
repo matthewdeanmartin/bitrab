@@ -17,6 +17,7 @@ Before a job starts:
 from __future__ import annotations
 
 import glob
+import os
 import re
 import shutil
 from pathlib import Path
@@ -108,18 +109,18 @@ def inject_dependencies(
         artifact_src = _artifact_dir(project_dir, dep_name)
         if not artifact_src.exists():
             continue
-        # Copy each file/dir from the artifact directory to the project directory,
-        # preserving relative paths.
-        for item in artifact_src.rglob("*"):
-            if not item.exists():
-                continue
-            rel = item.relative_to(artifact_src)
-            dest = project_dir / rel
-            if item.is_dir():
-                dest.mkdir(parents=True, exist_ok=True)
-            else:
+        # Copy each file from the artifact directory to the project directory,
+        # preserving relative paths.  os.walk pre-separates files and
+        # directories, avoiding a per-entry is_dir() syscall.
+        for dirpath, dirnames, filenames in os.walk(artifact_src):
+            for dname in dirnames:
+                dest_dir = project_dir / Path(dirpath).relative_to(artifact_src) / dname
+                dest_dir.mkdir(parents=True, exist_ok=True)
+            for fname in filenames:
+                src = Path(dirpath) / fname
+                dest = project_dir / src.relative_to(artifact_src)
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, dest)
+                shutil.copy2(src, dest)
 
 
 # ---------------------------------------------------------------------------

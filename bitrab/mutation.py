@@ -32,6 +32,9 @@ from typing import Any
 
 from bitrab._toml import load_file as load_toml_file
 
+# Cache for parsed pyproject.toml: maps (path, mtime) -> parsed dict
+_TOML_CACHE: dict[tuple[str, float], dict[str, Any]] = {}
+
 # Patterns always considered safe regardless of user config.
 # Relative to project root, using forward-slash glob syntax.
 _BUILTIN_WHITELIST: list[str] = [
@@ -86,8 +89,15 @@ class ParallelBackendConfig:
 
 
 def _load_toml(file_path: Path) -> dict[str, Any]:
-    """Load a TOML file using the project's compatibility helper."""
-    return load_toml_file(file_path)
+    """Load a TOML file, caching the result by path + mtime."""
+    try:
+        mtime = file_path.stat().st_mtime
+    except OSError:
+        return load_toml_file(file_path)
+    key = (str(file_path), mtime)
+    if key not in _TOML_CACHE:
+        _TOML_CACHE[key] = load_toml_file(file_path)
+    return _TOML_CACHE[key]
 
 
 def load_parallel_config(project_dir: Path) -> ParallelBackendConfig:
@@ -129,12 +139,13 @@ def load_mutation_config(project_dir: Path) -> MutationConfig:
 def _snapshot(project_dir: Path) -> dict[str, float]:
     """Walk *project_dir* and return a dict of ``{rel_path: mtime}``."""
     snapshot: dict[str, float] = {}
+    root = str(project_dir)
     for dirpath, _dirs, files in os.walk(project_dir):
         for fname in files:
-            full = Path(dirpath) / fname
+            full_str = os.path.join(dirpath, fname)
             try:
-                snapshot[str(full.relative_to(project_dir))] = full.stat().st_mtime
-            except (OSError, ValueError):
+                snapshot[os.path.relpath(full_str, root)] = os.stat(full_str).st_mtime
+            except OSError:
                 pass
     return snapshot
 

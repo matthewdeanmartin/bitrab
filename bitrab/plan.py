@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import itertools
 import os
 import re
@@ -455,12 +456,13 @@ class PipelineProcessor:
                 # parallel: N — create N copies
                 n = max(1, min(parallel_raw, 200))
                 for idx in range(1, n + 1):
-                    clone = copy.deepcopy(job)
-                    clone.name = f"{job.name} {idx}/{n}"
-                    clone.parallel_total = n
-                    clone.parallel_index = idx
-                    clone.variables["CI_NODE_INDEX"] = str(idx)
-                    clone.variables["CI_NODE_TOTAL"] = str(n)
+                    clone = dataclasses.replace(
+                        job,
+                        name=f"{job.name} {idx}/{n}",
+                        parallel_total=n,
+                        parallel_index=idx,
+                        variables={**job.variables, "CI_NODE_INDEX": str(idx), "CI_NODE_TOTAL": str(n)},
+                    )
                     expanded.append(clone)
 
             elif isinstance(parallel_raw, dict) and "matrix" in parallel_raw:
@@ -493,15 +495,20 @@ class PipelineProcessor:
 
                 total = len(all_combos)
                 for idx, matrix_combo in enumerate(all_combos, 1):
-                    clone = copy.deepcopy(job)
                     # GitLab names matrix jobs as: "job_name: [K1=V1, K2=V2]"
                     label = ", ".join(f"{k}={v}" for k, v in sorted(matrix_combo.items()))
-                    clone.name = f"{job.name}: [{label}]"
-                    clone.parallel_total = total
-                    clone.parallel_index = idx
-                    clone.variables.update(matrix_combo)
-                    clone.variables["CI_NODE_INDEX"] = str(idx)
-                    clone.variables["CI_NODE_TOTAL"] = str(total)
+                    clone = dataclasses.replace(
+                        job,
+                        name=f"{job.name}: [{label}]",
+                        parallel_total=total,
+                        parallel_index=idx,
+                        variables={
+                            **job.variables,
+                            **matrix_combo,
+                            "CI_NODE_INDEX": str(idx),
+                            "CI_NODE_TOTAL": str(total),
+                        },
+                    )
                     expanded.append(clone)
             else:
                 expanded.append(job)

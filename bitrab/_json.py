@@ -8,7 +8,7 @@ from typing import Any, Callable
 try:
     import orjson as _orjson
 except ImportError:  # pragma: no cover - exercised by packaging, not test envs
-    _orjson = None
+    _orjson = None  # type: ignore[assignment]
 
 
 def loads(data: str | bytes | bytearray | memoryview) -> Any:

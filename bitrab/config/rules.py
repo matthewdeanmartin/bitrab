@@ -20,6 +20,10 @@ _RE_REGEX_NOT_MATCH = re.compile(r"^\$(\w+)\s*!~\s*/([^/]*)/$")
 _RE_AND = re.compile(r"\s*&&\s*")
 _RE_OR = re.compile(r"\s*\|\|\s*")
 
+# Cache for user-supplied regex patterns extracted from =~ / !~ rule expressions.
+# Patterns come from static YAML so the set is small and bounded.
+_PATTERN_CACHE: dict[str, re.Pattern[str]] = {}
+
 
 def evaluate_rules(job: JobConfig, env: dict[str, str], project_dir: Path | None = None) -> None:
     """
@@ -132,19 +136,27 @@ def _evaluate_if(expr: str, env: dict[str, str]) -> bool:
     re_match = _RE_REGEX_MATCH.match(expr)
     if re_match:
         var_name, pattern = re_match.groups()
-        try:
-            return bool(re.search(pattern, env.get(var_name, "")))
-        except re.error:
-            return False
+        compiled = _PATTERN_CACHE.get(pattern)
+        if compiled is None:
+            try:
+                compiled = re.compile(pattern)
+            except re.error:
+                return False
+            _PATTERN_CACHE[pattern] = compiled
+        return bool(compiled.search(env.get(var_name, "")))
 
     # 5. Regex non-match: '$CI_COMMIT_TAG !~ /^v/'
     nre_match = _RE_REGEX_NOT_MATCH.match(expr)
     if nre_match:
         var_name, pattern = nre_match.groups()
-        try:
-            return not bool(re.search(pattern, env.get(var_name, "")))
-        except re.error:
-            return True
+        compiled = _PATTERN_CACHE.get(pattern)
+        if compiled is None:
+            try:
+                compiled = re.compile(pattern)
+            except re.error:
+                return True
+            _PATTERN_CACHE[pattern] = compiled
+        return not bool(compiled.search(env.get(var_name, "")))
 
     # Fallback: unrecognized expression — warn and treat as non-match
     logger.warning("Could not evaluate rules expression: %r — treating as non-match", expr)

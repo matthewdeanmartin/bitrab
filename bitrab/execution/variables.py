@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-import subprocess
+import subprocess  # nosec B404
 import time
 from pathlib import Path
 
@@ -79,7 +79,7 @@ _job_id_counter = 0
 def _git(args: list[str], cwd: Path) -> str:
     """Run a git command and return stripped stdout, or '' on any failure."""
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607
             ["git", *args],
             capture_output=True,
             text=True,

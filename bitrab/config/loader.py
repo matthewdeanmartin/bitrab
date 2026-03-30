@@ -183,7 +183,8 @@ class ConfigurationLoader:
                 merged_config = self._merge_configs(merged_config, included_config)
                 continue
 
-            assert include_path is not None
+            if include_path is None:
+                raise GitlabRunnerError("include_path is None")
             if include_path in seen_files:
                 continue  # Skip already processed files to prevent recursion
 
