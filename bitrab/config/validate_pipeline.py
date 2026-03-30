@@ -19,6 +19,7 @@ from bitrab._json import loads as json_loads
 
 logger = logging.getLogger(__name__)
 _SCHEMA_CACHE: weakref.WeakKeyDictionary[Any, dict[str, Any]] = weakref.WeakKeyDictionary()
+_VALIDATOR_CACHE: weakref.WeakKeyDictionary[Any, jsonschema.Draft7Validator] = weakref.WeakKeyDictionary()
 
 # Import compatibility for Python 3.8+
 if sys.version_info >= (3, 9):  # noqa: UP036
@@ -207,8 +208,11 @@ class GitLabCIValidator:
             # Get the schema
             schema = self.get_schema()
 
-            # Validate against schema
-            validator = jsonschema.Draft7Validator(schema)
+            # Reuse a cached validator — building Draft7Validator is expensive
+            validator = _VALIDATOR_CACHE.get(self)
+            if validator is None:
+                validator = jsonschema.Draft7Validator(schema)
+                _VALIDATOR_CACHE[self] = validator
             errors = []
 
             for error in validator.iter_errors(config_dict):
@@ -255,8 +259,9 @@ def validate_gitlab_ci_yaml(yaml_content: str, cache_dir: str | None = None) -> 
 
 
 def _clear_get_schema_cache() -> None:
-    """Clear cached schemas for all validator instances."""
+    """Clear cached schemas and validators for all validator instances."""
     _SCHEMA_CACHE.clear()
+    _VALIDATOR_CACHE.clear()
 
 
 # Restore cache_clear for tests (setattr to hide from ty)
