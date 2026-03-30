@@ -288,11 +288,8 @@ dependencies = [
     { name = "colorlog" },
     { name = "importlib-resources" },
     { name = "jsonschema" },
-    { name = "orjson" },
     { name = "packaging" },
     { name = "rich" },
-    { name = "rtoml", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "rtoml", version = "0.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.14'" },
     { name = "ruamel-yaml" },
     { name = "textual" },
     { name = "toml" },
@@ -300,6 +297,18 @@ dependencies = [
     { name = "tomlkit" },
     { name = "urllib3" },
     { name = "watchdog" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "orjson" },
+    { name = "rtoml", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "rtoml", version = "0.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.14'" },
+]
+fast = [
+    { name = "orjson" },
+    { name = "rtoml", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "rtoml", version = "0.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.14'" },
 ]
 
 [package.dev-dependencies]
@@ -353,10 +362,12 @@ requires-dist = [
     { name = "colorlog" },
     { name = "importlib-resources" },
     { name = "jsonschema" },
-    { name = "orjson" },
+    { name = "orjson", marker = "extra == 'all'" },
+    { name = "orjson", marker = "extra == 'fast'" },
     { name = "packaging" },
     { name = "rich" },
-    { name = "rtoml", marker = "python_full_version < '3.14'" },
+    { name = "rtoml", marker = "python_full_version < '3.14' and extra == 'all'" },
+    { name = "rtoml", marker = "python_full_version < '3.14' and extra == 'fast'" },
     { name = "ruamel-yaml" },
     { name = "textual" },
     { name = "toml" },
@@ -365,6 +376,7 @@ requires-dist = [
     { name = "urllib3" },
     { name = "watchdog", specifier = ">=3.0.0" },
 ]
+provides-extras = ["fast", "all"]
 
 [package.metadata.requires-dev]
 dev = [

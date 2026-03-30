@@ -30,7 +30,6 @@ on demand by :func:`scan_folder`.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import shutil
@@ -39,6 +38,9 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from bitrab._json import dumps as json_dumps
+from bitrab._json import loads as json_loads
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -269,8 +271,8 @@ def list_runs(project_dir: Path) -> list[RunRecord]:
             run_dir = Path(entry.path)
             meta_file = run_dir / "meta.json"
             try:
-                meta: dict[str, Any] = json.loads(meta_file.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
+                meta: dict[str, Any] = json_loads(meta_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
                 meta = {}
 
             records.append(
@@ -385,7 +387,7 @@ def write_run_log(
     events_path = run_dir / "events.jsonl"
     with events_path.open("w", encoding="utf-8") as fh:
         for event in events_json:
-            fh.write(json.dumps(event, default=str) + "\n")
+            fh.write(json_dumps(event, default=str) + "\n")
 
     # Write text summary
     summary_path = run_dir / "summary.txt"
@@ -396,7 +398,7 @@ def write_run_log(
     meta["size_bytes"] = size_bytes
     meta["run_id"] = run_id
     meta_path = run_dir / "meta.json"
-    meta_path.write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
+    meta_path.write_text(json_dumps(meta, indent=2, default=str), encoding="utf-8")
 
     return run_dir
 

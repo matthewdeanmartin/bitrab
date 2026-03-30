@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from bitrab._toml import load_file as load_toml_file
+
 # Patterns always considered safe regardless of user config.
 # Relative to project root, using forward-slash glob syntax.
 _BUILTIN_WHITELIST: list[str] = [
@@ -84,23 +86,8 @@ class ParallelBackendConfig:
 
 
 def _load_toml(file_path: Path) -> dict[str, Any]:
-    """Load a TOML file with compatibility for tomllib/tomli/toml."""
-    try:
-        try:
-            import tomllib  # type: ignore[import]  # 3.11+
-            with open(file_path, "rb") as fh:
-                return tomllib.load(fh)
-        except ImportError:
-            try:
-                import tomli  # type: ignore[import]
-                with open(file_path, "rb") as fh:
-                    return tomli.load(fh)
-            except ImportError:
-                import toml  # type: ignore[import]
-                with open(file_path, encoding="utf-8") as f:
-                    return toml.load(f)
-    except Exception:
-        return {}
+    """Load a TOML file using the project's compatibility helper."""
+    return load_toml_file(file_path)
 
 
 def load_parallel_config(project_dir: Path) -> ParallelBackendConfig:

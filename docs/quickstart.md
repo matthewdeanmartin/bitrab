@@ -8,6 +8,12 @@ This guide gets you from install to a useful local CI loop quickly.
 pipx install bitrab
 ```
 
+If you want the native speedups:
+
+```bash
+pipx install 'bitrab[fast]'
+```
+
 Or for this repository while developing:
 
 ```bash

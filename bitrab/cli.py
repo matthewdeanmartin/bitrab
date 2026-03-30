@@ -304,6 +304,7 @@ def cmd_list(args: argparse.Namespace) -> None:
 
             # Create a display-only proxy with the original name
             import copy as _copy
+
             display_job = _copy.copy(job)
             display_job.name = orig
         else:
@@ -722,16 +723,10 @@ Version: {__version__}
             "re-running the pipeline automatically on each save."
         ),
     )
-    watch_parser.add_argument(
-        "--dry-run", action="store_true", help="Use dry-run mode on each triggered run"
-    )
-    watch_parser.add_argument(
-        "--parallel", "-j", type=int, metavar="N", help="Number of parallel jobs per stage"
-    )
+    watch_parser.add_argument("--dry-run", action="store_true", help="Use dry-run mode on each triggered run")
+    watch_parser.add_argument("--parallel", "-j", type=int, metavar="N", help="Number of parallel jobs per stage")
     watch_parser.add_argument("--jobs", nargs="*", metavar="JOB", help="Run only specified jobs")
-    watch_parser.add_argument(
-        "--stage", nargs="*", metavar="STAGE", help="Run only jobs in specified stages"
-    )
+    watch_parser.add_argument("--stage", nargs="*", metavar="STAGE", help="Run only jobs in specified stages")
     watch_parser.add_argument(
         "--parallel-backend",
         choices=["thread", "process"],

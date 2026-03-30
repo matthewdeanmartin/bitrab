@@ -36,6 +36,7 @@ Bitrab helps by moving more of that loop earlier:
 
 ```bash
 pipx install bitrab
+pipx install 'bitrab[fast]'
 bitrab validate
 bitrab run --no-tui --parallel 1
 ```

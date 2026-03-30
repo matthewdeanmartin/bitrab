@@ -12,8 +12,10 @@ from pathlib import Path
 from typing import Any
 
 import jsonschema
-import orjson as json
 import ruamel.yaml
+
+from bitrab._json import dumps as json_dumps
+from bitrab._json import loads as json_loads
 
 logger = logging.getLogger(__name__)
 _SCHEMA_CACHE: weakref.WeakKeyDictionary[Any, dict[str, Any]] = weakref.WeakKeyDictionary()
@@ -56,8 +58,8 @@ class GitLabCIValidator:
         try:
             with urllib.request.urlopen(self.schema_url, timeout=5) as response:  # nosec
                 schema_data = response.read().decode("utf-8")
-                return json.loads(schema_data)
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, OSError) as e:
+                return json_loads(schema_data)
+        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, OSError) as e:
             logger.warning(f"Failed to fetch schema from URL: {e}")
             return None
 
@@ -78,8 +80,8 @@ class GitLabCIValidator:
                     return None
 
                 with open(self.cache_file, encoding="utf-8") as f:
-                    return json.loads(f.read())
-        except (OSError, json.JSONDecodeError) as e:
+                    return json_loads(f.read())
+        except (OSError, ValueError) as e:
             logger.debug(f"Failed to load schema from cache: {e}")
         return None
 
@@ -93,7 +95,7 @@ class GitLabCIValidator:
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             with open(self.cache_file, "w", encoding="utf-8") as f:
-                f.write(json.dumps(schema).decode())
+                f.write(json_dumps(schema))
         except OSError as e:
             logger.warning(f"Failed to save schema to cache: {e}")
 
@@ -112,7 +114,7 @@ class GitLabCIValidator:
                     schema_file = package_files / self.fallback_schema_path
                     if schema_file.is_file():
                         schema_data = schema_file.read_text(encoding="utf-8")
-                        return json.loads(schema_data)
+                        return json_loads(schema_data)
                 except (FileNotFoundError, AttributeError, TypeError):
                     pass
 
@@ -122,11 +124,11 @@ class GitLabCIValidator:
                 fallback_file = current_dir / self.fallback_schema_path
                 if fallback_file.exists():
                     with open(fallback_file, encoding="utf-8") as f:
-                        return json.loads(f.read())
+                        return json_loads(f.read())
             except (OSError, FileNotFoundError):
                 pass
 
-        except (json.JSONDecodeError, Exception) as e:
+        except Exception as e:
             logger.warning(f"Failed to load Gitlab JSON schema from package resource: {e}")
 
         return None

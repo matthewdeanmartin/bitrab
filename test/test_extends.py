@@ -1,4 +1,5 @@
 """Tests for D5: extends: keyword (job inheritance)."""
+
 from __future__ import annotations
 
 import pytest

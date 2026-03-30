@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 import subprocess  # nosec
 import time
-from typing import Any
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from bitrab.console import safe_print
 from bitrab.exceptions import BitrabError, JobExecutionError, JobTimeoutError

@@ -67,6 +67,7 @@ def collect_artifacts(
     for pattern in job.artifacts_paths:
         # For Python 3.9 compatibility (root_dir= was added in 3.10)
         import os
+
         full_pattern = os.path.join(str(project_dir), pattern)
         for abs_path in glob.glob(full_pattern, recursive=True):
             rel_path = os.path.relpath(abs_path, str(project_dir))

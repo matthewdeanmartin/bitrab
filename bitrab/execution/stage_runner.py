@@ -25,7 +25,12 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Callable
 
-from bitrab.execution.artifacts import collect_artifacts, collect_dotenv_report, inject_dependencies, load_dotenv_reports
+from bitrab.execution.artifacts import (
+    collect_artifacts,
+    collect_dotenv_report,
+    inject_dependencies,
+    load_dotenv_reports,
+)
 from bitrab.execution.job import JobExecutor, JobRuntimeContext, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.models.pipeline import JobConfig, PipelineConfig
@@ -347,7 +352,9 @@ class StagePipelineRunner:
                 inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
                 dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
-            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None)
+            ctx = self.job_executor.build_context(
+                job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None
+            )
             ctx = cb.enrich_context(ctx)
             succeeded = True
 
@@ -419,6 +426,7 @@ class StagePipelineRunner:
                     dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
                     if dotenv_vars:
                         import dataclasses
+
                         merged = {**dotenv_vars, **job.variables}
                         job = dataclasses.replace(job, variables=merged)
                 extra = cb.make_worker_args(job, job_dir)
@@ -526,8 +534,7 @@ def _report_mutations(job_name: str, snap: MutationSnapshot, writer: Any) -> Non
         for path in changed:
             _print(f"   • {path}")
         _print(
-            "   If these are intentional, add the pattern(s) to "
-            "[tool.bitrab.mutation] whitelist in pyproject.toml"
+            "   If these are intentional, add the pattern(s) to " "[tool.bitrab.mutation] whitelist in pyproject.toml"
         )
 
 
@@ -681,7 +688,9 @@ class DagPipelineRunner:
                 inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
                 dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
-            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None)
+            ctx = self.job_executor.build_context(
+                job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None
+            )
             ctx = cb.enrich_context(ctx)
             succeeded = True
 
@@ -746,6 +755,7 @@ class DagPipelineRunner:
                     dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
                     if dotenv_vars:
                         import dataclasses
+
                         merged = {**dotenv_vars, **job.variables}
                         job = dataclasses.replace(job, variables=merged)
                 extra = cb.make_worker_args(job, job_dir)

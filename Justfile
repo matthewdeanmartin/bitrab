@@ -220,7 +220,7 @@ bugs: fix-ci ruff mypy pylint bandit repro smoke
 # Run benchmark-focused tests.
 benchmark: uv-lock install-plugins
     @echo "Running performance benchmarks"
-    {{venv}} pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1
+    {{venv}} python scripts/run_benchmarks.py test/test_perf.py test/test_perf_fast.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1
 
 pre-commit: uv-lock install-plugins
     @echo "Running pre-commit hooks"

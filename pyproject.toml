@@ -12,9 +12,8 @@ dependencies = [
     "ruamel.yaml", # required to read yaml
     "jsonschema", # required to validate
     "importlib_resources", # Used by validator to get schema document
-    # native libs to speed things up
+    # networking
     "urllib3",
-    "orjson",
     "certifi",
     # "rapidyaml==0.9.0", # API too radically different to use yet.
     # Extensibility
@@ -30,7 +29,6 @@ dependencies = [
     # update checker
     "packaging", # could be optional
     # Config
-    "rtoml; python_version < '3.14'",
     "toml", # backwards compat,
     "tomlkit", # right now only used by init
     "tomli; python_version < '3.11'",
@@ -58,19 +56,15 @@ homepage = "https://github.com/matthewdeanmartin/bitrab"
 issues = "https://github.com/matthewdeanmartin/bitrab/issues/"
 # support – e.g. chat or forum - TODO
 
-#[project.optional-dependencies]
-## "all" pulls in everything that isn't strictly core
-## This is to defend against supply chain risks on the build server.
-## The assumption is untrusted code is a bigger problem on a build server
-## This is not a substitute for being vigilant with your package scanning.
-#all = [
-#]
-
-#[project.optional-dependencies]
-#chat = ["bitrab-chat"]
-#all = [
-#    "bitrab-chat",
-#]
+[project.optional-dependencies]
+fast = [
+    "orjson",
+    "rtoml; python_version < '3.14'",
+]
+all = [
+    "orjson",
+    "rtoml; python_version < '3.14'",
+]
 
 [dependency-groups]
 dev = [
@@ -184,18 +178,13 @@ exclude = '''
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-n auto --dist loadfile --benchmark-min-rounds=5 --benchmark-min-time=0.1"
+# addopts = "-n auto --dist loadfile "
 testpaths = [
     "test",
     "tests"
 ]
 junit_family = "xunit1"
 norecursedirs = ["vendor", "scripts"]
-# don't know how to do this in toml
-#addopts = "--strict-markers"
-#markers =
-#	slow: marks tests as slow (deselect with '-m "not slow"')
-#	fast: marks tests as fast (deselect with '-m "not fast"')
 
 [tool.isort]
 default_section = "THIRDPARTY"

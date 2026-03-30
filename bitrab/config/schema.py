@@ -9,8 +9,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-import orjson
-
+from bitrab._json import dumps as json_dumps
 from bitrab.config.validate_pipeline import GitLabCIValidator, ValidationResult, validate_gitlab_ci_yaml
 from bitrab.utils.terminal_colors import Colors
 
@@ -80,7 +79,7 @@ def write_results_to_output(results: list[ValidationResult], output_path: Path) 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(orjson.dumps(output_data).decode())
+        f.write(json_dumps(output_data))
 
 
 def print_validation_summary(results: list[ValidationResult]) -> None:

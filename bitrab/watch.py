@@ -1,4 +1,5 @@
 """D4: Watch mode — re-run the pipeline when CI config files change."""
+
 from __future__ import annotations
 
 import logging

@@ -69,6 +69,7 @@ def load_dotenv_files(project_dir: Path) -> dict[str, str]:
                 pass
     return combined
 
+
 # A simple incrementing counter used to generate unique-per-process job IDs.
 # GitLab uses globally unique integer IDs; we just need something non-empty and
 # distinct across jobs within a single run.
@@ -123,6 +124,7 @@ def _derive_git_variables(project_dir: Path) -> dict[str, str]:
     project_url = ""
     if remote_url:
         import re
+
         m = re.search(r"[:/]([^/]+)/([^/.]+?)(?:\.git)?$", remote_url)
         if m:
             project_namespace = m.group(1)

@@ -1,4 +1,5 @@
 """Tests for D3: remote include support (HTTP fetch)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -52,8 +53,7 @@ class TestRemoteIncludeFetch:
 
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n"
-            "include:\n  - url: https://example.com/ci.yml\n",
+            "stages:\n  - test\n" "include:\n  - url: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -70,8 +70,7 @@ class TestRemoteIncludeFetch:
 
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n"
-            "include:\n  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\n" "include:\n  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -85,8 +84,7 @@ class TestRemoteIncludeFetch:
         """A non-200 HTTP response raises GitlabRunnerError."""
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n"
-            "include:\n  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\n" "include:\n  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -100,8 +98,7 @@ class TestRemoteIncludeFetch:
         """Invalid YAML in a remote include raises GitlabRunnerError."""
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n"
-            "include:\n  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\n" "include:\n  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -140,10 +137,7 @@ class TestRemoteIncludeFetch:
 
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n"
-            "include:\n"
-            "  - local: local.yml\n"
-            "  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\n" "include:\n" "  - local: local.yml\n" "  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 

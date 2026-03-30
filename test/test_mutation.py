@@ -4,15 +4,7 @@ from __future__ import annotations
 
 import time
 
-
-from bitrab.mutation import (
-    MutationConfig,
-    MutationSnapshot,
-    _BUILTIN_WHITELIST,
-    _is_whitelisted,
-    load_mutation_config,
-)
-
+from bitrab.mutation import _BUILTIN_WHITELIST, MutationConfig, MutationSnapshot, _is_whitelisted, load_mutation_config
 
 # ---------------------------------------------------------------------------
 # _is_whitelisted
@@ -82,9 +74,7 @@ class TestLoadMutationConfig:
         assert cfg.whitelist == []
 
     def test_enabled_flag(self, tmp_path):
-        (tmp_path / "pyproject.toml").write_text(
-            "[tool.bitrab]\nwarn_on_mutation = true\n"
-        )
+        (tmp_path / "pyproject.toml").write_text("[tool.bitrab]\nwarn_on_mutation = true\n")
         cfg = load_mutation_config(tmp_path)
         assert cfg.enabled
 

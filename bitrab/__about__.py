@@ -14,7 +14,7 @@ __all__ = [
 
 __title__ = "bitrab"
 __version__ = "0.3.0"
-__description__ = "Compile bash to gitlab pipeline yaml"
+__description__ = "Run GitLab CI pipelines locally"
 __readme__ = "README.md"
 __credits__ = [{'name': 'Matthew Martin', 'email': 'matthewdeanmartin@gmail.com'}]
 __keywords__ = ['bash', 'gitlab']

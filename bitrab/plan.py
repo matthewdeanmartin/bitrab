@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import copy
+import itertools
 import os
 import re
 from pathlib import Path
 from typing import Any, Union
-
-import itertools
 
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.config.rules import evaluate_rules
@@ -182,13 +181,9 @@ class PipelineProcessor:
             if name in resolved:
                 return resolved[name]
             if name in chain:
-                raise GitlabRunnerError(
-                    f"`extends:` circular reference detected: {' -> '.join(chain + [name])}"
-                )
+                raise GitlabRunnerError(f"`extends:` circular reference detected: {' -> '.join(chain + [name])}")
             if name not in all_jobs:
-                raise GitlabRunnerError(
-                    f"`extends:` references unknown job or template: {name!r}"
-                )
+                raise GitlabRunnerError(f"`extends:` references unknown job or template: {name!r}")
 
             job_data = dict(all_jobs[name])
             parents_raw = job_data.pop("extends", None)
@@ -681,6 +676,7 @@ class LocalGitLabRunner:
         parallel_config = load_parallel_config(self.base_path)
         if parallel_backend is not None:
             from bitrab.mutation import ParallelBackendConfig
+
             parallel_config = ParallelBackendConfig(backend=parallel_backend)
 
         event_collector = None

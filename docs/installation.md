@@ -15,6 +15,12 @@ No Docker. No admin rights. No GitLab account.
 pipx install bitrab
 ```
 
+For native speedups on systems where extra compiled dependencies are acceptable:
+
+```bash
+pipx install 'bitrab[fast]'
+```
+
 Verify:
 
 ```bash
@@ -25,6 +31,13 @@ bitrab --version
 
 ```bash
 pip install bitrab
+```
+
+Optional extras:
+
+```bash
+pip install 'bitrab[fast]'
+pip install 'bitrab[all]'
 ```
 
 Or into a virtual environment:

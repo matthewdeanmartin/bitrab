@@ -1,4 +1,5 @@
 """Tests for D4: watch mode."""
+
 from __future__ import annotations
 
 import time
@@ -7,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bitrab.watch import _PipelineRerunHandler, _collect_watched_paths
+from bitrab.watch import _collect_watched_paths, _PipelineRerunHandler
 
 
 class TestCollectWatchedPaths:

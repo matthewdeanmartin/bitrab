@@ -179,12 +179,14 @@ PERF_TESTS := test/test_perf.py test/test_perf_fast.py
 .PHONY: pytest-unit-only
 pytest-unit-only:
 	@echo "Running unit tests"
-	$(VENV) pytest test -vv $(foreach t,$(PERF_TESTS),--ignore=$(t)) --cov=bitrab --cov-report=html --cov-fail-under=35 --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600
+	$(VENV) pytest test -q -n 5  --dist=loadfile --cov=bitrab --cov-fail-under=35 -p no:benchmark --cov-report=html --junitxml=junit.xml -o junit_family=legacy --timeout=15 --session-timeout=600
+
+
 
 .PHONY: pytest-perf-only
 pytest-perf-only:
 	@echo "Running performance benchmarks"
-	$(VENV) pytest $(PERF_TESTS) -vv -n 0 --benchmark-min-rounds=5 --benchmark-min-time=0.1
+	$(VENV) python scripts/run_benchmarks.py test_perf/test_perf.py test_perf/test_perf_fast.py --benchmark-min-rounds=5 --benchmark-min-time=0.1 -p no:xdist
 
 .PHONY: pytest-only
 pytest-only: pytest-unit-only pytest-perf-only
@@ -239,7 +241,7 @@ bugs: fix-ci ruff mypy pylint bandit repro smoke
 .PHONY: benchmark
 benchmark: uv-lock install-plugins
 	@echo "Running performance benchmarks"
-	$(VENV) pytest test/test_perf.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1
+	$(VENV) python scripts/run_benchmarks.py test/test_perf.py test/test_perf_fast.py -o "addopts=" --benchmark-min-rounds=5 --benchmark-min-time=0.1
 
 .PHONY: pre-commit
 pre-commit: uv-lock install-plugins
