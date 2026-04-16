@@ -15,3 +15,14 @@ nav:
   - CLI reference: cli.md
   - Key concepts: concepts.md
   - Local vs GitLab: differences.md
+  - Developer docs:
+      - Overview: developer/index.md
+      - Architecture: developer/architecture.md
+      - Getting started: developer/getting-started.md
+      - Codebase structure: developer/codebase.md
+      - Core concepts: developer/core-concepts.md
+      - Pipeline execution model: developer/execution-model.md
+      - Configuration system: developer/configuration.md
+      - Execution engine: developer/execution-engine.md
+      - State, errors, observability, testing: developer/operations.md
+      - CLI internals and contributing: developer/cli-and-contributing.md
