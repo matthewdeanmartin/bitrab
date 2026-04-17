@@ -37,8 +37,8 @@ bitrab run --parallel 4
 ```
 
 In stage mode, jobs in the same stage can run concurrently. In DAG mode, jobs are released as soon as their `needs:`
-dependencies are satisfied. In both cases, jobs share one project directory unless your scripts create their own
-isolation.[^stage]
+dependencies are satisfied. For real runs in a Git checkout, parallel jobs use per-job git worktrees by default when
+they can. Use `--serial` when jobs need to mutate the real working tree instead of an isolated checkout.[^stage][^cli]
 
 ## Filters
 

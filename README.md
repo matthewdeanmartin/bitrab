@@ -47,6 +47,22 @@ For this repo's own dogfooding flow:
 uv run bitrab run --no-tui --parallel 1
 ```
 
+## Usage
+
+```bash
+bitrab run --no-tui --parallel 4
+```
+
+For real runs in a Git checkout, parallel jobs use per-job git worktrees by default when they can, so sibling jobs do not
+fight over the same files. If you want changes to land in your real working tree instead, serialize the run:
+
+```bash
+bitrab run --no-tui --serial
+```
+
+`--serial` forces one job at a time in the project root and disables worktrees, which is the safe choice for
+formatters, autofixers, and other intentional mutations.
+
 ## What Bitrab is
 
 Bitrab is a local runner for a practical subset of GitLab CI. It executes jobs as native shell processes, supports stage

@@ -120,4 +120,4 @@ For performance-sensitive or correctness-sensitive changes, start with:
 
 `mutation.py` is a bitrab-specific safety feature.
 
-It snapshots the project tree before a job, compares it after the job, and warns on unexpected writes outside the builtin and configured whitelist. This is especially useful for keeping verification-style jobs honest in a shared workspace model.
+It snapshots the project tree before a job, compares it after the job, and warns on unexpected writes outside the builtin and configured whitelist. This is especially useful for keeping verification-style jobs honest, especially when they run serially in the real checkout or when worktree isolation is unavailable.

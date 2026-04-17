@@ -35,7 +35,7 @@ This checks the YAML against GitLab's schema, then reports features that bitrab 
 bitrab run --no-tui --parallel 1
 ```
 
-That is the safest starting point: plain output, one job at a time, same workspace.[^cli][^stage]
+That is the safest starting point: plain output and one job at a time in the real workspace.[^cli][^stage]
 
 ## 4. Speed it up when jobs are independent
 
@@ -43,7 +43,15 @@ That is the safest starting point: plain output, one job at a time, same workspa
 bitrab run --no-tui --parallel 4
 ```
 
-Jobs in the same stage can run concurrently, and DAG pipelines can also release work as dependencies complete. Remember that these jobs share one working tree unless your scripts isolate themselves.[^stage]
+Jobs in the same stage can run concurrently, and DAG pipelines can also release work as dependencies complete. For real
+runs in a Git checkout, bitrab uses per-job git worktrees by default when it can, so parallel jobs do not stomp on the
+same files.[^stage]
+
+If a job is supposed to mutate your real checkout, keep it serialized instead:
+
+```bash
+bitrab run --no-tui --serial
+```
 
 ## 5. Run only part of the pipeline
 

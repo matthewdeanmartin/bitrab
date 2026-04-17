@@ -5,8 +5,8 @@ GitLab.
 
 ## Biggest difference: no container boundary
 
-GitLab Runner commonly gives each job a fresh container or VM context. Bitrab runs jobs directly in your shell and
-normally in the same project directory.[^stage][^job]
+GitLab Runner commonly gives each job a fresh container or VM context. Bitrab runs jobs directly in your shell on your
+machine instead.[^stage][^job]
 
 That changes the economics and the tradeoffs:
 
@@ -14,7 +14,7 @@ That changes the economics and the tradeoffs:
 - local debugging is easier
 - queueing disappears when you run on your workstation
 - isolation is weaker
-- shared workspace races are possible with parallel jobs
+- parallel jobs can still interfere if you disable worktrees or run outside a git checkout
 
 ## Support matrix
 
@@ -77,11 +77,11 @@ jobs.[^plan]
 Bitrab stores artifacts in `.bitrab/artifacts/<job_name>/` and copies them between local jobs. It does not upload them
 to GitLab or attach them to a pipeline record.[^artifacts]
 
-## Parallel jobs share one tree
+## Parallel execution is lighter-weight, not runner-isolated
 
-Parallelism in bitrab is about faster execution on a single host, not strict isolation. If two jobs write the same file,
-the jobs can interfere with one another. This is a major behavioral difference from container-based GitLab
-runners.[^stage]
+Parallelism in bitrab is about faster execution on a single host, not strict runner isolation. For real runs in a Git
+checkout, bitrab uses per-job git worktrees by default when it can. If you disable worktrees, run outside a git repo, or
+choose `--serial`, jobs run in the project root instead.[^stage][^cli]
 
 ## Mutation detection is a bitrab-only feature
 

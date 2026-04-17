@@ -122,6 +122,8 @@ The merge policy is recursive dict merge in `_merge_configs()`, with the current
 Bitrab also reads `pyproject.toml` for local execution behavior in `mutation.py`:
 
 - `parallel_backend`
+- `use_git_worktrees`
+- `serial`
 - `warn_on_mutation`
 - mutation whitelist patterns
 

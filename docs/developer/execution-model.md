@@ -100,7 +100,9 @@ The pool backend is chosen in `StagePipelineRunner._make_pool()` and `DagPipelin
 - `ProcessPoolExecutor` by default
 - `ThreadPoolExecutor` when configured with `parallel_backend = "thread"`
 
-Config comes from `pyproject.toml` via `mutation.load_parallel_config()` and can be overridden with `--parallel-backend`.
+For real runs in a Git checkout, parallel jobs also use per-job git worktrees by default when available. Config comes
+from `pyproject.toml` via `mutation.load_parallel_config()` / `mutation.load_worktree_config()` and can be overridden
+with `--parallel-backend`, `--serial`, or `--no-worktrees`.
 
 ## Failure handling
 

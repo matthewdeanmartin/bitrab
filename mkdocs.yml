@@ -4,8 +4,19 @@ site_url: https://bitrab.readthedocs.io/en/latest/
 repo_url: https://github.com/matthewdeanmartin/bitrab
 repo_name: matthewdeanmartin/bitrab
 
+#theme:
+#  name: readthedocs
 theme:
-  name: readthedocs
+  name: material
+  features:
+    - content.code.copy
+    - content.footnote.tooltips
+
+markdown_extensions:
+  - footnotes
+  - attr_list
+  - def_list
+  - tables
 
 nav:
   - Home: index.md

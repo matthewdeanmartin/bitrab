@@ -108,7 +108,7 @@ Mixed behavior is implemented by `_build_dag()`: jobs without `needs:` get synth
 
 Some important constraints show up repeatedly in the code:
 
-- **No container boundary.** Jobs run in the host shell, usually from the real checkout.
-- **Shared workspace.** Parallel jobs can interfere with each other through the filesystem.
+- **No container boundary.** Jobs run in the host shell, not in fresh runner containers.
+- **Filesystem isolation is conditional.** Parallel jobs use per-job git worktrees by default when available; otherwise they can still interfere through the filesystem.
 - **Partial GitLab compatibility.** Some features are supported, some warn, and some hard-fail.
 - **Windows support matters.** The execution layer explicitly handles bash discovery and uses spawn-based multiprocessing.
