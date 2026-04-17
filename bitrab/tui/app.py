@@ -188,9 +188,7 @@ class PipelineApp(App[int]):
         Binding("R", "restart_job", "Restart job", show=True),
     ]
 
-    def __init__(
-        self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False
-    ) -> None:
+    def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False) -> None:
         super().__init__()
         self._pipeline = pipeline
         self._orchestrator = orchestrator

@@ -170,11 +170,7 @@ class PipelineProcessor:
             The same dict with all ``extends:`` chains resolved.
         """
         # Collect all job-like blocks (real jobs and hidden templates)
-        all_jobs: dict[str, dict[str, Any]] = {
-            name: data
-            for name, data in raw_config.items()
-            if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS
-        }
+        all_jobs: dict[str, dict[str, Any]] = {name: data for name, data in raw_config.items() if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS}
 
         resolved: dict[str, dict[str, Any]] = {}
 

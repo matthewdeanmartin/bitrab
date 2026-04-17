@@ -180,10 +180,7 @@ class FolderSummary:
             lines.append(f"  Contents : {', '.join(self.subdirs)}")
         if self.is_large:
             lines.append("")
-            lines.append(
-                f"  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)})."
-                "  Consider running: bitrab folder clean"
-            )
+            lines.append(f"  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean")
         return "\n".join(lines)
 
 
@@ -410,9 +407,5 @@ def maybe_warn_size(
     """Return a warning string if ``.bitrab/`` exceeds *warn_threshold_bytes*, else None."""
     summary = scan_folder(project_dir, warn_threshold_bytes=warn_threshold_bytes)
     if summary.is_large:
-        return (
-            f"⚠️  .bitrab/ is {summary.total_human} "
-            f"(threshold: {_human_size(warn_threshold_bytes)}). "
-            "Run 'bitrab folder clean' to free space."
-        )
+        return f"⚠️  .bitrab/ is {summary.total_human} (threshold: {_human_size(warn_threshold_bytes)}). Run 'bitrab folder clean' to free space."
     return None
