@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.execution.artifacts API documentation</title>
+<meta name="description" content="Artifact collection, injection, and dotenv report handling …">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.execution.artifacts</code></h1>
+</header>
+<section id="section-intro">
+<p>Artifact collection, injection, and dotenv report handling.</p>
+<p>After a job completes:
+- If the job defines <code>artifacts: paths:</code>, matching files are copied from
+the project directory to <code>.bitrab/artifacts/&lt;job_name&gt;/</code>.
+- The copy is conditional on <code>artifacts: when:</code> (on_success / on_failure /
+always) vs. whether the job succeeded.</p>
+<p>Before a job starts:
+- If the job defines <code>dependencies: [job_a, job_b]</code>, artifacts from those
+jobs are copied into the project directory (preserving relative paths).
+- <code>dependencies: []</code> means "no artifacts" — nothing is copied.
+- Omitting <code>dependencies</code> (None) means "copy artifacts from all prior jobs
+that produced them" (GitLab default behaviour).</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.execution.artifacts.collect_artifacts"><code class="name flex">
+<span>def <span class="ident">collect_artifacts</span></span>(<span>job: JobConfig, project_dir: Path, succeeded: bool) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def collect_artifacts(
+    job: JobConfig,
+    project_dir: Path,
+    succeeded: bool,
+) -&gt; None:
+    &#34;&#34;&#34;Copy artifact paths to ``.bitrab/artifacts/&lt;job_name&gt;/`` after job execution.
+
+    Respects ``artifacts_when``:
+    - ``on_success``: collect only if ``succeeded`` is True
+    - ``on_failure``: collect only if ``succeeded`` is False
+    - ``always``: collect regardless
+
+    If no ``artifacts_paths`` are configured, does nothing.
+    &#34;&#34;&#34;
+    if not job.artifacts_paths:
+        return
+
+    when = job.artifacts_when
+    if when == &#34;on_success&#34; and not succeeded:
+        return
+    if when == &#34;on_failure&#34; and succeeded:
+        return
+    # &#34;always&#34; falls through
+
+    dest_root = _artifact_dir(project_dir, job.name)
+    dest_root.mkdir(parents=True, exist_ok=True)
+
+    for pattern in job.artifacts_paths:
+        # For Python 3.9 compatibility (root_dir= was added in 3.10)
+        import os
+
+        full_pattern = os.path.join(str(project_dir), pattern)
+        for abs_path in glob.glob(full_pattern, recursive=True):
+            rel_path = os.path.relpath(abs_path, str(project_dir))
+            src = Path(abs_path)
+            if not src.exists():
+                continue
+            dest = dest_root / rel_path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if src.is_dir():
+                if dest.exists():
+                    shutil.rmtree(dest)
+                shutil.copytree(src, dest)
+            else:
+                shutil.copy2(src, dest)</code></pre>
+</details>
+<div class="desc"><p>Copy artifact paths to <code>.bitrab/artifacts/&lt;job_name&gt;/</code> after job execution.</p>
+<p>Respects <code>artifacts_when</code>:
+- <code>on_success</code>: collect only if <code>succeeded</code> is True
+- <code>on_failure</code>: collect only if <code>succeeded</code> is False
+- <code>always</code>: collect regardless</p>
+<p>If no <code>artifacts_paths</code> are configured, does nothing.</p></div>
+</dd>
+<dt id="bitrab.execution.artifacts.collect_dotenv_report"><code class="name flex">
+<span>def <span class="ident">collect_dotenv_report</span></span>(<span>job: JobConfig, project_dir: Path, succeeded: bool) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def collect_dotenv_report(job: JobConfig, project_dir: Path, succeeded: bool) -&gt; None:
+    &#34;&#34;&#34;Store the dotenv report file produced by *job* in the artifact store.
+
+    Called immediately after a job completes (same lifecycle as
+    :func:`collect_artifacts`).  Only runs when the job defines
+    ``artifacts: reports: dotenv:`` *and* the dotenv file actually exists in
+    the project directory.  The file is copied to a stable path inside
+    ``.bitrab/`` so downstream jobs can read it via
+    :func:`inject_dotenv_variables`.
+
+    Respects ``artifacts: when:`` — if the job failed and ``when`` is
+    ``on_success`` (the default), the dotenv is not stored.
+    &#34;&#34;&#34;
+    if not job.artifacts_dotenv:
+        return
+
+    when = job.artifacts_when
+    if when == &#34;on_success&#34; and not succeeded:
+        return
+    if when == &#34;on_failure&#34; and succeeded:
+        return
+
+    src = project_dir / job.artifacts_dotenv
+    if not src.is_file():
+        return
+
+    dest = project_dir / _DOTENV_STORE.format(job_name=_sanitize(job.name))
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)</code></pre>
+</details>
+<div class="desc"><p>Store the dotenv report file produced by <em>job</em> in the artifact store.</p>
+<p>Called immediately after a job completes (same lifecycle as
+:func:<code><a title="bitrab.execution.artifacts.collect_artifacts" href="#bitrab.execution.artifacts.collect_artifacts">collect_artifacts()</a></code>).
+Only runs when the job defines
+<code>artifacts: reports: dotenv:</code> <em>and</em> the dotenv file actually exists in
+the project directory.
+The file is copied to a stable path inside
+<code>.bitrab/</code> so downstream jobs can read it via
+:func:<code>inject_dotenv_variables</code>.</p>
+<p>Respects <code>artifacts: when:</code> — if the job failed and <code>when</code> is
+<code>on_success</code> (the default), the dotenv is not stored.</p></div>
+</dd>
+<dt id="bitrab.execution.artifacts.inject_dependencies"><code class="name flex">
+<span>def <span class="ident">inject_dependencies</span></span>(<span>job: JobConfig, project_dir: Path, completed_jobs: list[str]) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def inject_dependencies(
+    job: JobConfig,
+    project_dir: Path,
+    completed_jobs: list[str],
+) -&gt; None:
+    &#34;&#34;&#34;Copy artifacts from dependency jobs into the project directory.
+
+    - ``dependencies: None`` (omitted) → copy artifacts from all ``completed_jobs``
+      that have an artifact directory.
+    - ``dependencies: []`` → copy nothing.
+    - ``dependencies: [a, b]`` → copy only from jobs a and b.
+    &#34;&#34;&#34;
+    if job.dependencies is not None and len(job.dependencies) == 0:
+        return  # explicit empty list = no artifacts
+
+    if job.dependencies is None:
+        sources = completed_jobs
+    else:
+        sources = job.dependencies
+
+    for dep_name in sources:
+        artifact_src = _artifact_dir(project_dir, dep_name)
+        if not artifact_src.exists():
+            continue
+        # Copy each file from the artifact directory to the project directory,
+        # preserving relative paths.  os.walk pre-separates files and
+        # directories, avoiding a per-entry is_dir() syscall.
+        for dirpath, dirnames, filenames in os.walk(artifact_src):
+            for dname in dirnames:
+                dest_dir = project_dir / Path(dirpath).relative_to(artifact_src) / dname
+                dest_dir.mkdir(parents=True, exist_ok=True)
+            for fname in filenames:
+                src = Path(dirpath) / fname
+                dest = project_dir / src.relative_to(artifact_src)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dest)</code></pre>
+</details>
+<div class="desc"><p>Copy artifacts from dependency jobs into the project directory.</p>
+<ul>
+<li><code>dependencies: None</code> (omitted) → copy artifacts from all <code>completed_jobs</code>
+that have an artifact directory.</li>
+<li><code>dependencies: []</code> → copy nothing.</li>
+<li><code>dependencies: [a, b]</code> → copy only from jobs a and b.</li>
+</ul></div>
+</dd>
+<dt id="bitrab.execution.artifacts.load_dotenv_reports"><code class="name flex">
+<span>def <span class="ident">load_dotenv_reports</span></span>(<span>job: JobConfig, project_dir: Path, completed_jobs: list[str]) ‑> dict[str, str]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_dotenv_reports(
+    job: JobConfig,
+    project_dir: Path,
+    completed_jobs: list[str],
+) -&gt; dict[str, str]:
+    &#34;&#34;&#34;Return variables from dotenv reports produced by *job*&#39;s dependencies.
+
+    This simulates GitLab&#39;s pipeline variable passing via
+    ``artifacts: reports: dotenv:``.  When job A writes a dotenv file and job B
+    lists A in its ``dependencies:`` (or inherits all, which is the default),
+    the variables from A&#39;s dotenv report are available as environment variables
+    in B.
+
+    Resolution follows the same ``dependencies:`` logic as
+    :func:`inject_dependencies`:
+    - ``dependencies: None`` (omitted) → variables from all completed jobs
+    - ``dependencies: []``             → no variables
+    - ``dependencies: [a, b]``         → variables from a and b only
+
+    Variables from later jobs in the list override earlier ones.  Job-level
+    ``variables:`` set in ``.gitlab-ci.yml`` take precedence over these (that
+    layering happens in :meth:`VariableManager.prepare_environment`).
+    &#34;&#34;&#34;
+    if job.dependencies is not None and len(job.dependencies) == 0:
+        return {}
+
+    sources = completed_jobs if job.dependencies is None else job.dependencies
+
+    merged: dict[str, str] = {}
+    for dep_name in sources:
+        store = project_dir / _DOTENV_STORE.format(job_name=_sanitize(dep_name))
+        if store.is_file():
+            try:
+                merged.update(parse_dotenv(store.read_text(encoding=&#34;utf-8&#34;)))
+            except OSError:
+                pass
+    return merged</code></pre>
+</details>
+<div class="desc"><p>Return variables from dotenv reports produced by <em>job</em>'s dependencies.</p>
+<p>This simulates GitLab's pipeline variable passing via
+<code>artifacts: reports: dotenv:</code>.
+When job A writes a dotenv file and job B
+lists A in its <code>dependencies:</code> (or inherits all, which is the default),
+the variables from A's dotenv report are available as environment variables
+in B.</p>
+<p>Resolution follows the same <code>dependencies:</code> logic as
+:func:<code><a title="bitrab.execution.artifacts.inject_dependencies" href="#bitrab.execution.artifacts.inject_dependencies">inject_dependencies()</a></code>:
+- <code>dependencies: None</code> (omitted) → variables from all completed jobs
+- <code>dependencies: []</code>
+→ no variables
+- <code>dependencies: [a, b]</code>
+→ variables from a and b only</p>
+<p>Variables from later jobs in the list override earlier ones.
+Job-level
+<code>variables:</code> set in <code>.gitlab-ci.yml</code> take precedence over these (that
+layering happens in :meth:<code>VariableManager.prepare_environment</code>).</p></div>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab.execution" href="index.html">bitrab.execution</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.execution.artifacts.collect_artifacts" href="#bitrab.execution.artifacts.collect_artifacts">collect_artifacts</a></code></li>
+<li><code><a title="bitrab.execution.artifacts.collect_dotenv_report" href="#bitrab.execution.artifacts.collect_dotenv_report">collect_dotenv_report</a></code></li>
+<li><code><a title="bitrab.execution.artifacts.inject_dependencies" href="#bitrab.execution.artifacts.inject_dependencies">inject_dependencies</a></code></li>
+<li><code><a title="bitrab.execution.artifacts.load_dotenv_reports" href="#bitrab.execution.artifacts.load_dotenv_reports">load_dotenv_reports</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

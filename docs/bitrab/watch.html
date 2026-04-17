@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.6">
-<title>bitrab.config API documentation</title>
-<meta name="description" content="">
+<title>bitrab.watch API documentation</title>
+<meta name="description" content="D4: Watch mode — re-run the pipeline when CI config files change.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -33,38 +33,90 @@ el.replaceWith(d);
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>bitrab.config</code></h1>
+<h1 class="title">Module <code>bitrab.watch</code></h1>
 </header>
 <section id="section-intro">
+<p>D4: Watch mode — re-run the pipeline when CI config files change.</p>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="bitrab.config.capabilities" href="capabilities.html">bitrab.config.capabilities</a></code></dt>
+<dt id="bitrab.watch.run_watch"><code class="name flex">
+<span>def <span class="ident">run_watch</span></span>(<span>config_path: Path, runner_kwargs: dict[str, Any]) ‑> None</span>
+</code></dt>
 <dd>
-<div class="desc"><p>ARCH-3: Capability validation layer …</p></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.loader" href="loader.html">bitrab.config.loader</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.rules" href="rules.html">bitrab.config.rules</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.schema" href="schema.html">bitrab.config.schema</a></code></dt>
-<dd>
-<div class="desc"><p>Validates input folder and output folder assuming all yaml is pipeline yaml.</p></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.validate_pipeline" href="validate_pipeline.html">bitrab.config.validate_pipeline</a></code></dt>
-<dd>
-<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def run_watch(
+    config_path: Path,
+    runner_kwargs: dict[str, Any],
+) -&gt; None:
+    &#34;&#34;&#34;Entry point for watch mode.
+
+    Runs the pipeline once immediately, then watches the CI config and any
+    local include files for changes, re-running on each save.
+
+    Args:
+        config_path: Absolute path to the CI config file.
+        runner_kwargs: Forwarded verbatim to ``LocalGitLabRunner.run_pipeline()``.
+    &#34;&#34;&#34;
+    from bitrab.plan import LocalGitLabRunner
+
+    base_path = config_path.parent
+    runner = LocalGitLabRunner(base_path=base_path)
+
+    def _run() -&gt; None:
+        runner.run_pipeline(config_path=config_path, **runner_kwargs)
+
+    # Initial run
+    safe_print(&#34;[watch] Starting initial pipeline run...&#34;)
+    try:
+        _run()
+    except Exception as exc:  # pylint: disable=broad-except
+        safe_print(f&#34;[watch] Initial run failed: {exc}&#34;)
+
+    # Determine which paths to watch
+    watched = _collect_watched_paths(config_path)
+    watched.add(config_path.resolve())
+    watch_dirs = {p.parent for p in watched}
+
+    safe_print(f&#34;[watch] Watching {len(watched)} file(s) for changes. Press Ctrl+C to stop.&#34;)
+    for p in sorted(watched):
+        safe_print(f&#34;         {p}&#34;)
+
+    handler = _PipelineRerunHandler(_run, watched)
+    observer = Observer()
+    for d in watch_dirs:
+        observer.schedule(handler, str(d), recursive=False)
+
+    observer.start()
+    try:
+        while True:
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        safe_print(&#34;\n[watch] Stopped.&#34;)
+    finally:
+        observer.stop()
+        observer.join()</code></pre>
+</details>
+<div class="desc"><p>Entry point for watch mode.</p>
+<p>Runs the pipeline once immediately, then watches the CI config and any
+local include files for changes, re-running on each save.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>config_path</code></strong></dt>
+<dd>Absolute path to the CI config file.</dd>
+<dt><strong><code>runner_kwargs</code></strong></dt>
+<dd>Forwarded verbatim to <code>LocalGitLabRunner.run_pipeline()</code>.</dd>
+</dl></div>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
@@ -76,16 +128,12 @@ el.replaceWith(d);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="bitrab" href="../index.html">bitrab</a></code></li>
+<li><code><a title="bitrab" href="index.html">bitrab</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="bitrab.config.capabilities" href="capabilities.html">bitrab.config.capabilities</a></code></li>
-<li><code><a title="bitrab.config.loader" href="loader.html">bitrab.config.loader</a></code></li>
-<li><code><a title="bitrab.config.rules" href="rules.html">bitrab.config.rules</a></code></li>
-<li><code><a title="bitrab.config.schema" href="schema.html">bitrab.config.schema</a></code></li>
-<li><code><a title="bitrab.config.validate_pipeline" href="validate_pipeline.html">bitrab.config.validate_pipeline</a></code></li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.watch.run_watch" href="#bitrab.watch.run_watch">run_watch</a></code></li>
 </ul>
 </li>
 </ul>

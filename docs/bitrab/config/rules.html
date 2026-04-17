@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.6">
-<title>bitrab.config API documentation</title>
+<title>bitrab.config.rules API documentation</title>
 <meta name="description" content="">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
@@ -33,38 +33,68 @@ el.replaceWith(d);
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>bitrab.config</code></h1>
+<h1 class="title">Module <code>bitrab.config.rules</code></h1>
 </header>
 <section id="section-intro">
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="bitrab.config.capabilities" href="capabilities.html">bitrab.config.capabilities</a></code></dt>
+<dt id="bitrab.config.rules.evaluate_rules"><code class="name flex">
+<span>def <span class="ident">evaluate_rules</span></span>(<span>job: JobConfig, env: dict[str, str], project_dir: Path | None = None) ‑> None</span>
+</code></dt>
 <dd>
-<div class="desc"><p>ARCH-3: Capability validation layer …</p></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.loader" href="loader.html">bitrab.config.loader</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.rules" href="rules.html">bitrab.config.rules</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.schema" href="schema.html">bitrab.config.schema</a></code></dt>
-<dd>
-<div class="desc"><p>Validates input folder and output folder assuming all yaml is pipeline yaml.</p></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.validate_pipeline" href="validate_pipeline.html">bitrab.config.validate_pipeline</a></code></dt>
-<dd>
-<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def evaluate_rules(job: JobConfig, env: dict[str, str], project_dir: Path | None = None) -&gt; None:
+    &#34;&#34;&#34;
+    Evaluate rules for a job and update its configuration accordingly.
+
+    If rules are present, they are evaluated in order. The first matching rule
+    determines the job&#39;s &#39;when&#39;, &#39;allow_failure&#39;, &#39;variables&#39;, and &#39;needs&#39;.
+    If no rule matches, the job&#39;s &#39;when&#39; is set to &#39;never&#39;.
+
+    If no rules are present, the job&#39;s existing &#39;when&#39; is preserved.
+    &#34;&#34;&#34;
+    if not job.rules:
+        return
+
+    matched_rule = None
+    for rule in job.rules:
+        if _rule_matches(rule, env, project_dir):
+            matched_rule = rule
+            break
+
+    if matched_rule:
+        # If rule matches, it provides attributes.
+        # If &#39;when&#39; is not specified in the rule, it defaults to &#39;on_success&#39; (GitLab behavior)
+        job.when = matched_rule.when if matched_rule.when is not None else &#34;on_success&#34;
+
+        if matched_rule.allow_failure is not None:
+            job.allow_failure = matched_rule.allow_failure
+
+        if matched_rule.variables:
+            job.variables.update(matched_rule.variables)
+
+        if matched_rule.needs is not None:
+            job.needs = matched_rule.needs
+    else:
+        # If no rule matches, the job is excluded
+        job.when = &#34;never&#34;</code></pre>
+</details>
+<div class="desc"><p>Evaluate rules for a job and update its configuration accordingly.</p>
+<p>If rules are present, they are evaluated in order. The first matching rule
+determines the job's 'when', 'allow_failure', 'variables', and 'needs'.
+If no rule matches, the job's 'when' is set to 'never'.</p>
+<p>If no rules are present, the job's existing 'when' is preserved.</p></div>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
@@ -76,16 +106,12 @@ el.replaceWith(d);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="bitrab" href="../index.html">bitrab</a></code></li>
+<li><code><a title="bitrab.config" href="index.html">bitrab.config</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="bitrab.config.capabilities" href="capabilities.html">bitrab.config.capabilities</a></code></li>
-<li><code><a title="bitrab.config.loader" href="loader.html">bitrab.config.loader</a></code></li>
-<li><code><a title="bitrab.config.rules" href="rules.html">bitrab.config.rules</a></code></li>
-<li><code><a title="bitrab.config.schema" href="schema.html">bitrab.config.schema</a></code></li>
-<li><code><a title="bitrab.config.validate_pipeline" href="validate_pipeline.html">bitrab.config.validate_pipeline</a></code></li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.config.rules.evaluate_rules" href="#bitrab.config.rules.evaluate_rules">evaluate_rules</a></code></li>
 </ul>
 </li>
 </ul>

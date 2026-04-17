@@ -2,8 +2,10 @@ from pathlib import Path
 
 from bitrab.plan import LocalGitLabRunner
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 
 def test_run_scenarios():
-    config_path = Path("test/scenarios/stress.yml")
+    config_path = REPO_ROOT / "test" / "scenarios" / "stress.yml"
     runner = LocalGitLabRunner()
     runner.run_pipeline(config_path, dry_run=True, maximum_degree_of_parallelism=1)

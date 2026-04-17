@@ -1,6 +1,6 @@
 [project]
 name = "bitrab"
-version = "0.3.0"
+version = "0.4.0"
 description = "Run GitLab CI pipelines locally"
 readme = "README.md"
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]

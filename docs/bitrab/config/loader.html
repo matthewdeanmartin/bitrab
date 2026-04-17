@@ -75,6 +75,11 @@ el.replaceWith(d);
         &#34;&#34;&#34;
         Load the main configuration file and process includes.
 
+        When *config_path* is not supplied (or equals the default
+        ``.gitlab-ci.yml``), the loader first checks whether a
+        ``.bitrab-ci.yml`` file exists in the same directory.  If both files
+        are present a warning is printed and ``.bitrab-ci.yml`` is used.
+
         Args:
             config_path: Path to the configuration file.
 
@@ -84,8 +89,22 @@ el.replaceWith(d);
         Raises:
             GitLabCIError: If the configuration file is not found or fails to load.
         &#34;&#34;&#34;
+        import warnings
+
+        default_gitlab = self.base_path / &#34;.gitlab-ci.yml&#34;
+        default_bitrab = self.base_path / &#34;.bitrab-ci.yml&#34;
+
         if config_path is None:
-            config_path = self.base_path / &#34;.gitlab-ci.yml&#34;
+            # Auto-detect: prefer .bitrab-ci.yml when available
+            if default_bitrab.exists():
+                if default_gitlab.exists():
+                    warnings.warn(
+                        &#34;Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — remove .gitlab-ci.yml or pass -c .gitlab-ci.yml explicitly to suppress this warning.&#34;,
+                        stacklevel=2,
+                    )
+                config_path = default_bitrab
+            else:
+                config_path = default_gitlab
 
         if not config_path.exists():
             raise GitlabRunnerError(f&#34;Configuration file not found: {config_path}&#34;)
@@ -94,6 +113,33 @@ el.replaceWith(d);
         config = self._process_includes(config, config_path.parent)
 
         return config
+
+    def _fetch_remote_yaml(self, url: str) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;Fetch and parse a remote YAML file over HTTP/HTTPS.
+
+        Args:
+            url: The fully qualified URL to fetch.
+
+        Returns:
+            The parsed YAML content as a dict.
+
+        Raises:
+            GitlabRunnerError: On network errors or non-200 responses or YAML
+                parse failures.
+        &#34;&#34;&#34;
+        try:
+            http = urllib3.PoolManager(ca_certs=certifi.where())
+            response = http.request(&#34;GET&#34;, url, timeout=urllib3.Timeout(connect=10, read=30))
+        except urllib3.exceptions.HTTPError as exc:
+            raise GitlabRunnerError(f&#34;Failed to fetch remote include {url!r}: {exc}&#34;) from exc
+
+        if response.status != 200:
+            raise GitlabRunnerError(f&#34;Remote include {url!r} returned HTTP {response.status}&#34;)
+
+        try:
+            return self.yaml.load(io.BytesIO(response.data)) or {}
+        except Exception as exc:
+            raise GitlabRunnerError(f&#34;Failed to parse YAML from remote include {url!r}: {exc}&#34;) from exc
 
     def _load_yaml_file(self, file_path: Path) -&gt; dict[str, Any]:
         &#34;&#34;&#34;
@@ -128,20 +174,52 @@ el.replaceWith(d);
         &#34;&#34;&#34;
         seen_files = seen_files or set()
 
+        config = copy.deepcopy(config)
         includes = config.pop(&#34;include&#34;, [])
         if isinstance(includes, (str, dict)):
             includes = [includes]
 
         merged_config: dict[str, Any] = {}
 
+        # Sentinel prefix for remote URLs stored in the seen_files path set
+        _REMOTE_SENTINEL = &#34;__remote__:&#34;
+
         for include in includes:
+            remote_url: str | None = None
+            include_path: Path | None = None
+
             if isinstance(include, str):
                 include_path = (base_dir / include).resolve()
             elif isinstance(include, dict) and &#34;local&#34; in include:
                 include_path = (base_dir / include[&#34;local&#34;]).resolve()
+            elif isinstance(include, dict) and (&#34;remote&#34; in include or &#34;url&#34; in include):
+                remote_url = include.get(&#34;remote&#34;) or include.get(&#34;url&#34;)
+            elif isinstance(include, dict) and &#34;component&#34; in include:
+                # ERROR-level: component includes pull in external GitLab registry
+                # components that bitrab has no way to resolve locally.  Silently
+                # skipping would leave the pipeline in an undefined state (jobs
+                # from the component simply vanish), so we raise immediately.
+                raise GitlabRunnerError(&#34;include: component is not supported locally. Remove it or replace it with a local include. (bitrab cannot fetch GitLab CI components from a registry.)&#34;)
             else:
-                continue  # Unsupported include type
+                # WARNING-level unsupported types (template, project): skip with no
+                # crash.  These are informational-only features on GitLab that add
+                # jobs we don&#39;t have access to locally.  The capability checker in
+                # check_capabilities() will already have warned the user about these
+                # before any execution reaches this point.
+                continue
 
+            if remote_url is not None:
+                sentinel = Path(_REMOTE_SENTINEL + remote_url)
+                if sentinel in seen_files:
+                    continue
+                seen_files.add(sentinel)
+                included_config = self._fetch_remote_yaml(remote_url)
+                included_config = self._process_includes(included_config, base_dir, seen_files)
+                merged_config = self._merge_configs(merged_config, included_config)
+                continue
+
+            if include_path is None:
+                raise GitlabRunnerError(&#34;include_path is None&#34;)
             if include_path in seen_files:
                 continue  # Skip already processed files to prevent recursion
 
@@ -153,6 +231,47 @@ el.replaceWith(d);
         # The current config overrides any previously merged includes
         merged_config = self._merge_configs(merged_config, config)
         return merged_config
+
+    def collect_include_paths(self, config_path: Path | None = None) -&gt; set[Path]:
+        &#34;&#34;&#34;Return the set of all local files transitively included by *config_path*.
+
+        The config_path itself is NOT included in the returned set.
+        Remote includes are not returned.
+
+        Args:
+            config_path: Path to the root configuration file.
+
+        Returns:
+            Set of resolved absolute Paths for all local includes.
+        &#34;&#34;&#34;
+        if config_path is None:
+            config_path = self.base_path / &#34;.gitlab-ci.yml&#34;
+
+        seen: set[Path] = set()
+        self._collect_local_includes(config_path, seen)
+        return seen
+
+    def _collect_local_includes(self, file_path: Path, seen: set[Path]) -&gt; None:
+        &#34;&#34;&#34;Recursively collect local include paths into *seen*.&#34;&#34;&#34;
+        try:
+            raw = self._load_yaml_file(file_path)
+        except Exception:
+            return
+
+        includes = raw.get(&#34;include&#34;, [])
+        if isinstance(includes, (str, dict)):
+            includes = [includes]
+
+        for include in includes:
+            candidate: Path | None = None
+            if isinstance(include, str):
+                candidate = (file_path.parent / include).resolve()
+            elif isinstance(include, dict) and &#34;local&#34; in include:
+                candidate = (file_path.parent / include[&#34;local&#34;]).resolve()
+
+            if candidate is not None and candidate not in seen and candidate.exists():
+                seen.add(candidate)
+                self._collect_local_includes(candidate, seen)
 
     def _merge_configs(self, base: dict[str, Any], overlay: dict[str, Any]) -&gt; dict[str, Any]:
         &#34;&#34;&#34;
@@ -183,6 +302,44 @@ el.replaceWith(d);
 </dl></div>
 <h3>Methods</h3>
 <dl>
+<dt id="bitrab.config.loader.ConfigurationLoader.collect_include_paths"><code class="name flex">
+<span>def <span class="ident">collect_include_paths</span></span>(<span>self, config_path: Path | None = None) ‑> set[pathlib.Path]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def collect_include_paths(self, config_path: Path | None = None) -&gt; set[Path]:
+    &#34;&#34;&#34;Return the set of all local files transitively included by *config_path*.
+
+    The config_path itself is NOT included in the returned set.
+    Remote includes are not returned.
+
+    Args:
+        config_path: Path to the root configuration file.
+
+    Returns:
+        Set of resolved absolute Paths for all local includes.
+    &#34;&#34;&#34;
+    if config_path is None:
+        config_path = self.base_path / &#34;.gitlab-ci.yml&#34;
+
+    seen: set[Path] = set()
+    self._collect_local_includes(config_path, seen)
+    return seen</code></pre>
+</details>
+<div class="desc"><p>Return the set of all local files transitively included by <em>config_path</em>.</p>
+<p>The config_path itself is NOT included in the returned set.
+Remote includes are not returned.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>config_path</code></strong></dt>
+<dd>Path to the root configuration file.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Set of resolved absolute Paths for all local includes.</p></div>
+</dd>
 <dt id="bitrab.config.loader.ConfigurationLoader.load_config"><code class="name flex">
 <span>def <span class="ident">load_config</span></span>(<span>self, config_path: Path | None = None) ‑> dict[str, typing.Any]</span>
 </code></dt>
@@ -195,6 +352,11 @@ el.replaceWith(d);
     &#34;&#34;&#34;
     Load the main configuration file and process includes.
 
+    When *config_path* is not supplied (or equals the default
+    ``.gitlab-ci.yml``), the loader first checks whether a
+    ``.bitrab-ci.yml`` file exists in the same directory.  If both files
+    are present a warning is printed and ``.bitrab-ci.yml`` is used.
+
     Args:
         config_path: Path to the configuration file.
 
@@ -204,8 +366,22 @@ el.replaceWith(d);
     Raises:
         GitLabCIError: If the configuration file is not found or fails to load.
     &#34;&#34;&#34;
+    import warnings
+
+    default_gitlab = self.base_path / &#34;.gitlab-ci.yml&#34;
+    default_bitrab = self.base_path / &#34;.bitrab-ci.yml&#34;
+
     if config_path is None:
-        config_path = self.base_path / &#34;.gitlab-ci.yml&#34;
+        # Auto-detect: prefer .bitrab-ci.yml when available
+        if default_bitrab.exists():
+            if default_gitlab.exists():
+                warnings.warn(
+                    &#34;Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — remove .gitlab-ci.yml or pass -c .gitlab-ci.yml explicitly to suppress this warning.&#34;,
+                    stacklevel=2,
+                )
+            config_path = default_bitrab
+        else:
+            config_path = default_gitlab
 
     if not config_path.exists():
         raise GitlabRunnerError(f&#34;Configuration file not found: {config_path}&#34;)
@@ -216,6 +392,11 @@ el.replaceWith(d);
     return config</code></pre>
 </details>
 <div class="desc"><p>Load the main configuration file and process includes.</p>
+<p>When <em>config_path</em> is not supplied (or equals the default
+<code>.gitlab-ci.yml</code>), the loader first checks whether a
+<code>.bitrab-ci.yml</code> file exists in the same directory.
+If both files
+are present a warning is printed and <code>.bitrab-ci.yml</code> is used.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>config_path</code></strong></dt>
@@ -249,6 +430,7 @@ el.replaceWith(d);
 <li>
 <h4><code><a title="bitrab.config.loader.ConfigurationLoader" href="#bitrab.config.loader.ConfigurationLoader">ConfigurationLoader</a></code></h4>
 <ul class="">
+<li><code><a title="bitrab.config.loader.ConfigurationLoader.collect_include_paths" href="#bitrab.config.loader.ConfigurationLoader.collect_include_paths">collect_include_paths</a></code></li>
 <li><code><a title="bitrab.config.loader.ConfigurationLoader.load_config" href="#bitrab.config.loader.ConfigurationLoader.load_config">load_config</a></code></li>
 </ul>
 </li>

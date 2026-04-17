@@ -834,3 +834,26 @@ class TestLocalGitLabRunnerFilters:
 
         assert stage_called is True
         assert tui_called is False
+
+    def test_dry_run_defaults_to_thread_backend(self, tmp_path, monkeypatch):
+        ci = self._write_ci(tmp_path)
+        runner = LocalGitLabRunner(base_path=tmp_path)
+        captured_backend = None
+
+        class DummyStageOrchestrator:
+            def __init__(self, *args, parallel_backend=None, **kwargs):
+                nonlocal captured_backend
+                captured_backend = None if parallel_backend is None else parallel_backend.backend
+
+            def execute_pipeline(self, pipeline):
+                return None
+
+        monkeypatch.setattr("bitrab.plan.StageOrchestrator", DummyStageOrchestrator)
+
+        runner.run_pipeline(
+            config_path=ci,
+            maximum_degree_of_parallelism=2,
+            dry_run=True,
+        )
+
+        assert captured_backend == "thread"

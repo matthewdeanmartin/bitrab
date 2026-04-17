@@ -35,6 +35,9 @@ def main(argv: list[str] | None = None) -> int:
     baseline = _latest_saved_benchmark_id(Path(".benchmarks"))
     benchmark_args = ["--benchmark-autosave"]
 
+    if not any("randomly" in arg for arg in args):
+        benchmark_args.extend(["-p", "no:randomly"])
+
     if baseline is None:
         print("benchmark: no saved baseline found; recording one now")
     else:

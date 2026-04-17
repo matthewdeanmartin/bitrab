@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.folder API documentation</title>
+<meta name="description" content="Manage the .bitrab/ workspace folder …">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.folder</code></h1>
+</header>
+<section id="section-intro">
+<p>Manage the .bitrab/ workspace folder.</p>
+<p>The <code>.bitrab/</code> directory accumulates several kinds of content:</p>
+<ul>
+<li><strong>Job directories</strong> – <code>.bitrab/&lt;job_name&gt;/</code> – per-job working directories
+created by the stage runner for each pipeline execution.</li>
+<li><strong>Artifact directories</strong> – <code>.bitrab/artifacts/&lt;job_name&gt;/</code> – files
+collected from job output by the artifacts subsystem.</li>
+<li><strong>Log directories</strong> – <code>.bitrab/logs/&lt;run_id&gt;/</code> – one directory per
+pipeline run containing a JSON event log and a text summary.
+The
+<code>run_id</code> is a <code>YYYYMMDD_HHMMSS_&lt;short-uuid&gt;</code> string.</li>
+</ul>
+<h2 id="public-api">Public Api</h2>
+<ul>
+<li>:func:<code><a title="bitrab.folder.bitrab_dir" href="#bitrab.folder.bitrab_dir">bitrab_dir()</a></code> – canonical path for the workspace</li>
+<li>:func:<code><a title="bitrab.folder.scan_folder" href="#bitrab.folder.scan_folder">scan_folder()</a></code> – return a :class:<code><a title="bitrab.folder.FolderSummary" href="#bitrab.folder.FolderSummary">FolderSummary</a></code> describing current state</li>
+<li>:func:<code><a title="bitrab.folder.list_runs" href="#bitrab.folder.list_runs">list_runs()</a></code> – return :class:<code><a title="bitrab.folder.RunRecord" href="#bitrab.folder.RunRecord">RunRecord</a></code> objects for every persisted run</li>
+<li>:func:<code><a title="bitrab.folder.prune_runs" href="#bitrab.folder.prune_runs">prune_runs()</a></code> – delete the oldest runs, keeping <em>keep</em> most recent</li>
+<li>:func:<code><a title="bitrab.folder.clean_artifacts" href="#bitrab.folder.clean_artifacts">clean_artifacts()</a></code> – delete all artifact directories</li>
+<li>:func:<code><a title="bitrab.folder.clean_job_dirs" href="#bitrab.folder.clean_job_dirs">clean_job_dirs()</a></code> – delete all job working directories (not logs/artifacts)</li>
+<li>:func:<code><a title="bitrab.folder.clean_all" href="#bitrab.folder.clean_all">clean_all()</a></code> – delete everything under <code>.bitrab/</code></li>
+</ul>
+<h2 id="size-tracking">Size Tracking</h2>
+<p>When a run log is written the directory size is recorded inside the log
+metadata file (<code>meta.json</code>), so :func:<code><a title="bitrab.folder.list_runs" href="#bitrab.folder.list_runs">list_runs()</a></code> never has to re-walk the
+tree — it just reads the cheap JSON file.
+Folder-level totals are calculated
+on demand by :func:<code><a title="bitrab.folder.scan_folder" href="#bitrab.folder.scan_folder">scan_folder()</a></code>.</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.folder.bitrab_dir"><code class="name flex">
+<span>def <span class="ident">bitrab_dir</span></span>(<span>project_dir: Path) ‑> pathlib.Path</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def bitrab_dir(project_dir: Path) -&gt; Path:
+    &#34;&#34;&#34;Return the ``.bitrab/`` directory for *project_dir*.&#34;&#34;&#34;
+    return project_dir / &#34;.bitrab&#34;</code></pre>
+</details>
+<div class="desc"><p>Return the <code>.bitrab/</code> directory for <em>project_dir</em>.</p></div>
+</dd>
+<dt id="bitrab.folder.clean_all"><code class="name flex">
+<span>def <span class="ident">clean_all</span></span>(<span>project_dir: Path) ‑> int</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def clean_all(project_dir: Path) -&gt; int:
+    &#34;&#34;&#34;Delete everything under ``.bitrab/``. Returns bytes freed.&#34;&#34;&#34;
+    bd = bitrab_dir(project_dir)
+    if not bd.exists():
+        return 0
+    freed = _dir_size_bytes(bd)
+    shutil.rmtree(bd)
+    return freed</code></pre>
+</details>
+<div class="desc"><p>Delete everything under <code>.bitrab/</code>. Returns bytes freed.</p></div>
+</dd>
+<dt id="bitrab.folder.clean_artifacts"><code class="name flex">
+<span>def <span class="ident">clean_artifacts</span></span>(<span>project_dir: Path) ‑> int</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def clean_artifacts(project_dir: Path) -&gt; int:
+    &#34;&#34;&#34;Delete ``.bitrab/artifacts/``. Returns bytes freed.&#34;&#34;&#34;
+    artifacts_path = bitrab_dir(project_dir) / _ARTIFACTS_DIR
+    if not artifacts_path.exists():
+        return 0
+    freed = _dir_size_bytes(artifacts_path)
+    shutil.rmtree(artifacts_path)
+    return freed</code></pre>
+</details>
+<div class="desc"><p>Delete <code>.bitrab/artifacts/</code>. Returns bytes freed.</p></div>
+</dd>
+<dt id="bitrab.folder.clean_job_dirs"><code class="name flex">
+<span>def <span class="ident">clean_job_dirs</span></span>(<span>project_dir: Path) ‑> int</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def clean_job_dirs(project_dir: Path) -&gt; int:
+    &#34;&#34;&#34;Delete all job working directories (not logs or artifacts). Returns bytes freed.&#34;&#34;&#34;
+    bd = bitrab_dir(project_dir)
+    if not bd.exists():
+        return 0
+    freed = 0
+    try:
+        for entry in os.scandir(bd):
+            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR):
+                freed += _dir_size_bytes(Path(entry.path))
+                shutil.rmtree(entry.path)
+    except OSError:
+        pass
+    return freed</code></pre>
+</details>
+<div class="desc"><p>Delete all job working directories (not logs or artifacts). Returns bytes freed.</p></div>
+</dd>
+<dt id="bitrab.folder.clean_logs"><code class="name flex">
+<span>def <span class="ident">clean_logs</span></span>(<span>project_dir: Path) ‑> int</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def clean_logs(project_dir: Path) -&gt; int:
+    &#34;&#34;&#34;Delete ``.bitrab/logs/``. Returns bytes freed.&#34;&#34;&#34;
+    logs_path = bitrab_dir(project_dir) / _LOGS_DIR
+    if not logs_path.exists():
+        return 0
+    freed = _dir_size_bytes(logs_path)
+    shutil.rmtree(logs_path)
+    return freed</code></pre>
+</details>
+<div class="desc"><p>Delete <code>.bitrab/logs/</code>. Returns bytes freed.</p></div>
+</dd>
+<dt id="bitrab.folder.list_runs"><code class="name flex">
+<span>def <span class="ident">list_runs</span></span>(<span>project_dir: Path) ‑> list[<a title="bitrab.folder.RunRecord" href="#bitrab.folder.RunRecord">RunRecord</a>]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def list_runs(project_dir: Path) -&gt; list[RunRecord]:
+    &#34;&#34;&#34;Return :class:`RunRecord` objects for every persisted run, newest first.
+
+    Size data comes from the pre-recorded ``meta.json`` — no directory walk needed.
+    &#34;&#34;&#34;
+    logs_path = bitrab_dir(project_dir) / _LOGS_DIR
+    if not logs_path.exists():
+        return []
+
+    records: list[RunRecord] = []
+    try:
+        for entry in os.scandir(logs_path):
+            if not (entry.is_dir() and _is_run_id(entry.name)):
+                continue
+            run_dir = Path(entry.path)
+            meta_file = run_dir / &#34;meta.json&#34;
+            try:
+                meta: dict[str, Any] = json_loads(meta_file.read_text(encoding=&#34;utf-8&#34;))
+            except (OSError, ValueError):
+                meta = {}
+
+            records.append(
+                RunRecord(
+                    run_id=entry.name,
+                    run_dir=run_dir,
+                    started_at=float(meta.get(&#34;started_at&#34;, 0.0)),
+                    success=bool(meta.get(&#34;success&#34;, False)),
+                    total_duration_s=float(meta.get(&#34;total_duration_s&#34;, 0.0)),
+                    job_count=int(meta.get(&#34;job_count&#34;, 0)),
+                    size_bytes=int(meta.get(&#34;size_bytes&#34;, 0)),
+                )
+            )
+    except OSError:
+        pass
+
+    records.sort(key=lambda r: r.run_id, reverse=True)
+    return records</code></pre>
+</details>
+<div class="desc"><p>Return :class:<code><a title="bitrab.folder.RunRecord" href="#bitrab.folder.RunRecord">RunRecord</a></code> objects for every persisted run, newest first.</p>
+<p>Size data comes from the pre-recorded <code>meta.json</code> — no directory walk needed.</p></div>
+</dd>
+<dt id="bitrab.folder.maybe_warn_size"><code class="name flex">
+<span>def <span class="ident">maybe_warn_size</span></span>(<span>project_dir: Path, warn_threshold_bytes: int = 524288000) ‑> str | None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def maybe_warn_size(
+    project_dir: Path,
+    warn_threshold_bytes: int = _SIZE_WARN_BYTES_DEFAULT,
+) -&gt; str | None:
+    &#34;&#34;&#34;Return a warning string if ``.bitrab/`` exceeds *warn_threshold_bytes*, else None.&#34;&#34;&#34;
+    summary = scan_folder(project_dir, warn_threshold_bytes=warn_threshold_bytes)
+    if summary.is_large:
+        return f&#34;⚠️  .bitrab/ is {summary.total_human} (threshold: {_human_size(warn_threshold_bytes)}). Run &#39;bitrab folder clean&#39; to free space.&#34;
+    return None</code></pre>
+</details>
+<div class="desc"><p>Return a warning string if <code>.bitrab/</code> exceeds <em>warn_threshold_bytes</em>, else None.</p></div>
+</dd>
+<dt id="bitrab.folder.prune_runs"><code class="name flex">
+<span>def <span class="ident">prune_runs</span></span>(<span>project_dir: Path, keep: int) ‑> list[str]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def prune_runs(project_dir: Path, keep: int) -&gt; list[str]:
+    &#34;&#34;&#34;Delete the oldest run directories, keeping the *keep* most recent.
+
+    Returns list of deleted run IDs.
+    &#34;&#34;&#34;
+    runs = list_runs(project_dir)  # newest first
+    to_delete = runs[keep:]
+    deleted: list[str] = []
+    for rec in to_delete:
+        try:
+            shutil.rmtree(rec.run_dir)
+            deleted.append(rec.run_id)
+        except OSError:
+            pass
+    return deleted</code></pre>
+</details>
+<div class="desc"><p>Delete the oldest run directories, keeping the <em>keep</em> most recent.</p>
+<p>Returns list of deleted run IDs.</p></div>
+</dd>
+<dt id="bitrab.folder.scan_folder"><code class="name flex">
+<span>def <span class="ident">scan_folder</span></span>(<span>project_dir: Path, warn_threshold_bytes: int = 524288000) ‑> <a title="bitrab.folder.FolderSummary" href="#bitrab.folder.FolderSummary">FolderSummary</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def scan_folder(
+    project_dir: Path,
+    warn_threshold_bytes: int = _SIZE_WARN_BYTES_DEFAULT,
+) -&gt; FolderSummary:
+    &#34;&#34;&#34;Walk ``.bitrab/`` and return a :class:`FolderSummary`.
+
+    This is intentionally fast: it uses ``os.walk`` (single syscall-chain)
+    rather than ``Path.rglob`` which allocates a lot of objects.
+    &#34;&#34;&#34;
+    bd = bitrab_dir(project_dir)
+    if not bd.exists():
+        return FolderSummary(
+            bitrab_path=bd,
+            exists=False,
+            total_size_bytes=0,
+            logs_size_bytes=0,
+            artifacts_size_bytes=0,
+            job_dirs_size_bytes=0,
+            run_count=0,
+            warn_threshold_bytes=warn_threshold_bytes,
+        )
+
+    logs_path = bd / _LOGS_DIR
+    artifacts_path = bd / _ARTIFACTS_DIR
+
+    logs_bytes = _dir_size_bytes(logs_path) if logs_path.exists() else 0
+    artifact_bytes = _dir_size_bytes(artifacts_path) if artifacts_path.exists() else 0
+
+    # Job dirs = everything that isn&#39;t logs/ or artifacts/
+    job_bytes = 0
+    subdirs: list[str] = []
+    try:
+        for entry in os.scandir(bd):
+            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR):
+                job_bytes += _dir_size_bytes(Path(entry.path))
+                subdirs.append(entry.name)
+    except OSError:
+        pass
+
+    total = logs_bytes + artifact_bytes + job_bytes
+
+    # Count run dirs
+    run_count = 0
+    if logs_path.exists():
+        try:
+            run_count = sum(1 for e in os.scandir(logs_path) if e.is_dir() and _is_run_id(e.name))
+        except OSError:
+            pass
+
+    return FolderSummary(
+        bitrab_path=bd,
+        exists=True,
+        total_size_bytes=total,
+        logs_size_bytes=logs_bytes,
+        artifacts_size_bytes=artifact_bytes,
+        job_dirs_size_bytes=job_bytes,
+        run_count=run_count,
+        warn_threshold_bytes=warn_threshold_bytes,
+        subdirs=sorted(subdirs),
+    )</code></pre>
+</details>
+<div class="desc"><p>Walk <code>.bitrab/</code> and return a :class:<code><a title="bitrab.folder.FolderSummary" href="#bitrab.folder.FolderSummary">FolderSummary</a></code>.</p>
+<p>This is intentionally fast: it uses <code>os.walk</code> (single syscall-chain)
+rather than <code>Path.rglob</code> which allocates a lot of objects.</p></div>
+</dd>
+<dt id="bitrab.folder.write_run_log"><code class="name flex">
+<span>def <span class="ident">write_run_log</span></span>(<span>project_dir: Path,<br>events_json: list[dict[str, Any]],<br>summary_text: str,<br>meta: dict[str, Any]) ‑> pathlib.Path</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write_run_log(
+    project_dir: Path,
+    events_json: list[dict[str, Any]],
+    summary_text: str,
+    meta: dict[str, Any],
+) -&gt; Path:
+    &#34;&#34;&#34;Persist a run log to ``.bitrab/logs/&lt;run_id&gt;/``.
+
+    Creates three files:
+
+    * ``meta.json`` – lightweight metadata (success, duration, job count,
+      started_at, size_bytes).  Size is computed *after* writing the other
+      two files and then patched in.
+    * ``events.jsonl`` – one JSON object per line, one event per line.
+    * ``summary.txt`` – the human-readable text summary.
+
+    Returns the run directory path.
+    &#34;&#34;&#34;
+    run_id = _make_run_id()
+    run_dir = bitrab_dir(project_dir) / _LOGS_DIR / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write events log (JSONL)
+    events_path = run_dir / &#34;events.jsonl&#34;
+    with events_path.open(&#34;w&#34;, encoding=&#34;utf-8&#34;) as fh:
+        for event in events_json:
+            fh.write(json_dumps(event, default=str) + &#34;\n&#34;)
+
+    # Write text summary
+    summary_path = run_dir / &#34;summary.txt&#34;
+    summary_path.write_text(summary_text, encoding=&#34;utf-8&#34;)
+
+    # Compute size and write meta (size_bytes includes events + summary)
+    size_bytes = _dir_size_bytes(run_dir)
+    meta[&#34;size_bytes&#34;] = size_bytes
+    meta[&#34;run_id&#34;] = run_id
+    meta_path = run_dir / &#34;meta.json&#34;
+    meta_path.write_text(json_dumps(meta, indent=2, default=str), encoding=&#34;utf-8&#34;)
+
+    return run_dir</code></pre>
+</details>
+<div class="desc"><p>Persist a run log to <code>.bitrab/logs/&lt;run_id&gt;/</code>.</p>
+<p>Creates three files:</p>
+<ul>
+<li><code>meta.json</code> – lightweight metadata (success, duration, job count,
+started_at, size_bytes).
+Size is computed <em>after</em> writing the other
+two files and then patched in.</li>
+<li><code>events.jsonl</code> – one JSON object per line, one event per line.</li>
+<li><code>summary.txt</code> – the human-readable text summary.</li>
+</ul>
+<p>Returns the run directory path.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="bitrab.folder.FolderSummary"><code class="flex name class">
+<span>class <span class="ident">FolderSummary</span></span>
+<span>(</span><span>bitrab_path: Path,<br>exists: bool,<br>total_size_bytes: int,<br>logs_size_bytes: int,<br>artifacts_size_bytes: int,<br>job_dirs_size_bytes: int,<br>run_count: int,<br>warn_threshold_bytes: int = 524288000,<br>subdirs: list[str] = &lt;factory&gt;)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class FolderSummary:
+    &#34;&#34;&#34;Snapshot of the ``.bitrab/`` directory state.&#34;&#34;&#34;
+
+    bitrab_path: Path
+    exists: bool
+    total_size_bytes: int
+    logs_size_bytes: int
+    artifacts_size_bytes: int
+    job_dirs_size_bytes: int
+    run_count: int
+    warn_threshold_bytes: int = _SIZE_WARN_BYTES_DEFAULT
+    subdirs: list[str] = field(default_factory=list)
+
+    @property
+    def total_human(self) -&gt; str:
+        return _human_size(self.total_size_bytes)
+
+    @property
+    def logs_human(self) -&gt; str:
+        return _human_size(self.logs_size_bytes)
+
+    @property
+    def artifacts_human(self) -&gt; str:
+        return _human_size(self.artifacts_size_bytes)
+
+    @property
+    def job_dirs_human(self) -&gt; str:
+        return _human_size(self.job_dirs_size_bytes)
+
+    @property
+    def is_large(self) -&gt; bool:
+        &#34;&#34;&#34;True when the folder exceeds the warning threshold.&#34;&#34;&#34;
+        return self.total_size_bytes &gt;= self.warn_threshold_bytes
+
+    def format_text(self) -&gt; str:
+        &#34;&#34;&#34;Render a human-readable status report.&#34;&#34;&#34;
+        lines: list[str] = []
+        if not self.exists:
+            lines.append(&#34;  .bitrab/ does not exist yet (no runs recorded).&#34;)
+            return &#34;\n&#34;.join(lines)
+
+        lines.append(f&#34;  Location : {self.bitrab_path}&#34;)
+        lines.append(f&#34;  Total    : {self.total_human}&#34;)
+        lines.append(f&#34;  Logs     : {self.logs_human}  ({self.run_count} run(s))&#34;)
+        lines.append(f&#34;  Artifacts: {self.artifacts_human}&#34;)
+        lines.append(f&#34;  Job dirs : {self.job_dirs_human}&#34;)
+        if self.subdirs:
+            lines.append(f&#34;  Contents : {&#39;, &#39;.join(self.subdirs)}&#34;)
+        if self.is_large:
+            lines.append(&#34;&#34;)
+            lines.append(f&#34;  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean&#34;)
+        return &#34;\n&#34;.join(lines)</code></pre>
+</details>
+<div class="desc"><p>Snapshot of the <code>.bitrab/</code> directory state.</p></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.folder.FolderSummary.artifacts_human"><code class="name">prop <span class="ident">artifacts_human</span> : str</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def artifacts_human(self) -&gt; str:
+    return _human_size(self.artifacts_size_bytes)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.artifacts_size_bytes"><code class="name">var <span class="ident">artifacts_size_bytes</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.bitrab_path"><code class="name">var <span class="ident">bitrab_path</span> : pathlib.Path</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.exists"><code class="name">var <span class="ident">exists</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.is_large"><code class="name">prop <span class="ident">is_large</span> : bool</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_large(self) -&gt; bool:
+    &#34;&#34;&#34;True when the folder exceeds the warning threshold.&#34;&#34;&#34;
+    return self.total_size_bytes &gt;= self.warn_threshold_bytes</code></pre>
+</details>
+<div class="desc"><p>True when the folder exceeds the warning threshold.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.job_dirs_human"><code class="name">prop <span class="ident">job_dirs_human</span> : str</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def job_dirs_human(self) -&gt; str:
+    return _human_size(self.job_dirs_size_bytes)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.job_dirs_size_bytes"><code class="name">var <span class="ident">job_dirs_size_bytes</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.logs_human"><code class="name">prop <span class="ident">logs_human</span> : str</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def logs_human(self) -&gt; str:
+    return _human_size(self.logs_size_bytes)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.logs_size_bytes"><code class="name">var <span class="ident">logs_size_bytes</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.run_count"><code class="name">var <span class="ident">run_count</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.subdirs"><code class="name">var <span class="ident">subdirs</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.total_human"><code class="name">prop <span class="ident">total_human</span> : str</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def total_human(self) -&gt; str:
+    return _human_size(self.total_size_bytes)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.total_size_bytes"><code class="name">var <span class="ident">total_size_bytes</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.FolderSummary.warn_threshold_bytes"><code class="name">var <span class="ident">warn_threshold_bytes</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.folder.FolderSummary.format_text"><code class="name flex">
+<span>def <span class="ident">format_text</span></span>(<span>self) ‑> str</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def format_text(self) -&gt; str:
+    &#34;&#34;&#34;Render a human-readable status report.&#34;&#34;&#34;
+    lines: list[str] = []
+    if not self.exists:
+        lines.append(&#34;  .bitrab/ does not exist yet (no runs recorded).&#34;)
+        return &#34;\n&#34;.join(lines)
+
+    lines.append(f&#34;  Location : {self.bitrab_path}&#34;)
+    lines.append(f&#34;  Total    : {self.total_human}&#34;)
+    lines.append(f&#34;  Logs     : {self.logs_human}  ({self.run_count} run(s))&#34;)
+    lines.append(f&#34;  Artifacts: {self.artifacts_human}&#34;)
+    lines.append(f&#34;  Job dirs : {self.job_dirs_human}&#34;)
+    if self.subdirs:
+        lines.append(f&#34;  Contents : {&#39;, &#39;.join(self.subdirs)}&#34;)
+    if self.is_large:
+        lines.append(&#34;&#34;)
+        lines.append(f&#34;  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean&#34;)
+    return &#34;\n&#34;.join(lines)</code></pre>
+</details>
+<div class="desc"><p>Render a human-readable status report.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.folder.RunRecord"><code class="flex name class">
+<span>class <span class="ident">RunRecord</span></span>
+<span>(</span><span>run_id: str,<br>run_dir: Path,<br>started_at: float,<br>success: bool,<br>total_duration_s: float,<br>job_count: int,<br>size_bytes: int)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class RunRecord:
+    &#34;&#34;&#34;Metadata about a single persisted pipeline run.&#34;&#34;&#34;
+
+    run_id: str
+    run_dir: Path
+    started_at: float  # wall-clock time.time() from meta.json
+    success: bool
+    total_duration_s: float
+    job_count: int
+    size_bytes: int  # pre-recorded in meta.json; 0 if missing
+
+    @property
+    def human_size(self) -&gt; str:
+        &#34;&#34;&#34;Human-readable size string.&#34;&#34;&#34;
+        return _human_size(self.size_bytes)
+
+    @property
+    def started_at_iso(self) -&gt; str:
+        &#34;&#34;&#34;ISO-8601 representation of *started_at*.&#34;&#34;&#34;
+        import datetime
+
+        return datetime.datetime.fromtimestamp(self.started_at).strftime(&#34;%Y-%m-%d %H:%M:%S&#34;)</code></pre>
+</details>
+<div class="desc"><p>Metadata about a single persisted pipeline run.</p></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.folder.RunRecord.human_size"><code class="name">prop <span class="ident">human_size</span> : str</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def human_size(self) -&gt; str:
+    &#34;&#34;&#34;Human-readable size string.&#34;&#34;&#34;
+    return _human_size(self.size_bytes)</code></pre>
+</details>
+<div class="desc"><p>Human-readable size string.</p></div>
+</dd>
+<dt id="bitrab.folder.RunRecord.job_count"><code class="name">var <span class="ident">job_count</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.RunRecord.run_dir"><code class="name">var <span class="ident">run_dir</span> : pathlib.Path</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.RunRecord.run_id"><code class="name">var <span class="ident">run_id</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.RunRecord.size_bytes"><code class="name">var <span class="ident">size_bytes</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.RunRecord.started_at"><code class="name">var <span class="ident">started_at</span> : float</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.RunRecord.started_at_iso"><code class="name">prop <span class="ident">started_at_iso</span> : str</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def started_at_iso(self) -&gt; str:
+    &#34;&#34;&#34;ISO-8601 representation of *started_at*.&#34;&#34;&#34;
+    import datetime
+
+    return datetime.datetime.fromtimestamp(self.started_at).strftime(&#34;%Y-%m-%d %H:%M:%S&#34;)</code></pre>
+</details>
+<div class="desc"><p>ISO-8601 representation of <em>started_at</em>.</p></div>
+</dd>
+<dt id="bitrab.folder.RunRecord.success"><code class="name">var <span class="ident">success</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.folder.RunRecord.total_duration_s"><code class="name">var <span class="ident">total_duration_s</span> : float</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul>
+<li><a href="#public-api">Public API</a></li>
+<li><a href="#size-tracking">Size tracking</a></li>
+</ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab" href="index.html">bitrab</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="bitrab.folder.bitrab_dir" href="#bitrab.folder.bitrab_dir">bitrab_dir</a></code></li>
+<li><code><a title="bitrab.folder.clean_all" href="#bitrab.folder.clean_all">clean_all</a></code></li>
+<li><code><a title="bitrab.folder.clean_artifacts" href="#bitrab.folder.clean_artifacts">clean_artifacts</a></code></li>
+<li><code><a title="bitrab.folder.clean_job_dirs" href="#bitrab.folder.clean_job_dirs">clean_job_dirs</a></code></li>
+<li><code><a title="bitrab.folder.clean_logs" href="#bitrab.folder.clean_logs">clean_logs</a></code></li>
+<li><code><a title="bitrab.folder.list_runs" href="#bitrab.folder.list_runs">list_runs</a></code></li>
+<li><code><a title="bitrab.folder.maybe_warn_size" href="#bitrab.folder.maybe_warn_size">maybe_warn_size</a></code></li>
+<li><code><a title="bitrab.folder.prune_runs" href="#bitrab.folder.prune_runs">prune_runs</a></code></li>
+<li><code><a title="bitrab.folder.scan_folder" href="#bitrab.folder.scan_folder">scan_folder</a></code></li>
+<li><code><a title="bitrab.folder.write_run_log" href="#bitrab.folder.write_run_log">write_run_log</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="bitrab.folder.FolderSummary" href="#bitrab.folder.FolderSummary">FolderSummary</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.folder.FolderSummary.artifacts_human" href="#bitrab.folder.FolderSummary.artifacts_human">artifacts_human</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.artifacts_size_bytes" href="#bitrab.folder.FolderSummary.artifacts_size_bytes">artifacts_size_bytes</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.bitrab_path" href="#bitrab.folder.FolderSummary.bitrab_path">bitrab_path</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.exists" href="#bitrab.folder.FolderSummary.exists">exists</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.format_text" href="#bitrab.folder.FolderSummary.format_text">format_text</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.is_large" href="#bitrab.folder.FolderSummary.is_large">is_large</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.job_dirs_human" href="#bitrab.folder.FolderSummary.job_dirs_human">job_dirs_human</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.job_dirs_size_bytes" href="#bitrab.folder.FolderSummary.job_dirs_size_bytes">job_dirs_size_bytes</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.logs_human" href="#bitrab.folder.FolderSummary.logs_human">logs_human</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.logs_size_bytes" href="#bitrab.folder.FolderSummary.logs_size_bytes">logs_size_bytes</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.run_count" href="#bitrab.folder.FolderSummary.run_count">run_count</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.subdirs" href="#bitrab.folder.FolderSummary.subdirs">subdirs</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.total_human" href="#bitrab.folder.FolderSummary.total_human">total_human</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.total_size_bytes" href="#bitrab.folder.FolderSummary.total_size_bytes">total_size_bytes</a></code></li>
+<li><code><a title="bitrab.folder.FolderSummary.warn_threshold_bytes" href="#bitrab.folder.FolderSummary.warn_threshold_bytes">warn_threshold_bytes</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.folder.RunRecord" href="#bitrab.folder.RunRecord">RunRecord</a></code></h4>
+<ul class="two-column">
+<li><code><a title="bitrab.folder.RunRecord.human_size" href="#bitrab.folder.RunRecord.human_size">human_size</a></code></li>
+<li><code><a title="bitrab.folder.RunRecord.job_count" href="#bitrab.folder.RunRecord.job_count">job_count</a></code></li>
+<li><code><a title="bitrab.folder.RunRecord.run_dir" href="#bitrab.folder.RunRecord.run_dir">run_dir</a></code></li>
+<li><code><a title="bitrab.folder.RunRecord.run_id" href="#bitrab.folder.RunRecord.run_id">run_id</a></code></li>
+<li><code><a title="bitrab.folder.RunRecord.size_bytes" href="#bitrab.folder.RunRecord.size_bytes">size_bytes</a></code></li>
+<li><code><a title="bitrab.folder.RunRecord.started_at" href="#bitrab.folder.RunRecord.started_at">started_at</a></code></li>
+<li><code><a title="bitrab.folder.RunRecord.started_at_iso" href="#bitrab.folder.RunRecord.started_at_iso">started_at_iso</a></code></li>
+<li><code><a title="bitrab.folder.RunRecord.success" href="#bitrab.folder.RunRecord.success">success</a></code></li>
+<li><code><a title="bitrab.folder.RunRecord.total_duration_s" href="#bitrab.folder.RunRecord.total_duration_s">total_duration_s</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

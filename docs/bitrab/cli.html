@@ -56,12 +56,44 @@ A tool for running GitLab CI pipelines locally.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def cmd_clean(args: argparse.Namespace) -&gt; None:
-    &#34;&#34;&#34;Clean up artifacts and temporary files.&#34;&#34;&#34;
-    print(&#34;🧹 Clean Pipeline Artifacts&#34;)
-    print(&#34;⚠️  Cleanup not yet implemented&#34;)
-    print(&#34;   This would remove build artifacts, cache files, etc.&#34;)</code></pre>
+    &#34;&#34;&#34;Clean up artifacts and temporary files in .bitrab/.&#34;&#34;&#34;
+    from bitrab.folder import clean_artifacts, clean_job_dirs, scan_folder
+
+    project_dir = Path(args.config).parent if getattr(args, &#34;config&#34;, None) else Path.cwd()
+    dry_run = getattr(args, &#34;dry_run&#34;, False)
+    what = getattr(args, &#34;what&#34;, &#34;all&#34;)
+
+    summary = scan_folder(project_dir)
+    if not summary.exists:
+        safe_print(&#34;  .bitrab/ does not exist — nothing to clean.&#34;)
+        return
+
+    if dry_run:
+        safe_print(&#34;🔎 Dry-run: would remove:&#34;)
+        if what in (&#34;all&#34;, &#34;artifacts&#34;):
+            safe_print(f&#34;   artifacts  {summary.artifacts_human}&#34;)
+        if what in (&#34;all&#34;, &#34;jobs&#34;):
+            safe_print(f&#34;   job dirs   {summary.job_dirs_human}&#34;)
+        if what == &#34;all&#34;:
+            safe_print(f&#34;   logs       {summary.logs_human}  ({summary.run_count} run(s))&#34;)
+        safe_print(f&#34;   total      {summary.total_human}&#34;)
+        return
+
+    freed = 0
+    if what in (&#34;all&#34;, &#34;artifacts&#34;):
+        freed += clean_artifacts(project_dir)
+    if what in (&#34;all&#34;, &#34;jobs&#34;):
+        freed += clean_job_dirs(project_dir)
+    if what == &#34;all&#34;:
+        from bitrab.folder import clean_logs
+
+        freed += clean_logs(project_dir)
+
+    from bitrab.folder import _human_size  # pylint: disable=import-outside-toplevel
+
+    safe_print(f&#34;🧹 Cleaned {_human_size(freed)} from .bitrab/&#34;)</code></pre>
 </details>
-<div class="desc"><p>Clean up artifacts and temporary files.</p></div>
+<div class="desc"><p>Clean up artifacts and temporary files in .bitrab/.</p></div>
 </dd>
 <dt id="bitrab.cli.cmd_debug"><code class="name flex">
 <span>def <span class="ident">cmd_debug</span></span>(<span>args: argparse.Namespace) ‑> None</span>
@@ -73,20 +105,49 @@ A tool for running GitLab CI pipelines locally.</p>
 </summary>
 <pre><code class="python">def cmd_debug(args: argparse.Namespace) -&gt; None:
     &#34;&#34;&#34;Debug pipeline configuration and execution environment.&#34;&#34;&#34;
-    config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
+    config_path = resolve_config_path(args.config)
 
-    print(&#34;🔧 Debug Information&#34;)
-    print(f&#34;   Config file: {config_path.absolute()}&#34;)
-    print(f&#34;   Config exists: {config_path.exists()}&#34;)
-    print(f&#34;   Working directory: {Path.cwd()}&#34;)
+    safe_print(&#34;🔧 Debug Information&#34;)
+    safe_print(f&#34;   Config file: {config_path.absolute()}&#34;)
+    safe_print(f&#34;   Config exists: {config_path.exists()}&#34;)
+    safe_print(f&#34;   Working directory: {Path.cwd()}&#34;)
 
     if config_path.exists():
-        raw_config, pipeline_config = load_and_process_config(config_path)
-        print(f&#34;   Jobs found: {len(pipeline_config.jobs)}&#34;)
-        print(f&#34;   Stages: {pipeline_config.stages}&#34;)
-        print(f&#34;   Global variables: {len(pipeline_config.variables)}&#34;)</code></pre>
+        _, pipeline_config = load_and_process_config(config_path)
+        safe_print(f&#34;   Jobs found: {len(pipeline_config.jobs)}&#34;)
+        safe_print(f&#34;   Stages: {pipeline_config.stages}&#34;)
+        safe_print(f&#34;   Global variables: {len(pipeline_config.variables)}&#34;)</code></pre>
 </details>
 <div class="desc"><p>Debug pipeline configuration and execution environment.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_folder"><code class="name flex">
+<span>def <span class="ident">cmd_folder</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_folder(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;Show .bitrab/ folder status or clean it.&#34;&#34;&#34;
+    from bitrab.folder import scan_folder
+
+    project_dir = Path(args.config).parent if getattr(args, &#34;config&#34;, None) else Path.cwd()
+    subcommand = getattr(args, &#34;folder_cmd&#34;, &#34;status&#34;)
+
+    if subcommand == &#34;status&#34;:
+        summary = scan_folder(project_dir)
+        safe_print(&#34;📁 .bitrab/ folder status:&#34;)
+        safe_print(summary.format_text())
+
+    elif subcommand == &#34;clean&#34;:
+        dry_run = getattr(args, &#34;dry_run&#34;, False)
+        what = getattr(args, &#34;what&#34;, &#34;all&#34;)
+        # Delegate to cmd_clean with a compatible Namespace
+        ns = argparse.Namespace(config=args.config, dry_run=dry_run, what=what)
+        cmd_clean(ns)</code></pre>
+</details>
+<div class="desc"><p>Show .bitrab/ folder status or clean it.</p></div>
 </dd>
 <dt id="bitrab.cli.cmd_graph"><code class="name flex">
 <span>def <span class="ident">cmd_graph</span></span>(<span>args: argparse.Namespace) ‑> None</span>
@@ -98,27 +159,36 @@ A tool for running GitLab CI pipelines locally.</p>
 </summary>
 <pre><code class="python">def cmd_graph(args: argparse.Namespace) -&gt; None:
     &#34;&#34;&#34;Generate a visual dependency graph of the pipeline.&#34;&#34;&#34;
-    print(&#34;📊 Pipeline Dependency Graph&#34;)
-    print(&#34;⚠️  Graph generation not yet implemented&#34;)
-    print(&#34;   This would create a visual representation of job dependencies&#34;)
-    sys.exit(1)</code></pre>
+    from bitrab.graph import render_pipeline_graph
+
+    config_path = resolve_config_path(args.config)
+
+    if not config_path.exists():
+        safe_print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
+        sys.exit(1)
+
+    _, pipeline_config = load_and_process_config(config_path)
+
+    fmt = getattr(args, &#34;format&#34;, &#34;text&#34;) or &#34;text&#34;
+    output = render_pipeline_graph(pipeline_config, fmt=fmt)
+    safe_print(output)</code></pre>
 </details>
 <div class="desc"><p>Generate a visual dependency graph of the pipeline.</p></div>
 </dd>
 <dt id="bitrab.cli.cmd_lint"><code class="name flex">
-<span>def <span class="ident">cmd_lint</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+<span>def <span class="ident">cmd_lint</span></span>(<span>_args: argparse.Namespace) ‑> None</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cmd_lint(args: argparse.Namespace) -&gt; None:
+<pre><code class="python">def cmd_lint(_args: argparse.Namespace) -&gt; None:
     &#34;&#34;&#34;Lint the pipeline configuration using GitLab&#39;s API.&#34;&#34;&#34;
-    print(&#34;🔍 GitLab CI Lint&#34;)
-    print(&#34;⚠️  Server-side linting not yet implemented&#34;)
-    print(&#34;   This would validate your .gitlab-ci.yml against GitLab&#39;s official linter&#34;)
-    print(&#34;   For now, use &#39;bitrab validate&#39; for basic local validation&#34;)
+    safe_print(&#34;🔍 GitLab CI Lint&#34;)
+    safe_print(&#34;⚠️  Server-side linting not yet implemented&#34;)
+    safe_print(&#34;   This would validate your .gitlab-ci.yml against GitLab&#39;s official linter&#34;)
+    safe_print(&#34;   For now, use &#39;bitrab validate&#39; for basic local validation&#34;)
     sys.exit(1)</code></pre>
 </details>
 <div class="desc"><p>Lint the pipeline configuration using GitLab's API.</p></div>
@@ -133,38 +203,168 @@ A tool for running GitLab CI pipelines locally.</p>
 </summary>
 <pre><code class="python">def cmd_list(args: argparse.Namespace) -&gt; None:
     &#34;&#34;&#34;List all jobs in the pipeline.&#34;&#34;&#34;
-    config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
+    config_path = resolve_config_path(args.config)
 
     if not config_path.exists():
-        print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
+        safe_print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
         sys.exit(1)
 
-    _, pipeline_config = load_and_process_config(config_path)
+    raw_config, pipeline_config = load_and_process_config(config_path)
 
-    print(&#34;📋 Pipeline Jobs:&#34;)
-    print(f&#34;   Stages: {&#39;, &#39;.join(pipeline_config.stages)}&#34;)
-    print()
+    safe_print(&#34;📋 Pipeline Jobs:&#34;)
+    safe_print(f&#34;   Stages: {&#39;, &#39;.join(pipeline_config.stages)}&#34;)
+    safe_print()
 
-    # Group jobs by stage
+    # Build a map from original job name -&gt; parallel info from raw config.
+    # Expanded jobs (e.g. &#34;build 1/3&#34; or &#34;test: [X=1]&#34;) share the same
+    # parallel_total; we use that plus the raw config to describe the group.
+    parallel_info: dict[str, str] = {}
+    for job_name, job_data in raw_config.items():
+        if not isinstance(job_data, dict):
+            continue
+        parallel_raw = job_data.get(&#34;parallel&#34;)
+        if parallel_raw is None:
+            continue
+        if isinstance(parallel_raw, int):
+            parallel_info[job_name] = f&#34;parallel: {parallel_raw} instances&#34;
+        elif isinstance(parallel_raw, dict) and &#34;matrix&#34; in parallel_raw:
+            # Count total combinations
+            matrix_entries = parallel_raw[&#34;matrix&#34;]
+            total = 0
+            if isinstance(matrix_entries, list):
+                for entry in matrix_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    counts = []
+                    for val in entry.values():
+                        counts.append(len(val) if isinstance(val, list) else 1)
+                    if counts:
+                        combo_count = 1
+                        for c in counts:
+                            combo_count *= c
+                        total += combo_count
+            parallel_info[job_name] = f&#34;matrix: {total} combinations&#34;
+
+    # Group expanded jobs back to their logical originals for display
+    # so we show one line per logical job with an instance count annotation.
+    seen_originals: set[str] = set()
     jobs_by_stage: dict[str, list[Any]] = {}
     for job in pipeline_config.jobs:
-        jobs_by_stage.setdefault(job.stage, []).append(job)
+        # Determine the logical (pre-expansion) name
+        if job.parallel_total &gt; 0:
+            if &#34;: [&#34; in job.name:
+                orig = job.name.split(&#34;: [&#34;)[0]
+            elif &#34;/&#34; in job.name:
+                parts = job.name.rsplit(&#34; &#34;, 1)
+                orig = parts[0] if len(parts) == 2 and &#34;/&#34; in parts[1] else job.name
+            else:
+                orig = job.name
+
+            if orig in seen_originals:
+                continue  # already added a representative for this group
+            seen_originals.add(orig)
+
+            # Create a display-only proxy with the original name
+            import copy as _copy
+
+            display_job = _copy.copy(job)
+            display_job.name = orig
+        else:
+            display_job = job
+
+        jobs_by_stage.setdefault(display_job.stage, []).append(display_job)
 
     for stage in pipeline_config.stages:
         stage_jobs = jobs_by_stage.get(stage, [])
         if stage_jobs:
-            print(f&#34;🎯 Stage: {stage}&#34;)
+            safe_print(f&#34;🎯 Stage: {stage}&#34;)
             for job in stage_jobs:
-                retry_info = &#34;&#34;
+                annotations = []
                 if job.retry_max &gt; 0:
-                    retry_info = f&#34; (retry: {job.retry_max})&#34;
-                print(f&#34;   • {job.name}{retry_info}&#34;)
-            print()
+                    annotations.append(f&#34;retry: {job.retry_max}&#34;)
+                if job.name in parallel_info:
+                    annotations.append(parallel_info[job.name])
+                elif job.parallel_total &gt; 0:
+                    # fallback: the original name wasn&#39;t in raw_config (shouldn&#39;t happen)
+                    annotations.append(f&#34;parallel: {job.parallel_total} instances&#34;)
+                suffix = f&#34; ({&#39;, &#39;.join(annotations)})&#34; if annotations else &#34;&#34;
+                safe_print(f&#34;   • {job.name}{suffix}&#34;)
+            safe_print()
         else:
-            print(f&#34;⏭️  Stage: {stage} (no jobs)&#34;)
-            print()</code></pre>
+            safe_print(f&#34;⏭️  Stage: {stage} (no jobs)&#34;)
+            safe_print()</code></pre>
 </details>
 <div class="desc"><p>List all jobs in the pipeline.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_logs"><code class="name flex">
+<span>def <span class="ident">cmd_logs</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_logs(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;List, show, or prune persisted pipeline run logs.&#34;&#34;&#34;
+    from bitrab.folder import list_runs, prune_runs
+
+    project_dir = Path(args.config).parent if getattr(args, &#34;config&#34;, None) else Path.cwd()
+    subcommand = getattr(args, &#34;logs_cmd&#34;, &#34;list&#34;)
+
+    if subcommand == &#34;list&#34;:
+        runs = list_runs(project_dir)
+        if not runs:
+            safe_print(&#34;  No runs recorded yet.&#34;)
+            return
+        safe_print(f&#34;{&#39;Run ID&#39;:&lt;26}  {&#39;Started&#39;:&lt;19}  {&#39;Status&#39;:&lt;7}  {&#39;Duration&#39;:&gt;8}  {&#39;Size&#39;:&gt;8}&#34;)
+        safe_print(&#34;-&#34; * 78)
+        for r in runs:
+            status = &#34;ok&#34; if r.success else &#34;FAIL&#34;
+            safe_print(f&#34;{r.run_id:&lt;26}  {r.started_at_iso:&lt;19}  {status:&lt;7}  {r.total_duration_s:&gt;7.1f}s  {r.human_size:&gt;8}&#34;)
+        safe_print(f&#34;\n  {len(runs)} run(s) total&#34;)
+
+    elif subcommand == &#34;show&#34;:
+        run_id = getattr(args, &#34;run_id&#34;, None)
+        runs = list_runs(project_dir)
+        if not runs:
+            safe_print(&#34;  No runs recorded yet.&#34;)
+            return
+        if run_id:
+            matches = [r for r in runs if r.run_id == run_id or r.run_id.startswith(run_id)]
+            if not matches:
+                safe_print(f&#34;❌ Run not found: {run_id}&#34;, file=sys.stderr)
+                sys.exit(1)
+            rec = matches[0]
+        else:
+            rec = runs[0]  # most recent
+
+        summary_file = rec.run_dir / &#34;summary.txt&#34;
+        if summary_file.exists():
+            safe_print(summary_file.read_text(encoding=&#34;utf-8&#34;))
+        else:
+            safe_print(f&#34;  Run ID  : {rec.run_id}&#34;)
+            safe_print(f&#34;  Started : {rec.started_at_iso}&#34;)
+            safe_print(f&#34;  Status  : {&#39;success&#39; if rec.success else &#39;FAILED&#39;}&#34;)
+            safe_print(f&#34;  Duration: {rec.total_duration_s:.1f}s&#34;)
+            safe_print(f&#34;  Jobs    : {rec.job_count}&#34;)
+            safe_print(&#34;  (no summary.txt)&#34;)
+
+    elif subcommand == &#34;rm&#34;:
+        keep = getattr(args, &#34;keep&#34;, 0)
+        if keep is not None and keep &gt; 0:
+            deleted = prune_runs(project_dir, keep=keep)
+            if deleted:
+                safe_print(f&#34;🗑️  Removed {len(deleted)} old run(s): {&#39;, &#39;.join(deleted)}&#34;)
+            else:
+                safe_print(&#34;  Nothing to remove.&#34;)
+        else:
+            # Delete all logs
+            from bitrab.folder import _human_size, clean_logs  # pylint: disable=import-outside-toplevel
+
+            freed = clean_logs(project_dir)
+            safe_print(f&#34;🗑️  Removed all run logs ({_human_size(freed)} freed).&#34;)</code></pre>
+</details>
+<div class="desc"><p>List, show, or prune persisted pipeline run logs.</p></div>
 </dd>
 <dt id="bitrab.cli.cmd_run"><code class="name flex">
 <span>def <span class="ident">cmd_run</span></span>(<span>args: argparse.Namespace) ‑> None</span>
@@ -178,22 +378,23 @@ A tool for running GitLab CI pipelines locally.</p>
     &#34;&#34;&#34;Execute the pipeline or specific jobs.&#34;&#34;&#34;
     from bitrab.tui.ci_mode import is_ci_mode, should_use_tui
 
-    config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
+    config_path = resolve_config_path(args.config)
 
     if not config_path.exists():
-        print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
+        safe_print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
         sys.exit(1)
 
     try:
-        runner = LocalGitLabRunner(base_path=config_path.parent)
+        runner = _get_local_gitlab_runner()(base_path=config_path.parent)
 
-        if args.jobs:
-            print(f&#34;🎯 Running specific jobs: {&#39;, &#39;.join(args.jobs)}&#34;)
-            # TODO: Implement job filtering in runner
-            print(&#34;⚠️  Job filtering not yet implemented - running full pipeline&#34;)
+        job_filter: list[str] | None = args.jobs if args.jobs else None
+        stage_filter: list[str] | None = args.stage if args.stage else None
 
         use_tui = should_use_tui(args)
         ci_mode = is_ci_mode() and not use_tui
+
+        if args.dry_run:
+            safe_print(&#34;🔎 Dry-run mode enabled — jobs will only report what would run and will succeed.&#34;)
 
         runner.run_pipeline(
             config_path=config_path,
@@ -201,19 +402,22 @@ A tool for running GitLab CI pipelines locally.</p>
             dry_run=args.dry_run,
             use_tui=use_tui,
             ci_mode=ci_mode,
+            job_filter=job_filter,
+            stage_filter=stage_filter,
+            parallel_backend=getattr(args, &#34;parallel_backend&#34;, None),
         )
 
     except (BitrabError, GitlabRunnerError) as e:
-        print(f&#34;❌ Execution error: {e}&#34;, file=sys.stderr)
+        safe_print(f&#34;❌ Execution error: {e}&#34;, file=sys.stderr)
         if DEBUG:
             sys.exit(1)
         else:
             raise
     except KeyboardInterrupt:
-        print(&#34;\n🛑 Pipeline execution interrupted by user&#34;, file=sys.stderr)
+        safe_print(&#34;\n🛑 Pipeline execution interrupted by user&#34;, file=sys.stderr)
         sys.exit(130)
     except Exception as e:
-        print(f&#34;❌ Unexpected error: {e}&#34;, file=sys.stderr)
+        safe_print(f&#34;❌ Unexpected error: {e}&#34;, file=sys.stderr)
         if DEBUG:
             sys.exit(1)
         else:
@@ -231,28 +435,55 @@ A tool for running GitLab CI pipelines locally.</p>
 </summary>
 <pre><code class="python">def cmd_validate(args: argparse.Namespace) -&gt; None:
     &#34;&#34;&#34;Validate the pipeline configuration.&#34;&#34;&#34;
-    config_path = Path(args.config) if args.config else Path(&#34;.gitlab-ci.yml&#34;)
+    import json
+
+    config_path = resolve_config_path(args.config)
+
+    # When --json is requested, all human-readable progress text goes to stderr
+    # so that stdout contains *only* the JSON payload and callers can safely
+    # pipe `bitrab validate --json | jq ...` without filtering noise.
+    human_out = sys.stderr if args.output_json else sys.stdout
 
     if not config_path.exists():
-        print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
+        safe_print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
         sys.exit(1)
 
     try:
         # 1. Official Schema Validation
-        print(f&#34;🔍 Validating {config_path} against GitLab CI schema...&#34;)
-        validator = GitLabCIValidator()
+        safe_print(f&#34;🔍 Validating {config_path} against GitLab CI schema...&#34;, file=human_out)
+        validator = _get_gitlab_ci_validator()()
         yaml_content = config_path.read_text(encoding=&#34;utf-8&#34;)
         is_valid, schema_errors = validator.validate_ci_config(yaml_content)
 
         if not is_valid:
-            print(&#34;❌ Schema validation failed:&#34;)
+            safe_print(&#34;❌ Schema validation failed:&#34;, file=sys.stderr)
             for error in schema_errors:
-                print(f&#34;   • {error}&#34;)
+                safe_print(f&#34;   • {error}&#34;, file=sys.stderr)
             sys.exit(1)
 
-        # 2. Structural/Semantic Validation
+        # 2. Capability validation — informational notes only.
+        #
+        # ERROR-level diagnostics (include:component, inputs:, trigger:) are
+        # enforced by the loader via GitlabRunnerError *before* this point, so
+        # load_and_process_config() will have already raised for those cases.
+        # What remains here are WARNING-level diagnostics: features that bitrab
+        # skips silently (image:, services:, workflow:, etc.) because their
+        # absence is cosmetic or GitLab-side only.  We surface them as notes so
+        # the user knows what will differ locally — but we do NOT fail validation
+        # for them.  The whole point is to run one .gitlab-ci.yml both locally
+        # and in GitLab without needing a second file.
         raw_config, pipeline_config = load_and_process_config(config_path)
 
+        cap_diags = _get_check_capabilities()(raw_config)
+        if cap_diags:
+            safe_print(
+                &#34;ℹ️  Local execution notes (these features behave differently or are skipped locally):&#34;,
+                file=human_out,
+            )
+            for d in cap_diags:
+                safe_print(f&#34;   • {d}&#34;, file=human_out)
+
+        # 3. Structural/Semantic Validation
         errors = []
         warnings = []
 
@@ -273,21 +504,23 @@ A tool for running GitLab CI pipelines locally.</p>
 
         # Report results
         if errors:
-            print(&#34;❌ Semantic validation failed:&#34;)
+            safe_print(&#34;❌ Semantic validation failed:&#34;, file=sys.stderr)
             for error in errors:
-                print(f&#34;   • {error}&#34;)
+                safe_print(f&#34;   • {error}&#34;, file=sys.stderr)
             sys.exit(1)
 
         if warnings:
-            print(&#34;⚠️  Validation passed with warnings:&#34;)
+            safe_print(&#34;⚠️  Validation passed with warnings:&#34;, file=human_out)
             for warning in warnings:
-                print(f&#34;   • {warning}&#34;)
+                safe_print(f&#34;   • {warning}&#34;, file=human_out)
 
-        print(&#34;✅ Configuration is valid&#34;)
-        print(f&#34;   📊 Found {len(pipeline_config.jobs)} jobs across {len(pipeline_config.stages)} stages&#34;)
+        safe_print(&#34;✅ Configuration is valid&#34;, file=human_out)
+        safe_print(
+            f&#34;   📊 Found {len(pipeline_config.jobs)} jobs across {len(pipeline_config.stages)} stages&#34;,
+            file=human_out,
+        )
 
         if args.output_json:
-            # Output pipeline config as JSON for further processing
             pipeline_dict = {
                 &#34;stages&#34;: pipeline_config.stages,
                 &#34;variables&#34;: pipeline_config.variables,
@@ -306,16 +539,46 @@ A tool for running GitLab CI pipelines locally.</p>
                     for job in pipeline_config.jobs
                 ],
             }
-            print(&#34;\n📄 Pipeline configuration (JSON):&#34;)
-            print(json.dumps(pipeline_dict, indent=2))
+            sys.stdout.write(json.dumps(pipeline_dict, indent=2) + &#34;\n&#34;)
 
     except Exception as e:
-        print(f&#34;❌ Validation error: {e}&#34;, file=sys.stderr)
+        safe_print(f&#34;❌ Validation error: {e}&#34;, file=sys.stderr)
         if DEBUG:
             raise
         sys.exit(1)</code></pre>
 </details>
 <div class="desc"><p>Validate the pipeline configuration.</p></div>
+</dd>
+<dt id="bitrab.cli.cmd_watch"><code class="name flex">
+<span>def <span class="ident">cmd_watch</span></span>(<span>args: argparse.Namespace) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmd_watch(args: argparse.Namespace) -&gt; None:
+    &#34;&#34;&#34;Watch for CI config file changes and re-run the pipeline.&#34;&#34;&#34;
+    from bitrab.watch import run_watch
+
+    config_path = resolve_config_path(args.config)
+    if not config_path.exists():
+        safe_print(f&#34;❌ Configuration file not found: {config_path}&#34;, file=sys.stderr)
+        sys.exit(1)
+
+    runner_kwargs = {
+        &#34;maximum_degree_of_parallelism&#34;: args.parallel,
+        &#34;dry_run&#34;: args.dry_run,
+        &#34;use_tui&#34;: False,  # TUI and watch mode are incompatible
+        &#34;ci_mode&#34;: False,
+        &#34;job_filter&#34;: args.jobs if args.jobs else None,
+        &#34;stage_filter&#34;: args.stage if args.stage else None,
+        &#34;parallel_backend&#34;: getattr(args, &#34;parallel_backend&#34;, None),
+    }
+
+    run_watch(config_path.resolve(), runner_kwargs)</code></pre>
+</details>
+<div class="desc"><p>Watch for CI config file changes and re-run the pipeline.</p></div>
 </dd>
 <dt id="bitrab.cli.create_parser"><code class="name flex">
 <span>def <span class="ident">create_parser</span></span>(<span>) ‑> argparse.ArgumentParser</span>
@@ -336,11 +599,23 @@ Examples:
   bitrab run                          # Run .gitlab-ci.yml
   bitrab run -c my-ci.yml             # Run specific config file
   bitrab run --dry-run                # Show what would be executed
-  bitrab run --jobs build test        # Run specific jobs (if implemented)
+  bitrab run --jobs build test        # Run specific jobs
   bitrab run --parallel 4             # Use 4 parallel workers
+  bitrab watch                        # Watch and re-run on any config change
+  bitrab watch --dry-run              # Dry-run on each file change
   bitrab list                         # List all jobs
   bitrab validate                     # Validate configuration
   bitrab validate --json              # Output pipeline as JSON
+  bitrab logs                         # List all recorded pipeline runs
+  bitrab logs show                    # Show summary of most recent run
+  bitrab logs show abc123             # Show summary of a specific run
+  bitrab logs rm --keep 5             # Keep 5 most recent runs, delete the rest
+  bitrab logs rm                      # Delete all run logs
+  bitrab folder                       # Show .bitrab/ folder status and size
+  bitrab folder clean                 # Clean everything in .bitrab/
+  bitrab folder clean --what jobs     # Clean only job working directories
+  bitrab clean                        # Clean .bitrab/ (same as folder clean)
+  bitrab clean --dry-run              # Preview what would be cleaned
 
 Version: {__version__}
 &#34;&#34;&#34;,
@@ -368,11 +643,41 @@ Version: {__version__}
     )
     run_parser.add_argument(&#34;--jobs&#34;, nargs=&#34;*&#34;, metavar=&#34;JOB&#34;, help=&#34;Run only specified jobs (if not specified, run all jobs)&#34;)
     run_parser.add_argument(
+        &#34;--stage&#34;,
+        nargs=&#34;*&#34;,
+        metavar=&#34;STAGE&#34;,
+        help=&#34;Run only jobs in specified stages (if not specified, run all stages)&#34;,
+    )
+    run_parser.add_argument(
         &#34;--no-tui&#34;,
         action=&#34;store_true&#34;,
         help=&#34;Disable Textual TUI, use plain streaming output&#34;,
     )
+    run_parser.add_argument(
+        &#34;--parallel-backend&#34;,
+        choices=[&#34;thread&#34;, &#34;process&#34;],
+        metavar=&#34;BACKEND&#34;,
+        help=&#34;Parallel execution backend: &#39;thread&#39; or &#39;process&#39; (overrides pyproject.toml)&#34;,
+    )
     run_parser.set_defaults(func=cmd_run)
+
+    # Watch command
+    watch_parser = subparsers.add_parser(
+        &#34;watch&#34;,
+        help=&#34;Re-run pipeline on file changes&#34;,
+        description=(&#34;Watch .gitlab-ci.yml and local include files for changes, re-running the pipeline automatically on each save.&#34;),
+    )
+    watch_parser.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Use dry-run mode on each triggered run&#34;)
+    watch_parser.add_argument(&#34;--parallel&#34;, &#34;-j&#34;, type=int, metavar=&#34;N&#34;, help=&#34;Number of parallel jobs per stage&#34;)
+    watch_parser.add_argument(&#34;--jobs&#34;, nargs=&#34;*&#34;, metavar=&#34;JOB&#34;, help=&#34;Run only specified jobs&#34;)
+    watch_parser.add_argument(&#34;--stage&#34;, nargs=&#34;*&#34;, metavar=&#34;STAGE&#34;, help=&#34;Run only jobs in specified stages&#34;)
+    watch_parser.add_argument(
+        &#34;--parallel-backend&#34;,
+        choices=[&#34;thread&#34;, &#34;process&#34;],
+        metavar=&#34;BACKEND&#34;,
+        help=&#34;Parallel execution backend: &#39;thread&#39; or &#39;process&#39; (overrides pyproject.toml)&#34;,
+    )
+    watch_parser.set_defaults(func=cmd_watch)
 
     # List command
     list_parser = subparsers.add_parser(&#34;list&#34;, help=&#34;List all jobs in the pipeline&#34;, description=&#34;Display all jobs organized by stages&#34;)
@@ -399,7 +704,13 @@ Version: {__version__}
     graph_parser = subparsers.add_parser(
         &#34;graph&#34;,
         help=&#34;Generate pipeline dependency graph&#34;,
-        description=&#34;Create visual representation of job dependencies (not implemented)&#34;,
+        description=&#34;Render a visual representation of pipeline stages and job dependencies.&#34;,
+    )
+    graph_parser.add_argument(
+        &#34;--format&#34;,
+        choices=[&#34;text&#34;, &#34;dot&#34;],
+        default=&#34;text&#34;,
+        help=&#34;Output format: &#39;text&#39; (default, ASCII terminal) or &#39;dot&#39; (Graphviz DOT)&#34;,
     )
     graph_parser.set_defaults(func=cmd_graph)
 
@@ -412,8 +723,71 @@ Version: {__version__}
     debug_parser.set_defaults(func=cmd_debug)
 
     # Clean command
-    clean_parser = subparsers.add_parser(&#34;clean&#34;, help=&#34;Clean up artifacts&#34;, description=&#34;Remove build artifacts and temporary files (not implemented)&#34;)
+    clean_parser = subparsers.add_parser(
+        &#34;clean&#34;,
+        help=&#34;Clean up .bitrab/ artifacts and job dirs&#34;,
+        description=&#34;Remove build artifacts, job directories, and optionally logs from .bitrab/&#34;,
+    )
+    clean_parser.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Show what would be removed without deleting files&#34;)
+    clean_parser.add_argument(
+        &#34;--what&#34;,
+        choices=[&#34;all&#34;, &#34;artifacts&#34;, &#34;jobs&#34;],
+        default=&#34;all&#34;,
+        help=&#34;What to clean: all (default), artifacts only, or job dirs only&#34;,
+    )
     clean_parser.set_defaults(func=cmd_clean)
+
+    # Logs command
+    logs_parser = subparsers.add_parser(
+        &#34;logs&#34;,
+        help=&#34;Manage persisted pipeline run logs&#34;,
+        description=&#34;List, inspect, or prune .bitrab/logs/ run records&#34;,
+    )
+    logs_sub = logs_parser.add_subparsers(dest=&#34;logs_cmd&#34;, metavar=&#34;ACTION&#34;)
+    logs_sub.required = False
+
+    logs_list = logs_sub.add_parser(&#34;list&#34;, help=&#34;List all recorded runs (default)&#34;)
+    logs_list.set_defaults(func=cmd_logs, logs_cmd=&#34;list&#34;)
+
+    logs_show = logs_sub.add_parser(&#34;show&#34;, help=&#34;Show summary of a run&#34;)
+    logs_show.add_argument(&#34;run_id&#34;, nargs=&#34;?&#34;, help=&#34;Run ID prefix (default: most recent)&#34;)
+    logs_show.set_defaults(func=cmd_logs, logs_cmd=&#34;show&#34;)
+
+    logs_rm = logs_sub.add_parser(&#34;rm&#34;, help=&#34;Remove old run logs&#34;)
+    logs_rm.add_argument(
+        &#34;--keep&#34;,
+        type=int,
+        metavar=&#34;N&#34;,
+        default=0,
+        help=&#34;Keep the N most recent runs; delete the rest (0 = delete all)&#34;,
+    )
+    logs_rm.set_defaults(func=cmd_logs, logs_cmd=&#34;rm&#34;)
+
+    logs_parser.set_defaults(func=cmd_logs, logs_cmd=&#34;list&#34;)
+
+    # Folder command
+    folder_parser = subparsers.add_parser(
+        &#34;folder&#34;,
+        help=&#34;Manage the .bitrab/ workspace folder&#34;,
+        description=&#34;Inspect and clean the .bitrab/ workspace folder&#34;,
+    )
+    folder_sub = folder_parser.add_subparsers(dest=&#34;folder_cmd&#34;, metavar=&#34;ACTION&#34;)
+    folder_sub.required = False
+
+    folder_status = folder_sub.add_parser(&#34;status&#34;, help=&#34;Show folder size breakdown (default)&#34;)
+    folder_status.set_defaults(func=cmd_folder, folder_cmd=&#34;status&#34;)
+
+    folder_clean = folder_sub.add_parser(&#34;clean&#34;, help=&#34;Clean the folder&#34;)
+    folder_clean.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Preview what would be removed&#34;)
+    folder_clean.add_argument(
+        &#34;--what&#34;,
+        choices=[&#34;all&#34;, &#34;artifacts&#34;, &#34;jobs&#34;],
+        default=&#34;all&#34;,
+        help=&#34;What to clean: all (default), artifacts only, or job dirs only&#34;,
+    )
+    folder_clean.set_defaults(func=cmd_folder, folder_cmd=&#34;clean&#34;)
+
+    folder_parser.set_defaults(func=cmd_folder, folder_cmd=&#34;status&#34;)
 
     return parser</code></pre>
 </details>
@@ -430,21 +804,21 @@ Version: {__version__}
 <pre><code class="python">def load_and_process_config(config_path: Path) -&gt; tuple[dict, Any]:
     &#34;&#34;&#34;Load and process configuration, returning raw config and pipeline config.&#34;&#34;&#34;
     try:
-        loader = ConfigurationLoader()
-        processor = PipelineProcessor()
+        loader = _get_configuration_loader()()
+        processor = _get_pipeline_processor()()
 
         raw_config = loader.load_config(config_path)
         pipeline_config = processor.process_config(raw_config)
 
         return raw_config, pipeline_config
     except (BitrabError, GitlabRunnerError) as e:
-        print(f&#34;❌ Configuration error: {e}&#34;, file=sys.stderr)
+        safe_print(f&#34;❌ Configuration error: {e}&#34;, file=sys.stderr)
         if DEBUG:
             sys.exit(1)
         else:
             raise
     except Exception as e:
-        print(f&#34;❌ Unexpected error loading config: {e}&#34;, file=sys.stderr)
+        safe_print(f&#34;❌ Unexpected error loading config: {e}&#34;, file=sys.stderr)
         if DEBUG:
             sys.exit(1)
         else:
@@ -467,7 +841,7 @@ Version: {__version__}
 
     # Handle license display
     if args.license:
-        print(__license__)
+        safe_print(__license__)
         sys.exit(0)
 
     # Configure logging
@@ -481,7 +855,9 @@ Version: {__version__}
         args.dry_run = False
         args.parallel = None
         args.jobs = None
+        args.stage = None
         args.no_tui = False
+        args.parallel_backend = None
 
     # Execute the command
     try:
@@ -491,6 +867,50 @@ Version: {__version__}
         sys.exit(1)</code></pre>
 </details>
 <div class="desc"><p>Main entry point.</p></div>
+</dd>
+<dt id="bitrab.cli.resolve_config_path"><code class="name flex">
+<span>def <span class="ident">resolve_config_path</span></span>(<span>explicit_config: str | None) ‑> pathlib.Path</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def resolve_config_path(explicit_config: str | None) -&gt; Path:
+    &#34;&#34;&#34;Resolve the config file path, preferring .bitrab-ci.yml over .gitlab-ci.yml.
+
+    When the user supplies an explicit path, use it as-is.  When no path is
+    given, check for .bitrab-ci.yml first; fall back to .gitlab-ci.yml.  A
+    warning is printed only when *both* files coexist and the caller did not
+    specify a path, so the user knows which file was chosen.
+
+    This is intentionally centralised here so that every command (run, validate,
+    list, graph, debug, watch) follows the exact same resolution rule and the
+    user can never accidentally validate one file and run another.
+    &#34;&#34;&#34;
+    if explicit_config:
+        return Path(explicit_config)
+
+    bitrab_ci = Path(&#34;.bitrab-ci.yml&#34;)
+    gitlab_ci = Path(&#34;.gitlab-ci.yml&#34;)
+
+    if bitrab_ci.exists():
+        if gitlab_ci.exists():
+            safe_print(&#34;⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one.&#34;)
+        return bitrab_ci
+
+    return gitlab_ci</code></pre>
+</details>
+<div class="desc"><p>Resolve the config file path, preferring .bitrab-ci.yml over .gitlab-ci.yml.</p>
+<p>When the user supplies an explicit path, use it as-is.
+When no path is
+given, check for .bitrab-ci.yml first; fall back to .gitlab-ci.yml.
+A
+warning is printed only when <em>both</em> files coexist and the caller did not
+specify a path, so the user knows which file was chosen.</p>
+<p>This is intentionally centralised here so that every command (run, validate,
+list, graph, debug, watch) follows the exact same resolution rule and the
+user can never accidentally validate one file and run another.</p></div>
 </dd>
 <dt id="bitrab.cli.setup_logging"><code class="name flex">
 <span>def <span class="ident">setup_logging</span></span>(<span>verbose: bool, quiet: bool) ‑> None</span>
@@ -502,6 +922,8 @@ Version: {__version__}
 </summary>
 <pre><code class="python">def setup_logging(verbose: bool, quiet: bool) -&gt; None:
     &#34;&#34;&#34;Configure logging based on verbosity flags.&#34;&#34;&#34;
+    import logging
+
     if quiet:
         level = logging.ERROR
     elif verbose:
@@ -532,14 +954,18 @@ Version: {__version__}
 <ul class="">
 <li><code><a title="bitrab.cli.cmd_clean" href="#bitrab.cli.cmd_clean">cmd_clean</a></code></li>
 <li><code><a title="bitrab.cli.cmd_debug" href="#bitrab.cli.cmd_debug">cmd_debug</a></code></li>
+<li><code><a title="bitrab.cli.cmd_folder" href="#bitrab.cli.cmd_folder">cmd_folder</a></code></li>
 <li><code><a title="bitrab.cli.cmd_graph" href="#bitrab.cli.cmd_graph">cmd_graph</a></code></li>
 <li><code><a title="bitrab.cli.cmd_lint" href="#bitrab.cli.cmd_lint">cmd_lint</a></code></li>
 <li><code><a title="bitrab.cli.cmd_list" href="#bitrab.cli.cmd_list">cmd_list</a></code></li>
+<li><code><a title="bitrab.cli.cmd_logs" href="#bitrab.cli.cmd_logs">cmd_logs</a></code></li>
 <li><code><a title="bitrab.cli.cmd_run" href="#bitrab.cli.cmd_run">cmd_run</a></code></li>
 <li><code><a title="bitrab.cli.cmd_validate" href="#bitrab.cli.cmd_validate">cmd_validate</a></code></li>
+<li><code><a title="bitrab.cli.cmd_watch" href="#bitrab.cli.cmd_watch">cmd_watch</a></code></li>
 <li><code><a title="bitrab.cli.create_parser" href="#bitrab.cli.create_parser">create_parser</a></code></li>
 <li><code><a title="bitrab.cli.load_and_process_config" href="#bitrab.cli.load_and_process_config">load_and_process_config</a></code></li>
 <li><code><a title="bitrab.cli.main" href="#bitrab.cli.main">main</a></code></li>
+<li><code><a title="bitrab.cli.resolve_config_path" href="#bitrab.cli.resolve_config_path">resolve_config_path</a></code></li>
 <li><code><a title="bitrab.cli.setup_logging" href="#bitrab.cli.setup_logging">setup_logging</a></code></li>
 </ul>
 </li>

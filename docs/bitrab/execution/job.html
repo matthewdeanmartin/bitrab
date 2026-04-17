@@ -109,29 +109,104 @@ el.replaceWith(d);
         # exponential (default)
         return float(base) * (2 ** (attempt_index - 1))
 
-    def execute_job(self, job: JobConfig, job_dir: Path | None = None, output_writer: TextWriter | None = None) -&gt; None:
-        &#34;&#34;&#34;
-        Execute a single job.
+    def build_context(
+        self,
+        job: JobConfig,
+        job_dir: Path | None = None,
+        output_writer: Any | None = None,
+        timeout: float | None = None,
+        extra_env: dict[str, str] | None = None,
+    ) -&gt; JobRuntimeContext:
+        &#34;&#34;&#34;Build a :class:`JobRuntimeContext` for *job*.
+
+        This resolves the environment once via :pyattr:`variable_manager` and
+        wires in ``CI_JOB_DIR``.  The returned context is frozen and can be
+        passed to :meth:`execute_job`.
 
         Args:
             job: The job configuration.
-            job_dir: Optional override for the execution directory.
-            output_writer: Optional file-like object for all job output. When None,
-                           output goes to sys.stdout/sys.stderr (default behavior).
+            job_dir: Optional custom directory for job execution.
+            output_writer: Optional writer for job output.
+            timeout: Optional maximum duration for the job.
+            extra_env: Additional variables injected *before* job-level
+                ``variables:`` (so job variables still win).  Used by the
+                stage runner to pass dotenv-report variables from upstream
+                jobs — simulating GitLab&#39;s pipeline variable passing via
+                ``artifacts: reports: dotenv:``.
+        &#34;&#34;&#34;
+        env = self.variable_manager.prepare_environment(job)
+        if extra_env:
+            # extra_env sits between CI built-ins and job-level variables.
+            # We merge it after prepare_environment so that job.variables
+            # (already applied inside prepare_environment) take precedence.
+            # Re-apply job.variables on top to ensure correct priority.
+            env.update(extra_env)
+            env.update(job.variables)
+            env[&#34;CI_JOB_STAGE&#34;] = job.stage
+            env[&#34;CI_JOB_NAME&#34;] = job.name
+        if job_dir is not None:
+            env[&#34;CI_JOB_DIR&#34;] = str(job_dir)
+
+        job_timeout = job.timeout if job.timeout is not None else timeout
+        return JobRuntimeContext(
+            job=job,
+            env=env,
+            job_dir=job_dir or self.project_dir,
+            project_dir=self.project_dir,
+            output_writer=output_writer,
+            timeout=job_timeout,
+        )
+
+    def execute_job(
+        self,
+        job: JobConfig | None = None,
+        job_dir: Path | None = None,
+        output_writer: TextWriter | None = None,
+        timeout: float | None = None,
+        *,
+        ctx: JobRuntimeContext | None = None,
+    ) -&gt; None:
+        &#34;&#34;&#34;Execute a single job.
+
+        May be called in two ways:
+
+        1. **Legacy (scattered params)**::
+
+               executor.execute_job(job, job_dir=..., output_writer=...)
+
+        2. **New (context)**::
+
+               ctx = executor.build_context(job, ...)
+               executor.execute_job(ctx=ctx)
+
+        When *ctx* is provided, *job*, *job_dir*, *output_writer*, and
+        *timeout* are ignored.
 
         Raises:
             JobExecutionError: If the job fails to execute successfully.
         &#34;&#34;&#34;
-        _print = (lambda msg: output_writer.write(msg + &#34;\n&#34;)) if output_writer else print
-        _print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
+        if ctx is None:
+            if job is None:
+                raise ValueError(&#34;Either &#39;job&#39; or &#39;ctx&#39; must be provided&#34;)
+            ctx = self.build_context(job, job_dir=job_dir, output_writer=output_writer, timeout=timeout)
 
-        env = self.variable_manager.prepare_environment(job)
+        self._execute_with_context(ctx)
+
+    def _execute_with_context(self, ctx: JobRuntimeContext) -&gt; None:
+        &#34;&#34;&#34;Core execution loop driven by a :class:`JobRuntimeContext`.&#34;&#34;&#34;
+        job = ctx.job
+        output_writer = ctx.output_writer
         # Always run scripts from project_dir so relative paths (e.g. ./scripts/foo.sh)
         # resolve correctly. job_dir is exposed as CI_JOB_DIR for scripts that need
         # an isolated workspace, but it is NOT used as cwd.
-        execution_dir = self.project_dir
-        if job_dir is not None:
-            env[&#34;CI_JOB_DIR&#34;] = str(job_dir)
+        execution_dir = ctx.project_dir
+        env = dict(ctx.env)  # mutable copy (frozen dataclass stores the original)
+
+        _print = (lambda msg: safe_print(msg, file=output_writer)) if output_writer else safe_print
+        _print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
+
+        job_timeout = ctx.timeout
+        deadline: float | None = (time.monotonic() + job_timeout) if job_timeout is not None else None
 
         max_attempts = 1 + max(0, int(job.retry_max))
         attempt = 0
@@ -150,15 +225,18 @@ el.replaceWith(d);
             try:
                 if job.before_script:
                     _print(&#34;  📋 Running before_script...&#34;)
-                    self._execute_scripts(job.before_script, env, execution_dir, output_writer=output_writer)
+                    self._execute_scripts(job.before_script, env, execution_dir, output_writer=output_writer, deadline=deadline)
 
                 if job.script:
                     _print(&#34;  🚀 Running script...&#34;)
-                    self._execute_scripts(job.script, env, execution_dir, output_writer=output_writer)
+                    self._execute_scripts(job.script, env, execution_dir, output_writer=output_writer, deadline=deadline)
 
                 _print(f&#34;✅ Job {job.name} completed successfully&#34;)
                 return
 
+            except JobTimeoutError:
+                _print(f&#34;  ⏱️ Job {job.name} timed out after {job_timeout}s&#34;)
+                raise
             except subprocess.CalledProcessError as e:
                 last_exc = e
                 _print(f&#34;  ❗ Job step failed with exit code {e.returncode}&#34;)
@@ -171,7 +249,7 @@ el.replaceWith(d);
                 if job.after_script:
                     _print(&#34;  📋 Running after_script...&#34;)
                     try:
-                        self._execute_scripts(job.after_script, env, execution_dir, output_writer=output_writer)
+                        self._execute_scripts(job.after_script, env, execution_dir, output_writer=output_writer, deadline=deadline)
                     except subprocess.CalledProcessError as e2:
                         last_exc = last_exc or e2
                         _print(f&#34;  ❗ after_script failed with exit code {e2.returncode}&#34;)
@@ -206,6 +284,7 @@ el.replaceWith(d);
         env: dict[str, str],
         cwd: Path | None = None,
         output_writer: TextWriter | None = None,
+        deadline: float | None = None,
     ) -&gt; None:
         &#34;&#34;&#34;
         Execute a list of script commands.
@@ -215,11 +294,14 @@ el.replaceWith(d);
             env: The environment variables for the scripts.
             cwd: Optional working directory.
             output_writer: Optional file-like object to direct all output into.
+            deadline: monotonic clock deadline; if set, remaining time is passed
+                      as the timeout to run_bash.
 
         Raises:
             subprocess.CalledProcessError: If a script exits with a non-zero code.
+            JobTimeoutError: If the deadline is reached before the script finishes.
         &#34;&#34;&#34;
-        _print = (lambda msg: output_writer.write(msg + &#34;\n&#34;)) if output_writer else print
+        _print = (lambda msg: safe_print(msg, file=output_writer)) if output_writer else safe_print
 
         lines = []
         for script in scripts:
@@ -231,15 +313,21 @@ el.replaceWith(d);
             lines.append(script)
 
         full_script = &#34;\n&#34;.join(lines)
-        _print(f&#34;    $ {full_script}&#34;)
+        for line in lines:
+            _print(f&#34;    $ {line}&#34;)
 
         target_cwd = cwd or self.project_dir
 
         if self.dry_run:
-            _print(&#34;Not running...&#34;)
-            _print(full_script)
+            _print(&#34;    ↪ dry-run preview only&#34;)
             result = RunResult(0, &#34;&#34;, &#34;&#34;)
         else:
+            remaining: float | None = None
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining &lt;= 0:
+                    raise JobTimeoutError(&#34;Job timed out before script could start&#34;)
+
             result = run_bash(
                 full_script,
                 env=env,
@@ -247,6 +335,7 @@ el.replaceWith(d);
                 check=False,
                 stdout_target=output_writer,
                 stderr_target=output_writer,
+                timeout=remaining,
             )
         self.job_history.append(result)
 
@@ -261,121 +350,227 @@ el.replaceWith(d);
 </dl></div>
 <h3>Methods</h3>
 <dl>
-<dt id="bitrab.execution.job.JobExecutor.execute_job"><code class="name flex">
-<span>def <span class="ident">execute_job</span></span>(<span>self,<br>job: JobConfig,<br>job_dir: Path | None = None,<br>output_writer: TextWriter | None = None) ‑> None</span>
+<dt id="bitrab.execution.job.JobExecutor.build_context"><code class="name flex">
+<span>def <span class="ident">build_context</span></span>(<span>self,<br>job: JobConfig,<br>job_dir: Path | None = None,<br>output_writer: Any | None = None,<br>timeout: float | None = None,<br>extra_env: dict[str, str] | None = None) ‑> <a title="bitrab.execution.job.JobRuntimeContext" href="#bitrab.execution.job.JobRuntimeContext">JobRuntimeContext</a></span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def execute_job(self, job: JobConfig, job_dir: Path | None = None, output_writer: TextWriter | None = None) -&gt; None:
-    &#34;&#34;&#34;
-    Execute a single job.
+<pre><code class="python">def build_context(
+    self,
+    job: JobConfig,
+    job_dir: Path | None = None,
+    output_writer: Any | None = None,
+    timeout: float | None = None,
+    extra_env: dict[str, str] | None = None,
+) -&gt; JobRuntimeContext:
+    &#34;&#34;&#34;Build a :class:`JobRuntimeContext` for *job*.
+
+    This resolves the environment once via :pyattr:`variable_manager` and
+    wires in ``CI_JOB_DIR``.  The returned context is frozen and can be
+    passed to :meth:`execute_job`.
 
     Args:
         job: The job configuration.
-        job_dir: Optional override for the execution directory.
-        output_writer: Optional file-like object for all job output. When None,
-                       output goes to sys.stdout/sys.stderr (default behavior).
-
-    Raises:
-        JobExecutionError: If the job fails to execute successfully.
+        job_dir: Optional custom directory for job execution.
+        output_writer: Optional writer for job output.
+        timeout: Optional maximum duration for the job.
+        extra_env: Additional variables injected *before* job-level
+            ``variables:`` (so job variables still win).  Used by the
+            stage runner to pass dotenv-report variables from upstream
+            jobs — simulating GitLab&#39;s pipeline variable passing via
+            ``artifacts: reports: dotenv:``.
     &#34;&#34;&#34;
-    _print = (lambda msg: output_writer.write(msg + &#34;\n&#34;)) if output_writer else print
-    _print(f&#34;🔧 Running job: {job.name} (stage: {job.stage})&#34;)
-
     env = self.variable_manager.prepare_environment(job)
-    # Always run scripts from project_dir so relative paths (e.g. ./scripts/foo.sh)
-    # resolve correctly. job_dir is exposed as CI_JOB_DIR for scripts that need
-    # an isolated workspace, but it is NOT used as cwd.
-    execution_dir = self.project_dir
+    if extra_env:
+        # extra_env sits between CI built-ins and job-level variables.
+        # We merge it after prepare_environment so that job.variables
+        # (already applied inside prepare_environment) take precedence.
+        # Re-apply job.variables on top to ensure correct priority.
+        env.update(extra_env)
+        env.update(job.variables)
+        env[&#34;CI_JOB_STAGE&#34;] = job.stage
+        env[&#34;CI_JOB_NAME&#34;] = job.name
     if job_dir is not None:
         env[&#34;CI_JOB_DIR&#34;] = str(job_dir)
 
-    max_attempts = 1 + max(0, int(job.retry_max))
-    attempt = 0
-    last_exc: BaseException | None = None
-
-    # env-configured timing controls
-    base_delay = self._env_delay_seconds()
-    strategy = self._env_strategy()
-    skip_sleep = os.getenv(&#34;BITRAB_RETRY_NO_SLEEP&#34;) == &#34;1&#34;
-
-    while attempt &lt; max_attempts:
-        attempt += 1
-        if max_attempts &gt; 1:
-            _print(f&#34;  🔁 Attempt {attempt}/{max_attempts}&#34;)
-
-        try:
-            if job.before_script:
-                _print(&#34;  📋 Running before_script...&#34;)
-                self._execute_scripts(job.before_script, env, execution_dir, output_writer=output_writer)
-
-            if job.script:
-                _print(&#34;  🚀 Running script...&#34;)
-                self._execute_scripts(job.script, env, execution_dir, output_writer=output_writer)
-
-            _print(f&#34;✅ Job {job.name} completed successfully&#34;)
-            return
-
-        except subprocess.CalledProcessError as e:
-            last_exc = e
-            _print(f&#34;  ❗ Job step failed with exit code {e.returncode}&#34;)
-            if FAIL_FAST:
-                raise
-        except BaseException as e:
-            last_exc = e
-            _print(f&#34;  ❗ Job step raised an exception: {e!r}&#34;)
-        finally:
-            if job.after_script:
-                _print(&#34;  📋 Running after_script...&#34;)
-                try:
-                    self._execute_scripts(job.after_script, env, execution_dir, output_writer=output_writer)
-                except subprocess.CalledProcessError as e2:
-                    last_exc = last_exc or e2
-                    _print(f&#34;  ❗ after_script failed with exit code {e2.returncode}&#34;)
-
-        # failed attempt
-        if attempt &gt;= max_attempts:
-            break
-
-        # honor exit_codes restriction first; then when
-        if not self._should_retry_exit_codes(job.retry_exit_codes, last_exc or Exception(&#34;unknown failure&#34;)):
-            _print(&#34;  ↩️  Retry blocked by exit_codes; will not retry.&#34;)
-            break
-        if not self._should_retry_when(job.retry_when, last_exc or Exception(&#34;unknown failure&#34;)):
-            _print(&#34;  ↩️  Retry conditions not met (when); will not retry.&#34;)
-            break
-
-        delay = self._compute_delay_seconds(strategy, base_delay, attempt)
-        if delay &gt; 0 and not skip_sleep:
-            _print(f&#34;  ⏳ Waiting {delay:.2f}s before retry...&#34;)
-            time.sleep(delay)
-
-        _print(&#34;  🔄 Retrying job...&#34;)
-
-    # out of attempts
-    if isinstance(last_exc, subprocess.CalledProcessError):
-        raise JobExecutionError(f&#34;Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}&#34;) from last_exc
-    raise JobExecutionError(f&#34;Job {job.name} failed after {attempt} attempt(s).&#34;) from last_exc</code></pre>
+    job_timeout = job.timeout if job.timeout is not None else timeout
+    return JobRuntimeContext(
+        job=job,
+        env=env,
+        job_dir=job_dir or self.project_dir,
+        project_dir=self.project_dir,
+        output_writer=output_writer,
+        timeout=job_timeout,
+    )</code></pre>
 </details>
-<div class="desc"><p>Execute a single job.</p>
+<div class="desc"><p>Build a :class:<code><a title="bitrab.execution.job.JobRuntimeContext" href="#bitrab.execution.job.JobRuntimeContext">JobRuntimeContext</a></code> for <em>job</em>.</p>
+<p>This resolves the environment once via :pyattr:<code>variable_manager</code> and
+wires in <code>CI_JOB_DIR</code>.
+The returned context is frozen and can be
+passed to :meth:<code>execute_job</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>job</code></strong></dt>
 <dd>The job configuration.</dd>
 <dt><strong><code>job_dir</code></strong></dt>
-<dd>Optional override for the execution directory.</dd>
+<dd>Optional custom directory for job execution.</dd>
 <dt><strong><code>output_writer</code></strong></dt>
-<dd>Optional file-like object for all job output. When None,
-output goes to sys.stdout/sys.stderr (default behavior).</dd>
-</dl>
+<dd>Optional writer for job output.</dd>
+<dt><strong><code>timeout</code></strong></dt>
+<dd>Optional maximum duration for the job.</dd>
+<dt><strong><code>extra_env</code></strong></dt>
+<dd>Additional variables injected <em>before</em> job-level
+<code>variables:</code> (so job variables still win).
+Used by the
+stage runner to pass dotenv-report variables from upstream
+jobs — simulating GitLab's pipeline variable passing via
+<code>artifacts: reports: dotenv:</code>.</dd>
+</dl></div>
+</dd>
+<dt id="bitrab.execution.job.JobExecutor.execute_job"><code class="name flex">
+<span>def <span class="ident">execute_job</span></span>(<span>self,<br>job: JobConfig | None = None,<br>job_dir: Path | None = None,<br>output_writer: TextWriter | None = None,<br>timeout: float | None = None,<br>*,<br>ctx: <a title="bitrab.execution.job.JobRuntimeContext" href="#bitrab.execution.job.JobRuntimeContext">JobRuntimeContext</a> | None = None) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def execute_job(
+    self,
+    job: JobConfig | None = None,
+    job_dir: Path | None = None,
+    output_writer: TextWriter | None = None,
+    timeout: float | None = None,
+    *,
+    ctx: JobRuntimeContext | None = None,
+) -&gt; None:
+    &#34;&#34;&#34;Execute a single job.
+
+    May be called in two ways:
+
+    1. **Legacy (scattered params)**::
+
+           executor.execute_job(job, job_dir=..., output_writer=...)
+
+    2. **New (context)**::
+
+           ctx = executor.build_context(job, ...)
+           executor.execute_job(ctx=ctx)
+
+    When *ctx* is provided, *job*, *job_dir*, *output_writer*, and
+    *timeout* are ignored.
+
+    Raises:
+        JobExecutionError: If the job fails to execute successfully.
+    &#34;&#34;&#34;
+    if ctx is None:
+        if job is None:
+            raise ValueError(&#34;Either &#39;job&#39; or &#39;ctx&#39; must be provided&#34;)
+        ctx = self.build_context(job, job_dir=job_dir, output_writer=output_writer, timeout=timeout)
+
+    self._execute_with_context(ctx)</code></pre>
+</details>
+<div class="desc"><p>Execute a single job.</p>
+<p>May be called in two ways:</p>
+<ol>
+<li>
+<p><strong>Legacy (scattered params)</strong>::</p>
+<p>executor.execute_job(job, job_dir=&hellip;, output_writer=&hellip;)</p>
+</li>
+<li>
+<p><strong>New (context)</strong>::</p>
+<p>ctx = executor.build_context(job, &hellip;)
+executor.execute_job(ctx=ctx)</p>
+</li>
+</ol>
+<p>When <em>ctx</em> is provided, <em>job</em>, <em>job_dir</em>, <em>output_writer</em>, and
+<em>timeout</em> are ignored.</p>
 <h2 id="raises">Raises</h2>
 <dl>
 <dt><code>JobExecutionError</code></dt>
 <dd>If the job fails to execute successfully.</dd>
 </dl></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.execution.job.JobRuntimeContext"><code class="flex name class">
+<span>class <span class="ident">JobRuntimeContext</span></span>
+<span>(</span><span>job: JobConfig,<br>env: dict[str, str] = &lt;factory&gt;,<br>job_dir: Path = &lt;factory&gt;,<br>project_dir: Path = &lt;factory&gt;,<br>output_writer: Any | None = None,<br>timeout: float | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass(frozen=True)
+class JobRuntimeContext:
+    &#34;&#34;&#34;Frozen per-job context built once before execution begins.
+
+    Replaces the pattern where :meth:`JobExecutor.execute_job` receives
+    scattered parameters and rebuilds the environment on every call.
+
+    Attributes:
+        job: The job configuration.
+        env: Fully resolved environment dict (os.environ + CI vars + job vars).
+        job_dir: Per-job workspace directory (e.g. ``.bitrab/&lt;job&gt;/``).
+        project_dir: The project root directory (used as cwd for scripts).
+        output_writer: File-like sink for job output; ``None`` → sys.stdout.
+        timeout: Maximum seconds the job may run; ``None`` → no limit.
+    &#34;&#34;&#34;
+
+    job: JobConfig
+    env: dict[str, str] = field(default_factory=dict)
+    job_dir: Path = field(default_factory=Path)
+    project_dir: Path = field(default_factory=Path)
+    output_writer: Any | None = None
+    timeout: float | None = None</code></pre>
+</details>
+<div class="desc"><p>Frozen per-job context built once before execution begins.</p>
+<p>Replaces the pattern where :meth:<code><a title="bitrab.execution.job.JobExecutor.execute_job" href="#bitrab.execution.job.JobExecutor.execute_job">JobExecutor.execute_job()</a></code> receives
+scattered parameters and rebuilds the environment on every call.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>job</code></strong></dt>
+<dd>The job configuration.</dd>
+<dt><strong><code>env</code></strong></dt>
+<dd>Fully resolved environment dict (os.environ + CI vars + job vars).</dd>
+<dt><strong><code>job_dir</code></strong></dt>
+<dd>Per-job workspace directory (e.g. <code>.bitrab/&lt;job&gt;/</code>).</dd>
+<dt><strong><code>project_dir</code></strong></dt>
+<dd>The project root directory (used as cwd for scripts).</dd>
+<dt><strong><code>output_writer</code></strong></dt>
+<dd>File-like sink for job output; <code>None</code> → sys.stdout.</dd>
+<dt><strong><code>timeout</code></strong></dt>
+<dd>Maximum seconds the job may run; <code>None</code> → no limit.</dd>
+</dl></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.execution.job.JobRuntimeContext.env"><code class="name">var <span class="ident">env</span> : dict[str, str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.job.JobRuntimeContext.job"><code class="name">var <span class="ident">job</span> : <a title="bitrab.models.pipeline.JobConfig" href="../models/pipeline.html#bitrab.models.pipeline.JobConfig">JobConfig</a></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.job.JobRuntimeContext.job_dir"><code class="name">var <span class="ident">job_dir</span> : pathlib.Path</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.job.JobRuntimeContext.output_writer"><code class="name">var <span class="ident">output_writer</span> : Any | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.job.JobRuntimeContext.project_dir"><code class="name">var <span class="ident">project_dir</span> : pathlib.Path</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.job.JobRuntimeContext.timeout"><code class="name">var <span class="ident">timeout</span> : float | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
 </dl>
 </dd>
@@ -397,7 +592,19 @@ output goes to sys.stdout/sys.stderr (default behavior).</dd>
 <li>
 <h4><code><a title="bitrab.execution.job.JobExecutor" href="#bitrab.execution.job.JobExecutor">JobExecutor</a></code></h4>
 <ul class="">
+<li><code><a title="bitrab.execution.job.JobExecutor.build_context" href="#bitrab.execution.job.JobExecutor.build_context">build_context</a></code></li>
 <li><code><a title="bitrab.execution.job.JobExecutor.execute_job" href="#bitrab.execution.job.JobExecutor.execute_job">execute_job</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.execution.job.JobRuntimeContext" href="#bitrab.execution.job.JobRuntimeContext">JobRuntimeContext</a></code></h4>
+<ul class="two-column">
+<li><code><a title="bitrab.execution.job.JobRuntimeContext.env" href="#bitrab.execution.job.JobRuntimeContext.env">env</a></code></li>
+<li><code><a title="bitrab.execution.job.JobRuntimeContext.job" href="#bitrab.execution.job.JobRuntimeContext.job">job</a></code></li>
+<li><code><a title="bitrab.execution.job.JobRuntimeContext.job_dir" href="#bitrab.execution.job.JobRuntimeContext.job_dir">job_dir</a></code></li>
+<li><code><a title="bitrab.execution.job.JobRuntimeContext.output_writer" href="#bitrab.execution.job.JobRuntimeContext.output_writer">output_writer</a></code></li>
+<li><code><a title="bitrab.execution.job.JobRuntimeContext.project_dir" href="#bitrab.execution.job.JobRuntimeContext.project_dir">project_dir</a></code></li>
+<li><code><a title="bitrab.execution.job.JobRuntimeContext.timeout" href="#bitrab.execution.job.JobRuntimeContext.timeout">timeout</a></code></li>
 </ul>
 </li>
 </ul>

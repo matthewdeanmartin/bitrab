@@ -88,6 +88,35 @@ class ParallelBackendConfig:
             self.backend = "process"
 
 
+@dataclass
+class WorktreeConfig:
+    """Configuration for per-job git-worktree isolation.
+
+    Attributes:
+        enabled: If True (default) and the project is a git repo, each
+            parallel job runs inside its own detached-HEAD worktree under
+            ``.bitrab/worktrees/<job>/``.  Serial execution never creates
+            worktrees — there is no parallel conflict to avoid.  Outside of
+            a git repo the feature is a silent no-op.
+    """
+
+    enabled: bool = True
+
+
+@dataclass
+class SerialConfig:
+    """Force every job to run one-at-a-time in the project root.
+
+    For formatters / autofixers / codegen that *want* to mutate the real tree
+    (``ruff format``, ``isort .``, ``pre-commit run --all-files``), worktrees
+    are the wrong tool — the changes need to land in the actual working copy,
+    not in a throwaway checkout.  Setting ``enabled = True`` pins
+    ``maximum_degree_of_parallelism`` to 1 and disables worktrees for the run.
+    """
+
+    enabled: bool = False
+
+
 def _load_toml(file_path: Path) -> dict[str, Any]:
     """Load a TOML file, caching the result by path + mtime."""
     try:
@@ -115,6 +144,35 @@ def load_parallel_config(project_dir: Path) -> ParallelBackendConfig:
     backend = str(bitrab_section.get("parallel_backend", "process")).lower()
 
     return ParallelBackendConfig(backend=backend)
+
+
+def load_worktree_config(project_dir: Path) -> WorktreeConfig:
+    """Read ``[tool.bitrab]`` from ``pyproject.toml`` and return worktree config.
+
+    The default is *enabled* — the whole point of bitrab's parallel story is
+    speed, and worktrees are what keep parallel jobs from fighting.  Users can
+    opt out via ``use_git_worktrees = false``.
+    """
+    pyproject = project_dir / "pyproject.toml"
+    if not pyproject.exists():
+        return WorktreeConfig()
+
+    data = _load_toml(pyproject)
+    bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
+    enabled = bool(bitrab_section.get("use_git_worktrees", True))
+    return WorktreeConfig(enabled=enabled)
+
+
+def load_serial_config(project_dir: Path) -> SerialConfig:
+    """Read ``[tool.bitrab]`` from ``pyproject.toml`` and return serial config."""
+    pyproject = project_dir / "pyproject.toml"
+    if not pyproject.exists():
+        return SerialConfig()
+
+    data = _load_toml(pyproject)
+    bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
+    enabled = bool(bitrab_section.get("serial", False))
+    return SerialConfig(enabled=enabled)
 
 
 def load_mutation_config(project_dir: Path) -> MutationConfig:

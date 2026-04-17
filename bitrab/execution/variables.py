@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess  # nosec B404
 import time
 from pathlib import Path
 
 from bitrab.models.pipeline import JobConfig
+
+_REMOTE_URL_RE = re.compile(r"[:/]([^/]+)/([^/.]+?)(?:\.git)?$")
+_GIT_FIELD_SEP = "\x1f"
 
 
 def parse_dotenv(text: str) -> dict[str, str]:
@@ -91,6 +95,46 @@ def _git(args: list[str], cwd: Path) -> str:
         return ""
 
 
+def _git_head_metadata(project_dir: Path) -> tuple[str, str, str, str, str, str]:
+    """Return HEAD-derived metadata in one git call.
+
+    The tuple contains:
+      sha, author_name, author_email, timestamp, commit_title, commit_message
+    """
+    output = _git(
+        [
+            "log",
+            "-1",
+            f"--pretty=%H{_GIT_FIELD_SEP}%an{_GIT_FIELD_SEP}%ae{_GIT_FIELD_SEP}%cI{_GIT_FIELD_SEP}%s{_GIT_FIELD_SEP}%B",
+            "HEAD",
+        ],
+        project_dir,
+    )
+    if not output:
+        return ("", "", "", "", "", "")
+    parts = output.split(_GIT_FIELD_SEP, 5)
+    if len(parts) != 6:
+        return ("", "", "", "", "", "")
+    return tuple(parts)  # type: ignore[return-value]
+
+
+def _project_identity_from_remote(remote_url: str) -> tuple[str, str, str]:
+    """Derive namespace, path, and HTTP-ish URL from a git remote URL."""
+    if not remote_url:
+        return "", "", ""
+
+    m = _REMOTE_URL_RE.search(remote_url)
+    if not m:
+        return "", "", ""
+
+    project_namespace = m.group(1)
+    project_path = f"{m.group(1)}/{m.group(2)}"
+    project_url = re.sub(r"git@([^:]+):(.+?)(?:\.git)?$", r"https://\1/\2", remote_url)
+    if project_url.endswith(".git"):
+        project_url = project_url[:-4]
+    return project_namespace, project_path, project_url
+
+
 def _derive_git_variables(project_dir: Path) -> dict[str, str]:
     """
     Populate the GitLab CI_COMMIT_* / CI_PROJECT_* variables that GitLab
@@ -101,38 +145,34 @@ def _derive_git_variables(project_dir: Path) -> dict[str, str]:
     (``[ -n "$CI_COMMIT_TAG" ]``) behave the same as they would in GitLab when
     there is no tag.
     """
-    sha = _git(["rev-parse", "HEAD"], project_dir)
+    sha, author_name, author_email, timestamp, commit_title, commit_message = _git_head_metadata(project_dir)
+    if not sha:
+        return {
+            "CI_COMMIT_SHA": "",
+            "CI_COMMIT_SHORT_SHA": "",
+            "CI_COMMIT_BRANCH": "",
+            "CI_COMMIT_TAG": "",
+            "CI_COMMIT_REF_NAME": "",
+            "CI_COMMIT_REF_SLUG": "",
+            "CI_COMMIT_TITLE": "",
+            "CI_COMMIT_MESSAGE": "",
+            "CI_COMMIT_AUTHOR": "",
+            "CI_COMMIT_TIMESTAMP": "",
+            "CI_PROJECT_NAMESPACE": "",
+            "CI_PROJECT_PATH": "",
+            "CI_PROJECT_URL": "",
+            "CI_PROJECT_PATH_SLUG": "",
+        }
+
     short_sha = sha[:8] if sha else ""
-    branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], project_dir)
-    # Detached-HEAD state reports "HEAD" — treat that as no branch
-    if branch == "HEAD":
-        branch = ""
+    branch = _git(["branch", "--show-current"], project_dir)
     tag = _git(["describe", "--tags", "--exact-match", "HEAD"], project_dir)
     ref_name = tag if tag else branch
     ref_slug = ref_name.replace("/", "-")[:63]  # GitLab slugifies refs
-    commit_title = _git(["log", "-1", "--pretty=%s"], project_dir)
-    commit_message = _git(["log", "-1", "--pretty=%B"], project_dir)
-    author_name = _git(["log", "-1", "--pretty=%an"], project_dir)
-    author_email = _git(["log", "-1", "--pretty=%ae"], project_dir)
-    timestamp = _git(["log", "-1", "--pretty=%cI"], project_dir)
 
     # Remote URL → derive CI_PROJECT_NAMESPACE / CI_PROJECT_PATH
     remote_url = _git(["remote", "get-url", "origin"], project_dir)
-    # Parse github.com/owner/repo or git@github.com:owner/repo
-    project_namespace = ""
-    project_path = ""
-    project_url = ""
-    if remote_url:
-        import re
-
-        m = re.search(r"[:/]([^/]+)/([^/.]+?)(?:\.git)?$", remote_url)
-        if m:
-            project_namespace = m.group(1)
-            project_path = f"{m.group(1)}/{m.group(2)}"
-            # Best-effort HTTP URL for CI_PROJECT_URL
-            project_url = re.sub(r"git@([^:]+):(.+?)(?:\.git)?$", r"https://\1/\2", remote_url)
-            if project_url.endswith(".git"):
-                project_url = project_url[:-4]
+    project_namespace, project_path, project_url = _project_identity_from_remote(remote_url)
 
     return {
         # Commit identity
@@ -177,8 +217,14 @@ class VariableManager:
         # that what's in .gitlab-ci.yml is always authoritative.
         self.dotenv_vars = load_dotenv_files(self.project_dir)
 
-        # Pre-compute the shared base environment (os.environ + built-ins + base vars)
-        self._shared_base_env = os.environ.copy()
+        # Pre-compute the shared base environment (os.environ + built-ins + base vars).
+        # Strip per-job CI vars that may be leaking in from a parent bitrab/GitLab
+        # process — otherwise a nested run inherits stale per-job state (e.g. a
+        # pytest job inside `bitrab run` seeing the outer job's CI_JOB_DIR).
+        base = os.environ.copy()
+        for leaked in ("CI_JOB_DIR", "CI_JOB_ID", "CI_JOB_STAGE", "CI_JOB_NAME", "CI_JOB_URL"):
+            base.pop(leaked, None)
+        self._shared_base_env = base
         self._shared_base_env.update(self.gitlab_ci_vars)
         self._shared_base_env.update(self.dotenv_vars)
         self._shared_base_env.update(self.base_variables)

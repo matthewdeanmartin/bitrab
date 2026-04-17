@@ -1,0 +1,1321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.execution.stage_runner API documentation</title>
+<meta name="description" content="Shared stage-loop engine used by all pipeline execution modes …">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.execution.stage_runner</code></h1>
+</header>
+<section id="section-intro">
+<p>Shared stage-loop engine used by all pipeline execution modes.</p>
+<p>The three execution modes (streaming, TUI, CI-file) differ only in:
+- How output is routed (stdout, queue, file)
+- How status is reported (print, Textual message, none)
+- Whether cancellation is supported</p>
+<p>This module provides :class:<code><a title="bitrab.execution.stage_runner.StagePipelineRunner" href="#bitrab.execution.stage_runner.StagePipelineRunner">StagePipelineRunner</a></code> which implements the shared
+stage-iteration, job-directory creation, serial/parallel dispatching, failure
+propagation, and job-history merging.
+Callers customise behaviour via a
+:class:<code><a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a></code> protocol.</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.execution.stage_runner.has_dag_jobs"><code class="name flex">
+<span>def <span class="ident">has_dag_jobs</span></span>(<span>pipeline: PipelineConfig) ‑> bool</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def has_dag_jobs(pipeline: PipelineConfig) -&gt; bool:
+    &#34;&#34;&#34;Return True if any job in the pipeline declares ``needs:``.&#34;&#34;&#34;
+    return any(job.needs for job in pipeline.jobs)</code></pre>
+</details>
+<div class="desc"><p>Return True if any job in the pipeline declares <code>needs:</code>.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.organize_jobs_by_stage"><code class="name flex">
+<span>def <span class="ident">organize_jobs_by_stage</span></span>(<span>pipeline: PipelineConfig) ‑> dict[str, list[<a title="bitrab.models.pipeline.JobConfig" href="../models/pipeline.html#bitrab.models.pipeline.JobConfig">JobConfig</a>]]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def organize_jobs_by_stage(pipeline: PipelineConfig) -&gt; dict[str, list[JobConfig]]:
+    &#34;&#34;&#34;Group pipeline jobs by their stage.&#34;&#34;&#34;
+    jobs_by_stage: dict[str, list[JobConfig]] = {}
+    for job in pipeline.jobs:
+        jobs_by_stage.setdefault(job.stage, []).append(job)
+    return jobs_by_stage</code></pre>
+</details>
+<div class="desc"><p>Group pipeline jobs by their stage.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.sanitize_job_name"><code class="name flex">
+<span>def <span class="ident">sanitize_job_name</span></span>(<span>name: str) ‑> str</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sanitize_job_name(name: str) -&gt; str:
+    &#34;&#34;&#34;Replace characters that are invalid in filenames with underscores.&#34;&#34;&#34;
+    return re.sub(r&#39;[\\/:*?&#34;&lt;&gt;|]&#39;, &#34;_&#34;, name)</code></pre>
+</details>
+<div class="desc"><p>Replace characters that are invalid in filenames with underscores.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="bitrab.execution.stage_runner.DagPipelineRunner"><code class="flex name class">
+<span>class <span class="ident">DagPipelineRunner</span></span>
+<span>(</span><span>job_executor: JobExecutor,<br>callbacks: <a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a> | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DagPipelineRunner:
+    &#34;&#34;&#34;Execute a pipeline using DAG scheduling based on ``needs:`` dependencies.
+
+    Jobs become ready as soon as their dependencies complete, potentially
+    ignoring stage boundaries.  Uses :class:`PipelineCallbacks` for the same
+    customisation hooks as :class:`StagePipelineRunner`.
+    &#34;&#34;&#34;
+
+    def __init__(
+        self,
+        job_executor: JobExecutor,
+        callbacks: PipelineCallbacks | None = None,
+        maximum_degree_of_parallelism: int | None = None,
+        mp_ctx: Any = None,
+        mutation_config: MutationConfig | None = None,
+        parallel_backend: ParallelBackendConfig | None = None,
+    ) -&gt; None:
+        self.job_executor = job_executor
+        self.callbacks = callbacks or PipelineCallbacks()
+        cpu_cnt = os.cpu_count() or 1
+        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        if mp_ctx is None:
+            mp_ctx = mp.get_context(&#34;spawn&#34;)
+        self._mp_ctx = mp_ctx
+        self._mutation_config = mutation_config or MutationConfig()
+        self._parallel_backend = parallel_backend or ParallelBackendConfig()
+        self._completed_jobs: list[str] = []
+
+    def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
+        &#34;&#34;&#34;Run all jobs respecting DAG dependencies.&#34;&#34;&#34;
+        cb = self.callbacks
+        cb.on_pipeline_start(pipeline, self.maximum_degree_of_parallelism)
+
+        # Build the DAG (raises CycleError if cyclic)
+        ts = _build_dag(pipeline)
+        ts.prepare()
+
+        # Index jobs by name for fast lookup
+        job_map: dict[str, JobConfig] = {j.name: j for j in pipeline.jobs}
+        all_outcomes: list[JobOutcome] = []
+        success = True
+        first_error: BaseException | None = None
+        failed_jobs: set[str] = set()  # jobs that hard-failed
+
+        try:
+            while ts.is_active():
+                if cb.is_cancelled():
+                    cb.on_cancelled()
+                    success = False
+                    return
+
+                ready_names = ts.get_ready()
+                if not ready_names:
+                    break
+
+                # Filter by when-condition
+                ready_jobs = []
+                for name in ready_names:
+                    job = job_map.get(name)
+                    if job is None:
+                        # Dependency named a job that doesn&#39;t exist — mark done and skip
+                        ts.done(name)
+                        continue
+                    when = job.when
+                    skip = False
+                    if when in {&#34;never&#34;, &#34;manual&#34;}:
+                        skip = True
+                    elif when == &#34;on_failure&#34;:
+                        if not failed_jobs:
+                            skip = True
+                    elif when == &#34;always&#34;:
+                        pass  # always runs
+                    else:  # on_success
+                        # Check if any dependency failed
+                        if job.needs:
+                            if any(dep in failed_jobs for dep in job.needs):
+                                skip = True
+                        elif failed_jobs:
+                            skip = True
+
+                    if skip:
+                        ts.done(name)
+                        continue
+                    ready_jobs.append(job)
+
+                if not ready_jobs:
+                    continue
+
+                # Notify stage start (use first job&#39;s stage as label)
+                stages_in_batch = sorted({j.stage for j in ready_jobs})
+                for stage in stages_in_batch:
+                    stage_jobs = [j for j in ready_jobs if j.stage == stage]
+                    cb.on_stage_start(stage, stage_jobs)
+
+                # Execute ready jobs
+                outcomes = self._run_batch(ready_jobs)
+                all_outcomes.extend(outcomes)
+
+                # Notify stage completion
+                for stage in stages_in_batch:
+                    stage_outcomes = [o for o in outcomes if o.job.stage == stage]
+                    cb.on_stage_complete(stage, stage_outcomes)
+
+                # Process outcomes
+                for outcome in outcomes:
+                    ts.done(outcome.job.name)
+                    if not outcome.success:
+                        failed_jobs.add(outcome.job.name)
+                        success = False
+                        if first_error is None:
+                            first_error = outcome.error
+                    if outcome.allowed_failure:
+                        failed_jobs.add(outcome.job.name)
+
+            if cb.is_cancelled():
+                cb.on_cancelled()
+                success = False
+
+            if first_error is not None:
+                raise first_error
+        except CycleError:
+            success = False
+            raise
+        except BaseException:
+            success = False
+            raise
+        finally:
+            cb.on_pipeline_complete(success)
+
+    def _run_batch(self, jobs: list[JobConfig]) -&gt; list[JobOutcome]:
+        &#34;&#34;&#34;Execute a batch of ready jobs, serial or parallel.&#34;&#34;&#34;
+        if self.maximum_degree_of_parallelism == 1 or len(jobs) == 1:
+            return self._run_batch_serial(jobs)
+        return self._run_batch_parallel(jobs)
+
+    def _run_batch_serial(self, jobs: list[JobConfig]) -&gt; list[JobOutcome]:
+        &#34;&#34;&#34;Run jobs one at a time.&#34;&#34;&#34;
+        cb = self.callbacks
+        outcomes: list[JobOutcome] = []
+
+        for job in jobs:
+            job_dir = self._make_job_dir(job)
+            cb.on_job_start(job)
+            dotenv_vars: dict[str, str] = {}
+            if not self.job_executor.dry_run:
+                inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
+            writer = cb.make_output_writer(job, job_dir)
+            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None)
+            ctx = cb.enrich_context(ctx)
+            succeeded = True
+
+            snap: MutationSnapshot | None = None
+            if self._mutation_config.enabled and not self.job_executor.dry_run:
+                snap = MutationSnapshot(
+                    project_dir=self.job_executor.project_dir,
+                    config=self._mutation_config,
+                )
+                snap.take()
+
+            try:
+                self.job_executor.execute_job(ctx=ctx)
+                outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
+            except BaseException as exc:
+                succeeded = False
+                allowed = _is_failure_allowed(job, exc)
+                outcome = JobOutcome(
+                    job=job,
+                    success=allowed,
+                    error=exc,
+                    history=list(self.job_executor.job_history),
+                    allowed_failure=allowed,
+                )
+            finally:
+                if not self.job_executor.dry_run:
+                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                    collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
+                self._completed_jobs.append(job.name)
+
+            if snap is not None:
+                _report_mutations(job.name, snap, writer)
+
+            outcomes.append(outcome)
+            cb.on_job_complete(outcome)
+        return outcomes
+
+    def _make_pool(self, max_workers: int):
+        &#34;&#34;&#34;Create the appropriate executor pool based on backend config.&#34;&#34;&#34;
+        if self._parallel_backend.backend == &#34;thread&#34;:
+            return ThreadPoolExecutor(max_workers=max_workers)
+        return ProcessPoolExecutor(
+            max_workers=max_workers,
+            mp_context=self._mp_ctx,
+        )
+
+    def _run_batch_parallel(self, jobs: list[JobConfig]) -&gt; list[JobOutcome]:
+        &#34;&#34;&#34;Run jobs across processes/threads using the configured pool executor.&#34;&#34;&#34;
+        cb = self.callbacks
+        outcomes: list[JobOutcome] = []
+
+        _wf = cb.get_worker_func()
+        worker_func: WorkerFunc = _wf if _wf is not None else _default_worker
+
+        with self._make_pool(min(self.maximum_degree_of_parallelism, len(jobs))) as pool:
+            futures = {}
+            for job in jobs:
+                job_dir = self._make_job_dir(job)
+                cb.on_job_start(job)
+                if not self.job_executor.dry_run:
+                    inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                    dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
+                    if dotenv_vars:
+                        import dataclasses
+
+                        merged = {**dotenv_vars, **job.variables}
+                        job = dataclasses.replace(job, variables=merged)
+                extra = cb.make_worker_args(job, job_dir)
+                fut = pool.submit(worker_func, job, self.job_executor, job_dir, **extra)
+                futures[fut] = job
+
+            pending = set(futures.keys())
+            while pending:
+                cb.poll_during_parallel(futures)
+                done = {f for f in pending if f.done()}
+                if not done:
+                    time.sleep(0.05)
+                    continue
+                for fut in done:
+                    pending.discard(fut)
+                    job = futures[fut]
+                    succeeded = True
+                    try:
+                        history = fut.result()
+                        self.job_executor.job_history.extend(history)
+                        outcome = JobOutcome(job=job, success=True, history=history)
+                    except BaseException as exc:
+                        succeeded = False
+                        allowed = _is_failure_allowed(job, exc)
+                        outcome = JobOutcome(
+                            job=job,
+                            success=allowed,
+                            error=exc,
+                            allowed_failure=allowed,
+                        )
+                    if not self.job_executor.dry_run:
+                        collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                        collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
+                    self._completed_jobs.append(job.name)
+                    outcomes.append(outcome)
+                    cb.on_job_complete(outcome)
+
+        return outcomes
+
+    def _make_job_dir(self, job: JobConfig) -&gt; Path:
+        &#34;&#34;&#34;Create and return the per-job directory.&#34;&#34;&#34;
+        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / sanitize_job_name(job.name)
+        if not self.job_executor.dry_run:
+            job_dir.mkdir(parents=True, exist_ok=True)
+        return job_dir</code></pre>
+</details>
+<div class="desc"><p>Execute a pipeline using DAG scheduling based on <code>needs:</code> dependencies.</p>
+<p>Jobs become ready as soon as their dependencies complete, potentially
+ignoring stage boundaries.
+Uses :class:<code><a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a></code> for the same
+customisation hooks as :class:<code><a title="bitrab.execution.stage_runner.StagePipelineRunner" href="#bitrab.execution.stage_runner.StagePipelineRunner">StagePipelineRunner</a></code>.</p></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.execution.stage_runner.DagPipelineRunner.execute_pipeline"><code class="name flex">
+<span>def <span class="ident">execute_pipeline</span></span>(<span>self, pipeline: PipelineConfig) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
+    &#34;&#34;&#34;Run all jobs respecting DAG dependencies.&#34;&#34;&#34;
+    cb = self.callbacks
+    cb.on_pipeline_start(pipeline, self.maximum_degree_of_parallelism)
+
+    # Build the DAG (raises CycleError if cyclic)
+    ts = _build_dag(pipeline)
+    ts.prepare()
+
+    # Index jobs by name for fast lookup
+    job_map: dict[str, JobConfig] = {j.name: j for j in pipeline.jobs}
+    all_outcomes: list[JobOutcome] = []
+    success = True
+    first_error: BaseException | None = None
+    failed_jobs: set[str] = set()  # jobs that hard-failed
+
+    try:
+        while ts.is_active():
+            if cb.is_cancelled():
+                cb.on_cancelled()
+                success = False
+                return
+
+            ready_names = ts.get_ready()
+            if not ready_names:
+                break
+
+            # Filter by when-condition
+            ready_jobs = []
+            for name in ready_names:
+                job = job_map.get(name)
+                if job is None:
+                    # Dependency named a job that doesn&#39;t exist — mark done and skip
+                    ts.done(name)
+                    continue
+                when = job.when
+                skip = False
+                if when in {&#34;never&#34;, &#34;manual&#34;}:
+                    skip = True
+                elif when == &#34;on_failure&#34;:
+                    if not failed_jobs:
+                        skip = True
+                elif when == &#34;always&#34;:
+                    pass  # always runs
+                else:  # on_success
+                    # Check if any dependency failed
+                    if job.needs:
+                        if any(dep in failed_jobs for dep in job.needs):
+                            skip = True
+                    elif failed_jobs:
+                        skip = True
+
+                if skip:
+                    ts.done(name)
+                    continue
+                ready_jobs.append(job)
+
+            if not ready_jobs:
+                continue
+
+            # Notify stage start (use first job&#39;s stage as label)
+            stages_in_batch = sorted({j.stage for j in ready_jobs})
+            for stage in stages_in_batch:
+                stage_jobs = [j for j in ready_jobs if j.stage == stage]
+                cb.on_stage_start(stage, stage_jobs)
+
+            # Execute ready jobs
+            outcomes = self._run_batch(ready_jobs)
+            all_outcomes.extend(outcomes)
+
+            # Notify stage completion
+            for stage in stages_in_batch:
+                stage_outcomes = [o for o in outcomes if o.job.stage == stage]
+                cb.on_stage_complete(stage, stage_outcomes)
+
+            # Process outcomes
+            for outcome in outcomes:
+                ts.done(outcome.job.name)
+                if not outcome.success:
+                    failed_jobs.add(outcome.job.name)
+                    success = False
+                    if first_error is None:
+                        first_error = outcome.error
+                if outcome.allowed_failure:
+                    failed_jobs.add(outcome.job.name)
+
+        if cb.is_cancelled():
+            cb.on_cancelled()
+            success = False
+
+        if first_error is not None:
+            raise first_error
+    except CycleError:
+        success = False
+        raise
+    except BaseException:
+        success = False
+        raise
+    finally:
+        cb.on_pipeline_complete(success)</code></pre>
+</details>
+<div class="desc"><p>Run all jobs respecting DAG dependencies.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.execution.stage_runner.JobOutcome"><code class="flex name class">
+<span>class <span class="ident">JobOutcome</span></span>
+<span>(</span><span>job: JobConfig,<br>success: bool,<br>error: BaseException | None = None,<br>history: list[RunResult] = &lt;factory&gt;,<br>allowed_failure: bool = False)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class JobOutcome:
+    &#34;&#34;&#34;Result of running a single job.&#34;&#34;&#34;
+
+    job: JobConfig
+    success: bool
+    error: BaseException | None = None
+    history: list[RunResult] = field(default_factory=list)
+    allowed_failure: bool = False  # True if job failed but allow_failure was set</code></pre>
+</details>
+<div class="desc"><p>Result of running a single job.</p></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.execution.stage_runner.JobOutcome.allowed_failure"><code class="name">var <span class="ident">allowed_failure</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.JobOutcome.error"><code class="name">var <span class="ident">error</span> : BaseException | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.JobOutcome.history"><code class="name">var <span class="ident">history</span> : list[<a title="bitrab.execution.shell.RunResult" href="shell.html#bitrab.execution.shell.RunResult">RunResult</a>]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.JobOutcome.job"><code class="name">var <span class="ident">job</span> : <a title="bitrab.models.pipeline.JobConfig" href="../models/pipeline.html#bitrab.models.pipeline.JobConfig">JobConfig</a></code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.JobOutcome.success"><code class="name">var <span class="ident">success</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks"><code class="flex name class">
+<span>class <span class="ident">PipelineCallbacks</span></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class PipelineCallbacks:
+    &#34;&#34;&#34;Override any of these hooks to customise pipeline behaviour.
+
+    Every method has a no-op default so callers only need to override what they
+    care about.
+    &#34;&#34;&#34;
+
+    def on_pipeline_start(self, pipeline: PipelineConfig, max_workers: int) -&gt; None:
+        &#34;&#34;&#34;Called once before any stages run.&#34;&#34;&#34;
+
+    def on_pipeline_complete(self, success: bool) -&gt; None:
+        &#34;&#34;&#34;Called once after all stages finish (or after a failure stops the run).&#34;&#34;&#34;
+
+    def on_stage_start(self, stage: str, jobs: list[JobConfig]) -&gt; None:
+        &#34;&#34;&#34;Called at the beginning of each non-empty stage.&#34;&#34;&#34;
+
+    def on_stage_skip(self, stage: str) -&gt; None:
+        &#34;&#34;&#34;Called when a stage has no jobs and is skipped.&#34;&#34;&#34;
+
+    def on_stage_complete(
+        self,
+        stage: str,
+        outcomes: list[JobOutcome],
+    ) -&gt; None:
+        &#34;&#34;&#34;Called after all jobs in a stage have finished (or failed).&#34;&#34;&#34;
+
+    def on_job_start(self, job: JobConfig) -&gt; None:
+        &#34;&#34;&#34;Called just before a job begins executing.&#34;&#34;&#34;
+
+    def on_job_complete(self, outcome: JobOutcome) -&gt; None:
+        &#34;&#34;&#34;Called when a single job finishes (success or failure).&#34;&#34;&#34;
+
+    def is_cancelled(self) -&gt; bool:
+        &#34;&#34;&#34;Return True to abort the pipeline before the next stage.&#34;&#34;&#34;
+        return False
+
+    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -&gt; TextWriter | None:
+        &#34;&#34;&#34;Return an output writer for this job, or None for default (sys.stdout).&#34;&#34;&#34;
+        return None
+
+    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;Return extra kwargs passed to the parallel worker function.
+
+        The returned dict is merged into the arguments of the module-level
+        worker function.  Override this when you need to pass a queue, log
+        path, or PID dict to the worker.
+        &#34;&#34;&#34;
+        return {}
+
+    def get_worker_func(self) -&gt; WorkerFunc | None:
+        &#34;&#34;&#34;Return the module-level function to call in parallel workers.
+
+        Must be picklable (module-level, not a closure).  Signature must be:
+            func(job, executor, job_dir, **extra) -&gt; list[RunResult]
+        where **extra comes from :meth:`make_worker_args`.
+
+        Return None to use the default worker.
+        &#34;&#34;&#34;
+        return None
+
+    def poll_during_parallel(self, futures: dict[Any, JobConfig]) -&gt; None:
+        &#34;&#34;&#34;Called repeatedly while parallel futures are running.
+
+        Use this to drain queues, update progress, etc.  The default
+        implementation does nothing.  Implementations should be non-blocking
+        or use a very short timeout.
+        &#34;&#34;&#34;
+
+    def on_cancelled(self) -&gt; None:
+        &#34;&#34;&#34;Called when the pipeline is aborted due to cancellation.&#34;&#34;&#34;
+
+    def on_pipeline_awaiting_manual(self) -&gt; None:
+        &#34;&#34;&#34;Called when all automatically-runnable jobs have finished but one or
+        more manual jobs remain.  The pipeline is considered successful at this
+        point; the TUI should stay open in interactive use so the operator can
+        trigger manual jobs, but tests may choose to close via
+        ``close_on_completion``.
+        &#34;&#34;&#34;
+
+    def enrich_context(self, ctx: JobRuntimeContext) -&gt; JobRuntimeContext:
+        &#34;&#34;&#34;Optionally transform the context before it is passed to a worker.
+
+        The default implementation returns *ctx* unchanged.  Override this to
+        swap the output writer, inject extra env vars, etc.
+        &#34;&#34;&#34;
+        return ctx</code></pre>
+</details>
+<div class="desc"><p>Override any of these hooks to customise pipeline behaviour.</p>
+<p>Every method has a no-op default so callers only need to override what they
+care about.</p></div>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="bitrab.execution.events.EventCollector" href="events.html#bitrab.execution.events.EventCollector">EventCollector</a></li>
+<li>bitrab.execution.scheduler._StreamingCallbacks</li>
+<li>bitrab.tui.orchestrator._CIFileCallbacks</li>
+<li>bitrab.tui.orchestrator._TUICallbacks</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.enrich_context"><code class="name flex">
+<span>def <span class="ident">enrich_context</span></span>(<span>self, ctx: JobRuntimeContext) ‑> <a title="bitrab.execution.job.JobRuntimeContext" href="job.html#bitrab.execution.job.JobRuntimeContext">JobRuntimeContext</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def enrich_context(self, ctx: JobRuntimeContext) -&gt; JobRuntimeContext:
+    &#34;&#34;&#34;Optionally transform the context before it is passed to a worker.
+
+    The default implementation returns *ctx* unchanged.  Override this to
+    swap the output writer, inject extra env vars, etc.
+    &#34;&#34;&#34;
+    return ctx</code></pre>
+</details>
+<div class="desc"><p>Optionally transform the context before it is passed to a worker.</p>
+<p>The default implementation returns <em>ctx</em> unchanged.
+Override this to
+swap the output writer, inject extra env vars, etc.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.get_worker_func"><code class="name flex">
+<span>def <span class="ident">get_worker_func</span></span>(<span>self) ‑> Callable[[<a title="bitrab.models.pipeline.JobConfig" href="../models/pipeline.html#bitrab.models.pipeline.JobConfig">JobConfig</a>, <a title="bitrab.execution.job.JobExecutor" href="job.html#bitrab.execution.job.JobExecutor">JobExecutor</a>, pathlib.Path], list[<a title="bitrab.execution.shell.RunResult" href="shell.html#bitrab.execution.shell.RunResult">RunResult</a>]] | None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_worker_func(self) -&gt; WorkerFunc | None:
+    &#34;&#34;&#34;Return the module-level function to call in parallel workers.
+
+    Must be picklable (module-level, not a closure).  Signature must be:
+        func(job, executor, job_dir, **extra) -&gt; list[RunResult]
+    where **extra comes from :meth:`make_worker_args`.
+
+    Return None to use the default worker.
+    &#34;&#34;&#34;
+    return None</code></pre>
+</details>
+<div class="desc"><p>Return the module-level function to call in parallel workers.</p>
+<p>Must be picklable (module-level, not a closure).
+Signature must be:
+func(job, executor, job_dir, <strong>extra) -&gt; list[RunResult]
+where </strong>extra comes from :meth:<code>make_worker_args</code>.</p>
+<p>Return None to use the default worker.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.is_cancelled"><code class="name flex">
+<span>def <span class="ident">is_cancelled</span></span>(<span>self) ‑> bool</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_cancelled(self) -&gt; bool:
+    &#34;&#34;&#34;Return True to abort the pipeline before the next stage.&#34;&#34;&#34;
+    return False</code></pre>
+</details>
+<div class="desc"><p>Return True to abort the pipeline before the next stage.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.make_output_writer"><code class="name flex">
+<span>def <span class="ident">make_output_writer</span></span>(<span>self, _job: JobConfig, _job_dir: Path) ‑> <a title="bitrab.execution.shell.TextWriter" href="shell.html#bitrab.execution.shell.TextWriter">TextWriter</a> | None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def make_output_writer(self, _job: JobConfig, _job_dir: Path) -&gt; TextWriter | None:
+    &#34;&#34;&#34;Return an output writer for this job, or None for default (sys.stdout).&#34;&#34;&#34;
+    return None</code></pre>
+</details>
+<div class="desc"><p>Return an output writer for this job, or None for default (sys.stdout).</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.make_worker_args"><code class="name flex">
+<span>def <span class="ident">make_worker_args</span></span>(<span>self, _job: JobConfig, _job_dir: Path) ‑> dict[str, typing.Any]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def make_worker_args(self, _job: JobConfig, _job_dir: Path) -&gt; dict[str, Any]:
+    &#34;&#34;&#34;Return extra kwargs passed to the parallel worker function.
+
+    The returned dict is merged into the arguments of the module-level
+    worker function.  Override this when you need to pass a queue, log
+    path, or PID dict to the worker.
+    &#34;&#34;&#34;
+    return {}</code></pre>
+</details>
+<div class="desc"><p>Return extra kwargs passed to the parallel worker function.</p>
+<p>The returned dict is merged into the arguments of the module-level
+worker function.
+Override this when you need to pass a queue, log
+path, or PID dict to the worker.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_cancelled"><code class="name flex">
+<span>def <span class="ident">on_cancelled</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_cancelled(self) -&gt; None:
+    &#34;&#34;&#34;Called when the pipeline is aborted due to cancellation.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called when the pipeline is aborted due to cancellation.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_job_complete"><code class="name flex">
+<span>def <span class="ident">on_job_complete</span></span>(<span>self,<br>outcome: <a title="bitrab.execution.stage_runner.JobOutcome" href="#bitrab.execution.stage_runner.JobOutcome">JobOutcome</a>) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_job_complete(self, outcome: JobOutcome) -&gt; None:
+    &#34;&#34;&#34;Called when a single job finishes (success or failure).&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called when a single job finishes (success or failure).</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_job_start"><code class="name flex">
+<span>def <span class="ident">on_job_start</span></span>(<span>self, job: JobConfig) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_job_start(self, job: JobConfig) -&gt; None:
+    &#34;&#34;&#34;Called just before a job begins executing.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called just before a job begins executing.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_awaiting_manual"><code class="name flex">
+<span>def <span class="ident">on_pipeline_awaiting_manual</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_pipeline_awaiting_manual(self) -&gt; None:
+    &#34;&#34;&#34;Called when all automatically-runnable jobs have finished but one or
+    more manual jobs remain.  The pipeline is considered successful at this
+    point; the TUI should stay open in interactive use so the operator can
+    trigger manual jobs, but tests may choose to close via
+    ``close_on_completion``.
+    &#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called when all automatically-runnable jobs have finished but one or
+more manual jobs remain.
+The pipeline is considered successful at this
+point; the TUI should stay open in interactive use so the operator can
+trigger manual jobs, but tests may choose to close via
+<code>close_on_completion</code>.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_complete"><code class="name flex">
+<span>def <span class="ident">on_pipeline_complete</span></span>(<span>self, success: bool) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_pipeline_complete(self, success: bool) -&gt; None:
+    &#34;&#34;&#34;Called once after all stages finish (or after a failure stops the run).&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called once after all stages finish (or after a failure stops the run).</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_start"><code class="name flex">
+<span>def <span class="ident">on_pipeline_start</span></span>(<span>self, pipeline: PipelineConfig, max_workers: int) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_pipeline_start(self, pipeline: PipelineConfig, max_workers: int) -&gt; None:
+    &#34;&#34;&#34;Called once before any stages run.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called once before any stages run.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_stage_complete"><code class="name flex">
+<span>def <span class="ident">on_stage_complete</span></span>(<span>self,<br>stage: str,<br>outcomes: list[<a title="bitrab.execution.stage_runner.JobOutcome" href="#bitrab.execution.stage_runner.JobOutcome">JobOutcome</a>]) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_stage_complete(
+    self,
+    stage: str,
+    outcomes: list[JobOutcome],
+) -&gt; None:
+    &#34;&#34;&#34;Called after all jobs in a stage have finished (or failed).&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called after all jobs in a stage have finished (or failed).</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_stage_skip"><code class="name flex">
+<span>def <span class="ident">on_stage_skip</span></span>(<span>self, stage: str) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_stage_skip(self, stage: str) -&gt; None:
+    &#34;&#34;&#34;Called when a stage has no jobs and is skipped.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called when a stage has no jobs and is skipped.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.on_stage_start"><code class="name flex">
+<span>def <span class="ident">on_stage_start</span></span>(<span>self, stage: str, jobs: list[JobConfig]) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_stage_start(self, stage: str, jobs: list[JobConfig]) -&gt; None:
+    &#34;&#34;&#34;Called at the beginning of each non-empty stage.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called at the beginning of each non-empty stage.</p></div>
+</dd>
+<dt id="bitrab.execution.stage_runner.PipelineCallbacks.poll_during_parallel"><code class="name flex">
+<span>def <span class="ident">poll_during_parallel</span></span>(<span>self, futures: dict[Any, JobConfig]) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def poll_during_parallel(self, futures: dict[Any, JobConfig]) -&gt; None:
+    &#34;&#34;&#34;Called repeatedly while parallel futures are running.
+
+    Use this to drain queues, update progress, etc.  The default
+    implementation does nothing.  Implementations should be non-blocking
+    or use a very short timeout.
+    &#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Called repeatedly while parallel futures are running.</p>
+<p>Use this to drain queues, update progress, etc.
+The default
+implementation does nothing.
+Implementations should be non-blocking
+or use a very short timeout.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.execution.stage_runner.StagePipelineRunner"><code class="flex name class">
+<span>class <span class="ident">StagePipelineRunner</span></span>
+<span>(</span><span>job_executor: JobExecutor,<br>callbacks: <a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a> | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class StagePipelineRunner:
+    &#34;&#34;&#34;Execute a pipeline stage-by-stage with pluggable callbacks.
+
+    This class contains all the logic that was previously duplicated across
+    ``StageOrchestrator``, ``TUIOrchestrator.execute_pipeline_tui()``, and
+    ``TUIOrchestrator.execute_pipeline_ci()``.
+    &#34;&#34;&#34;
+
+    def __init__(
+        self,
+        job_executor: JobExecutor,
+        callbacks: PipelineCallbacks | None = None,
+        maximum_degree_of_parallelism: int | None = None,
+        mp_ctx: Any = None,
+        mutation_config: MutationConfig | None = None,
+        parallel_backend: ParallelBackendConfig | None = None,
+    ) -&gt; None:
+        self.job_executor = job_executor
+        self.callbacks = callbacks or PipelineCallbacks()
+        cpu_cnt = os.cpu_count() or 1
+        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        if mp_ctx is None:
+            if sys.platform == &#34;win32&#34;:
+                mp_ctx = mp.get_context(&#34;spawn&#34;)
+            else:
+                mp_ctx = mp.get_context(&#34;spawn&#34;)
+        self._mp_ctx = mp_ctx
+        self._mutation_config = mutation_config or MutationConfig()
+        self._parallel_backend = parallel_backend or ParallelBackendConfig()
+        # Tracks names of all jobs that have completed (for artifact injection)
+        self._completed_jobs: list[str] = []
+
+    def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
+        &#34;&#34;&#34;Run all stages sequentially; jobs within a stage run in parallel.
+
+        If any job declares ``needs:``, automatically switches to DAG execution
+        via :class:`DagPipelineRunner`.
+        &#34;&#34;&#34;
+        if has_dag_jobs(pipeline):
+            dag_runner = DagPipelineRunner(
+                job_executor=self.job_executor,
+                callbacks=self.callbacks,
+                maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
+                mp_ctx=self._mp_ctx,
+                mutation_config=self._mutation_config,
+                parallel_backend=self._parallel_backend,
+            )
+            dag_runner.execute_pipeline(pipeline)
+            return
+
+        cb = self.callbacks
+        cb.on_pipeline_start(pipeline, self.maximum_degree_of_parallelism)
+
+        jobs_by_stage = organize_jobs_by_stage(pipeline)
+        success = True
+        prior_had_failure = False
+        first_error: BaseException | None = None
+        has_manual_skipped = False
+
+        try:
+            for stage in pipeline.stages:
+                if cb.is_cancelled():
+                    cb.on_cancelled()
+                    success = False
+                    return
+
+                all_stage_jobs = jobs_by_stage.get(stage, [])
+                stage_jobs = _filter_jobs_by_when(all_stage_jobs, prior_had_failure)
+
+                if not stage_jobs:
+                    if any(j.when == &#34;manual&#34; for j in all_stage_jobs):
+                        has_manual_skipped = True
+                    cb.on_stage_skip(stage)
+                    continue
+
+                cb.on_stage_start(stage, stage_jobs)
+                outcomes = self._run_stage(stage_jobs)
+                cb.on_stage_complete(stage, outcomes)
+
+                hard_failures = [o for o in outcomes if not o.success]
+                if hard_failures:
+                    prior_had_failure = True
+                    success = False
+                    if first_error is None:
+                        first_error = hard_failures[0].error
+
+                # Allowed failures count as &#34;failure&#34; for on_failure job filtering
+                if any(o.allowed_failure for o in outcomes):
+                    prior_had_failure = True
+
+            if cb.is_cancelled():
+                cb.on_cancelled()
+                success = False
+
+            if first_error is not None:
+                raise first_error
+        except BaseException:
+            success = False
+            raise
+        finally:
+            if has_manual_skipped and success:
+                cb.on_pipeline_awaiting_manual()
+            cb.on_pipeline_complete(success)
+
+    def _run_stage(self, stage_jobs: list[JobConfig]) -&gt; list[JobOutcome]:
+        &#34;&#34;&#34;Execute all jobs in a single stage, serial or parallel.&#34;&#34;&#34;
+        if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
+            return self._run_stage_serial(stage_jobs)
+        return self._run_stage_parallel(stage_jobs)
+
+    def _run_stage_serial(self, stage_jobs: list[JobConfig]) -&gt; list[JobOutcome]:
+        &#34;&#34;&#34;Run jobs one at a time in the calling process.&#34;&#34;&#34;
+        cb = self.callbacks
+        outcomes: list[JobOutcome] = []
+
+        for job in stage_jobs:
+            job_dir = self._make_job_dir(job)
+            cb.on_job_start(job)
+            dotenv_vars: dict[str, str] = {}
+            if not self.job_executor.dry_run:
+                inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
+            writer = cb.make_output_writer(job, job_dir)
+            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None)
+            ctx = cb.enrich_context(ctx)
+            succeeded = True
+
+            snap: MutationSnapshot | None = None
+            if self._mutation_config.enabled and not self.job_executor.dry_run:
+                snap = MutationSnapshot(
+                    project_dir=self.job_executor.project_dir,
+                    config=self._mutation_config,
+                )
+                snap.take()
+
+            try:
+                self.job_executor.execute_job(ctx=ctx)
+                outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
+            except BaseException as exc:
+                succeeded = False
+                allowed = _is_failure_allowed(job, exc)
+                outcome = JobOutcome(
+                    job=job,
+                    success=allowed,
+                    error=exc,
+                    history=list(self.job_executor.job_history),
+                    allowed_failure=allowed,
+                )
+            finally:
+                if not self.job_executor.dry_run:
+                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                    collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
+                self._completed_jobs.append(job.name)
+
+            if snap is not None:
+                _report_mutations(job.name, snap, writer)
+
+            outcomes.append(outcome)
+            cb.on_job_complete(outcome)
+
+            if not outcome.success:
+                break  # stop stage on first hard failure
+
+        return outcomes
+
+    def _make_pool(self, max_workers: int):
+        &#34;&#34;&#34;Create the appropriate executor pool based on backend config.&#34;&#34;&#34;
+        if self._parallel_backend.backend == &#34;thread&#34;:
+            return ThreadPoolExecutor(max_workers=max_workers)
+        return ProcessPoolExecutor(
+            max_workers=max_workers,
+            mp_context=self._mp_ctx,
+        )
+
+    def _run_stage_parallel(self, stage_jobs: list[JobConfig]) -&gt; list[JobOutcome]:
+        &#34;&#34;&#34;Run jobs across processes/threads using the configured pool executor.&#34;&#34;&#34;
+        cb = self.callbacks
+        outcomes: list[JobOutcome] = []
+
+        _wf = cb.get_worker_func()
+        worker_func: WorkerFunc = _wf if _wf is not None else _default_worker
+
+        with self._make_pool(self.maximum_degree_of_parallelism) as pool:
+            futures = {}
+            for job in stage_jobs:
+                job_dir = self._make_job_dir(job)
+                cb.on_job_start(job)
+                if not self.job_executor.dry_run:
+                    inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
+                    # Bake upstream dotenv-report variables into this job&#39;s variables
+                    # so they survive the process boundary.  Job-level variables win
+                    # (they are already in job.variables and override dotenv).
+                    dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
+                    if dotenv_vars:
+                        import dataclasses
+
+                        merged = {**dotenv_vars, **job.variables}
+                        job = dataclasses.replace(job, variables=merged)
+                extra = cb.make_worker_args(job, job_dir)
+                fut = pool.submit(worker_func, job, self.job_executor, job_dir, **extra)
+                futures[fut] = job
+
+            # Poll while futures are running (allows TUI queue draining etc.)
+            pending = set(futures.keys())
+            while pending:
+                cb.poll_during_parallel(futures)
+                done = {f for f in pending if f.done()}
+                if not done:
+                    # Brief sleep to avoid busy-waiting; poll_during_parallel
+                    # may also use a short timeout internally.
+                    time.sleep(0.05)
+                    continue
+                for fut in done:
+                    pending.discard(fut)
+                    job = futures[fut]
+                    succeeded = True
+                    try:
+                        history = fut.result()
+                        self.job_executor.job_history.extend(history)
+                        outcome = JobOutcome(job=job, success=True, history=history)
+                    except BaseException as exc:
+                        succeeded = False
+                        allowed = _is_failure_allowed(job, exc)
+                        outcome = JobOutcome(
+                            job=job,
+                            success=allowed,
+                            error=exc,
+                            allowed_failure=allowed,
+                        )
+                    if not self.job_executor.dry_run:
+                        collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                        collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
+                    self._completed_jobs.append(job.name)
+
+                    outcomes.append(outcome)
+                    cb.on_job_complete(outcome)
+
+        return outcomes
+
+    def _make_job_dir(self, job: JobConfig) -&gt; Path:
+        &#34;&#34;&#34;Create and return the per-job directory.&#34;&#34;&#34;
+        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / sanitize_job_name(job.name)
+        if not self.job_executor.dry_run:
+            job_dir.mkdir(parents=True, exist_ok=True)
+        return job_dir</code></pre>
+</details>
+<div class="desc"><p>Execute a pipeline stage-by-stage with pluggable callbacks.</p>
+<p>This class contains all the logic that was previously duplicated across
+<code>StageOrchestrator</code>, <code>TUIOrchestrator.execute_pipeline_tui()</code>, and
+<code>TUIOrchestrator.execute_pipeline_ci()</code>.</p></div>
+<h3>Methods</h3>
+<dl>
+<dt id="bitrab.execution.stage_runner.StagePipelineRunner.execute_pipeline"><code class="name flex">
+<span>def <span class="ident">execute_pipeline</span></span>(<span>self, pipeline: PipelineConfig) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
+    &#34;&#34;&#34;Run all stages sequentially; jobs within a stage run in parallel.
+
+    If any job declares ``needs:``, automatically switches to DAG execution
+    via :class:`DagPipelineRunner`.
+    &#34;&#34;&#34;
+    if has_dag_jobs(pipeline):
+        dag_runner = DagPipelineRunner(
+            job_executor=self.job_executor,
+            callbacks=self.callbacks,
+            maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
+            mp_ctx=self._mp_ctx,
+            mutation_config=self._mutation_config,
+            parallel_backend=self._parallel_backend,
+        )
+        dag_runner.execute_pipeline(pipeline)
+        return
+
+    cb = self.callbacks
+    cb.on_pipeline_start(pipeline, self.maximum_degree_of_parallelism)
+
+    jobs_by_stage = organize_jobs_by_stage(pipeline)
+    success = True
+    prior_had_failure = False
+    first_error: BaseException | None = None
+    has_manual_skipped = False
+
+    try:
+        for stage in pipeline.stages:
+            if cb.is_cancelled():
+                cb.on_cancelled()
+                success = False
+                return
+
+            all_stage_jobs = jobs_by_stage.get(stage, [])
+            stage_jobs = _filter_jobs_by_when(all_stage_jobs, prior_had_failure)
+
+            if not stage_jobs:
+                if any(j.when == &#34;manual&#34; for j in all_stage_jobs):
+                    has_manual_skipped = True
+                cb.on_stage_skip(stage)
+                continue
+
+            cb.on_stage_start(stage, stage_jobs)
+            outcomes = self._run_stage(stage_jobs)
+            cb.on_stage_complete(stage, outcomes)
+
+            hard_failures = [o for o in outcomes if not o.success]
+            if hard_failures:
+                prior_had_failure = True
+                success = False
+                if first_error is None:
+                    first_error = hard_failures[0].error
+
+            # Allowed failures count as &#34;failure&#34; for on_failure job filtering
+            if any(o.allowed_failure for o in outcomes):
+                prior_had_failure = True
+
+        if cb.is_cancelled():
+            cb.on_cancelled()
+            success = False
+
+        if first_error is not None:
+            raise first_error
+    except BaseException:
+        success = False
+        raise
+    finally:
+        if has_manual_skipped and success:
+            cb.on_pipeline_awaiting_manual()
+        cb.on_pipeline_complete(success)</code></pre>
+</details>
+<div class="desc"><p>Run all stages sequentially; jobs within a stage run in parallel.</p>
+<p>If any job declares <code>needs:</code>, automatically switches to DAG execution
+via :class:<code><a title="bitrab.execution.stage_runner.DagPipelineRunner" href="#bitrab.execution.stage_runner.DagPipelineRunner">DagPipelineRunner</a></code>.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab.execution" href="index.html">bitrab.execution</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.execution.stage_runner.has_dag_jobs" href="#bitrab.execution.stage_runner.has_dag_jobs">has_dag_jobs</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.organize_jobs_by_stage" href="#bitrab.execution.stage_runner.organize_jobs_by_stage">organize_jobs_by_stage</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.sanitize_job_name" href="#bitrab.execution.stage_runner.sanitize_job_name">sanitize_job_name</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="bitrab.execution.stage_runner.DagPipelineRunner" href="#bitrab.execution.stage_runner.DagPipelineRunner">DagPipelineRunner</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.execution.stage_runner.DagPipelineRunner.execute_pipeline" href="#bitrab.execution.stage_runner.DagPipelineRunner.execute_pipeline">execute_pipeline</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.execution.stage_runner.JobOutcome" href="#bitrab.execution.stage_runner.JobOutcome">JobOutcome</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.execution.stage_runner.JobOutcome.allowed_failure" href="#bitrab.execution.stage_runner.JobOutcome.allowed_failure">allowed_failure</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.JobOutcome.error" href="#bitrab.execution.stage_runner.JobOutcome.error">error</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.JobOutcome.history" href="#bitrab.execution.stage_runner.JobOutcome.history">history</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.JobOutcome.job" href="#bitrab.execution.stage_runner.JobOutcome.job">job</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.JobOutcome.success" href="#bitrab.execution.stage_runner.JobOutcome.success">success</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.enrich_context" href="#bitrab.execution.stage_runner.PipelineCallbacks.enrich_context">enrich_context</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.get_worker_func" href="#bitrab.execution.stage_runner.PipelineCallbacks.get_worker_func">get_worker_func</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.is_cancelled" href="#bitrab.execution.stage_runner.PipelineCallbacks.is_cancelled">is_cancelled</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.make_output_writer" href="#bitrab.execution.stage_runner.PipelineCallbacks.make_output_writer">make_output_writer</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.make_worker_args" href="#bitrab.execution.stage_runner.PipelineCallbacks.make_worker_args">make_worker_args</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_cancelled" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_cancelled">on_cancelled</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_job_complete" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_job_complete">on_job_complete</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_job_start" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_job_start">on_job_start</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_awaiting_manual" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_awaiting_manual">on_pipeline_awaiting_manual</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_complete" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_complete">on_pipeline_complete</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_start" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_pipeline_start">on_pipeline_start</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_stage_complete" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_stage_complete">on_stage_complete</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_stage_skip" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_stage_skip">on_stage_skip</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.on_stage_start" href="#bitrab.execution.stage_runner.PipelineCallbacks.on_stage_start">on_stage_start</a></code></li>
+<li><code><a title="bitrab.execution.stage_runner.PipelineCallbacks.poll_during_parallel" href="#bitrab.execution.stage_runner.PipelineCallbacks.poll_during_parallel">poll_during_parallel</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.execution.stage_runner.StagePipelineRunner" href="#bitrab.execution.stage_runner.StagePipelineRunner">StagePipelineRunner</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.execution.stage_runner.StagePipelineRunner.execute_pipeline" href="#bitrab.execution.stage_runner.StagePipelineRunner.execute_pipeline">execute_pipeline</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

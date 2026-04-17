@@ -117,8 +117,8 @@ el.replaceWith(d);
         try:
             with urllib.request.urlopen(self.schema_url, timeout=5) as response:  # nosec
                 schema_data = response.read().decode(&#34;utf-8&#34;)
-                return json.loads(schema_data)
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, OSError) as e:
+                return json_loads(schema_data)
+        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, OSError) as e:
             logger.warning(f&#34;Failed to fetch schema from URL: {e}&#34;)
             return None
 
@@ -139,8 +139,8 @@ el.replaceWith(d);
                     return None
 
                 with open(self.cache_file, encoding=&#34;utf-8&#34;) as f:
-                    return json.loads(f.read())
-        except (OSError, json.JSONDecodeError) as e:
+                    return json_loads(f.read())
+        except (OSError, ValueError) as e:
             logger.debug(f&#34;Failed to load schema from cache: {e}&#34;)
         return None
 
@@ -154,7 +154,7 @@ el.replaceWith(d);
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             with open(self.cache_file, &#34;w&#34;, encoding=&#34;utf-8&#34;) as f:
-                f.write(json.dumps(schema).decode())
+                f.write(json_dumps(schema))
         except OSError as e:
             logger.warning(f&#34;Failed to save schema to cache: {e}&#34;)
 
@@ -173,7 +173,7 @@ el.replaceWith(d);
                     schema_file = package_files / self.fallback_schema_path
                     if schema_file.is_file():
                         schema_data = schema_file.read_text(encoding=&#34;utf-8&#34;)
-                        return json.loads(schema_data)
+                        return json_loads(schema_data)
                 except (FileNotFoundError, AttributeError, TypeError):
                     pass
 
@@ -183,16 +183,15 @@ el.replaceWith(d);
                 fallback_file = current_dir / self.fallback_schema_path
                 if fallback_file.exists():
                     with open(fallback_file, encoding=&#34;utf-8&#34;) as f:
-                        return json.loads(f.read())
+                        return json_loads(f.read())
             except (OSError, FileNotFoundError):
                 pass
 
-        except (json.JSONDecodeError, Exception) as e:
+        except Exception as e:
             logger.warning(f&#34;Failed to load Gitlab JSON schema from package resource: {e}&#34;)
 
         return None
 
-    @cache  # noqa: B019
     def get_schema(self) -&gt; dict[str, Any]:
         &#34;&#34;&#34;
         Get the GitLab CI schema, trying URL first, then cache, then fallback.
@@ -203,10 +202,15 @@ el.replaceWith(d);
         Raises:
             RuntimeError: If no schema could be loaded from any source.
         &#34;&#34;&#34;
+        cached_schema = _SCHEMA_CACHE.get(self.cache_file)
+        if cached_schema is not None:
+            return cached_schema
+
         # Check cache
         schema = self._load_schema_from_cache()
         if schema:
             logger.debug(&#34;Using cached gitlab schema&#34;)
+            _SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
         # Try to fetch from URL first
@@ -214,12 +218,14 @@ el.replaceWith(d);
         if schema:
             logger.debug(&#34;Using schema from URL&#34;)
             self._save_schema_to_cache(schema)
+            _SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
         # Fall back to package resource
         schema = self._load_fallback_schema()
         if schema:
             logger.debug(&#34;Using gitlab schema from package&#34;)
+            _SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
         raise RuntimeError(&#34;Could not load schema from URL, cache, or fallback resource&#34;)
@@ -260,8 +266,11 @@ el.replaceWith(d);
             # Get the schema
             schema = self.get_schema()
 
-            # Validate against schema
-            validator = jsonschema.Draft7Validator(schema)
+            # Reuse a cached validator — building Draft7Validator is expensive
+            validator = _VALIDATOR_CACHE.get(self.cache_file)
+            if validator is None:
+                validator = jsonschema.Draft7Validator(schema)
+                _VALIDATOR_CACHE[self.cache_file] = validator
             errors = []
 
             for error in validator.iter_errors(config_dict):
@@ -294,8 +303,7 @@ el.replaceWith(d);
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@cache  # noqa: B019
-def get_schema(self) -&gt; dict[str, Any]:
+<pre><code class="python">def get_schema(self) -&gt; dict[str, Any]:
     &#34;&#34;&#34;
     Get the GitLab CI schema, trying URL first, then cache, then fallback.
 
@@ -305,10 +313,15 @@ def get_schema(self) -&gt; dict[str, Any]:
     Raises:
         RuntimeError: If no schema could be loaded from any source.
     &#34;&#34;&#34;
+    cached_schema = _SCHEMA_CACHE.get(self.cache_file)
+    if cached_schema is not None:
+        return cached_schema
+
     # Check cache
     schema = self._load_schema_from_cache()
     if schema:
         logger.debug(&#34;Using cached gitlab schema&#34;)
+        _SCHEMA_CACHE[self.cache_file] = schema
         return schema
 
     # Try to fetch from URL first
@@ -316,12 +329,14 @@ def get_schema(self) -&gt; dict[str, Any]:
     if schema:
         logger.debug(&#34;Using schema from URL&#34;)
         self._save_schema_to_cache(schema)
+        _SCHEMA_CACHE[self.cache_file] = schema
         return schema
 
     # Fall back to package resource
     schema = self._load_fallback_schema()
     if schema:
         logger.debug(&#34;Using gitlab schema from package&#34;)
+        _SCHEMA_CACHE[self.cache_file] = schema
         return schema
 
     raise RuntimeError(&#34;Could not load schema from URL, cache, or fallback resource&#34;)</code></pre>
@@ -364,8 +379,11 @@ def get_schema(self) -&gt; dict[str, Any]:
         # Get the schema
         schema = self.get_schema()
 
-        # Validate against schema
-        validator = jsonschema.Draft7Validator(schema)
+        # Reuse a cached validator — building Draft7Validator is expensive
+        validator = _VALIDATOR_CACHE.get(self.cache_file)
+        if validator is None:
+            validator = jsonschema.Draft7Validator(schema)
+            _VALIDATOR_CACHE[self.cache_file] = validator
         errors = []
 
         for error in validator.iter_errors(config_dict):

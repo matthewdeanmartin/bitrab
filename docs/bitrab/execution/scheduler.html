@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.6">
 <title>bitrab.execution.scheduler API documentation</title>
-<meta name="description" content="">
+<meta name="description" content="Plain-streaming pipeline orchestrator …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -36,6 +36,8 @@ el.replaceWith(d);
 <h1 class="title">Module <code>bitrab.execution.scheduler</code></h1>
 </header>
 <section id="section-intro">
+<p>Plain-streaming pipeline orchestrator.</p>
+<p>Thin wrapper around :class:<code>StagePipelineRunner</code> that prints status to stdout.</p>
 </section>
 <section>
 </section>
@@ -48,7 +50,7 @@ el.replaceWith(d);
 <dl>
 <dt id="bitrab.execution.scheduler.StageOrchestrator"><code class="flex name class">
 <span>class <span class="ident">StageOrchestrator</span></span>
-<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False)</span>
+<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -56,114 +58,60 @@ el.replaceWith(d);
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class StageOrchestrator:
-    &#34;&#34;&#34;
-    Orchestrates job execution by stages, running jobs within a stage in parallel.
+    &#34;&#34;&#34;Orchestrates job execution by stages, running jobs within a stage in parallel.
 
-    Args:
-        job_executor: A picklable JobExecutor instance (or adapt _run_single_job to
-                      reconstruct it in the worker if needed).
-        maximum_degree_of_parallelism: Max processes to use per stage. Defaults to
-                      os.cpu_count() (falls back to 1 if None).
+    This is a thin wrapper around :class:`StagePipelineRunner` with stdout-printing
+    callbacks, preserving the original public API.
     &#34;&#34;&#34;
 
-    def __init__(self, job_executor: JobExecutor, maximum_degree_of_parallelism: int | None = None, dry_run: bool = False):
+    def __init__(
+        self,
+        job_executor: JobExecutor,
+        maximum_degree_of_parallelism: int | None = None,
+        dry_run: bool = False,
+        mutation_config: MutationConfig | None = None,
+        parallel_backend: ParallelBackendConfig | None = None,
+    ) -&gt; None:
         self.job_executor = job_executor
-        cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        self._event_collector = EventCollector(inner=_StreamingCallbacks(dry_run=dry_run))
+        self._runner = StagePipelineRunner(
+            job_executor=job_executor,
+            callbacks=self._event_collector,
+            maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+            mutation_config=mutation_config,
+            parallel_backend=parallel_backend,
+        )
 
-        # Choose a safe context for multiprocessing on Unix (Windows already uses spawn)
-        # Use forkserver on Linux if you prefer; spawn is the most portable/safe.
-        if sys.platform == &#34;win32&#34;:
-            self._mp_ctx = mp.get_context(&#34;spawn&#34;)
-        else:
-            if not os.getenv(&#34;BITRAB_USE_FORKSERVER&#34;):
-                # spawn avoids the fork-in-multithreaded-parent hazard triggering the warning
-                self._mp_ctx = mp.get_context(&#34;spawn&#34;)
-            else:
-                self._mp_ctx = mp.get_context(&#34;forkserver&#34;)  # type: ignore[assignment]
+    @property
+    def event_collector(self) -&gt; EventCollector:
+        &#34;&#34;&#34;Access the structured event collector for this orchestrator.&#34;&#34;&#34;
+        return self._event_collector
 
     def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
-        &#34;&#34;&#34;
-        Execute all jobs in the pipeline, organized by stages.
-        Jobs within the same stage are executed in parallel across processes.
-        &#34;&#34;&#34;
-        print(&#34;🚀 Starting GitLab CI pipeline execution&#34;)
-        print(f&#34;📋 Stages: {&#39;, &#39;.join(pipeline.stages)}&#34;)
-        print(f&#34;🧠 Parallel workers per stage: {self.maximum_degree_of_parallelism}&#34;)
-
-        jobs_by_stage = self._organize_jobs_by_stage(pipeline)
-
-        for stage in pipeline.stages:
-            stage_jobs = jobs_by_stage.get(stage, [])
-            if not stage_jobs:
-                print(f&#34;⏭️  Skipping empty stage: {stage}&#34;)
-                continue
-
-            print(f&#34;\n🎯 Executing stage in parallel: {stage} ({len(stage_jobs)} job(s))&#34;)
-
-            # Use a process pool to run jobs in this stage concurrently.
-            # Note: JobExecutor must be picklable to be sent to worker processes.
-            # If it isn&#39;t, change _run_single_job to reconstruct the executor from config.
-            failures: list[tuple[JobConfig, BaseException]] = []
-
-            if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
-                for job in stage_jobs:
-                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / self._sanitize_job_name(job.name)
-                    job_dir.mkdir(parents=True, exist_ok=True)
-                    self.job_executor.execute_job(job, job_dir=job_dir)
-            else:
-                with ProcessPoolExecutor(
-                    max_workers=self.maximum_degree_of_parallelism,
-                    mp_context=self._mp_ctx,
-                ) as pool:
-                    futures = {}
-                    for job in stage_jobs:
-                        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / self._sanitize_job_name(job.name)
-                        job_dir.mkdir(parents=True, exist_ok=True)
-                        futures[pool.submit(_run_single_job, job, self.job_executor, job_dir)] = job
-
-                    for fut in as_completed(futures):
-                        job = futures[fut]
-                        try:
-                            history = fut.result()
-                            self.job_executor.job_history.extend(history)
-                            print(f&#34;✅ Job completed: {job.name}&#34;)
-                        except BaseException as exc:  # catch all to surface any worker failures
-                            failures.append((job, exc))
-                            print(f&#34;❌ Job failed: {job.name} -&gt; {exc!r}&#34;)
-
-                if failures:
-                    # If any job in the stage fails, stop the pipeline (common CI behavior).
-                    print(&#34;\n🛑 Stopping pipeline due to failures in stage:&#34;, stage)
-                    # Re-raise the first failure to signal error to caller/runner
-                    raise failures[0][1]
-
-        print(&#34;\n🎉 Pipeline completed successfully!&#34;)
-
-    def _sanitize_job_name(self, name: str) -&gt; str:
-        &#34;&#34;&#34;Replace characters that are invalid in filenames with underscores.&#34;&#34;&#34;
-        # Common invalid characters on Windows and Unix: / \ : * ? &#34; &lt; &gt; |
-        return re.sub(r&#39;[\\/:*?&#34;&lt;&gt;|]&#39;, &#34;_&#34;, name)
-
-    def _organize_jobs_by_stage(self, pipeline: PipelineConfig) -&gt; dict[str, list[JobConfig]]:
-        &#34;&#34;&#34;
-        Organize jobs by their stages.
-        &#34;&#34;&#34;
-        jobs_by_stage: dict[str, Any] = {}
-        for job in pipeline.jobs:
-            jobs_by_stage.setdefault(job.stage, []).append(job)
-        return jobs_by_stage</code></pre>
+        &#34;&#34;&#34;Execute all jobs in the pipeline, organized by stages.&#34;&#34;&#34;
+        self._runner.execute_pipeline(pipeline)
+        summary = self._event_collector.summary()
+        safe_print(summary.format_text())</code></pre>
 </details>
 <div class="desc"><p>Orchestrates job execution by stages, running jobs within a stage in parallel.</p>
-<h2 id="args">Args</h2>
+<p>This is a thin wrapper around :class:<code>StagePipelineRunner</code> with stdout-printing
+callbacks, preserving the original public API.</p></div>
+<h3>Instance variables</h3>
 <dl>
-<dt><strong><code>job_executor</code></strong></dt>
-<dd>A picklable JobExecutor instance (or adapt _run_single_job to
-reconstruct it in the worker if needed).</dd>
-<dt><strong><code>maximum_degree_of_parallelism</code></strong></dt>
-<dd>Max processes to use per stage. Defaults to
-os.cpu_count() (falls back to 1 if None).</dd>
-</dl></div>
+<dt id="bitrab.execution.scheduler.StageOrchestrator.event_collector"><code class="name">prop <span class="ident">event_collector</span> : EventCollector</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def event_collector(self) -&gt; EventCollector:
+    &#34;&#34;&#34;Access the structured event collector for this orchestrator.&#34;&#34;&#34;
+    return self._event_collector</code></pre>
+</details>
+<div class="desc"><p>Access the structured event collector for this orchestrator.</p></div>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="bitrab.execution.scheduler.StageOrchestrator.execute_pipeline"><code class="name flex">
@@ -175,65 +123,12 @@ os.cpu_count() (falls back to 1 if None).</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
-    &#34;&#34;&#34;
-    Execute all jobs in the pipeline, organized by stages.
-    Jobs within the same stage are executed in parallel across processes.
-    &#34;&#34;&#34;
-    print(&#34;🚀 Starting GitLab CI pipeline execution&#34;)
-    print(f&#34;📋 Stages: {&#39;, &#39;.join(pipeline.stages)}&#34;)
-    print(f&#34;🧠 Parallel workers per stage: {self.maximum_degree_of_parallelism}&#34;)
-
-    jobs_by_stage = self._organize_jobs_by_stage(pipeline)
-
-    for stage in pipeline.stages:
-        stage_jobs = jobs_by_stage.get(stage, [])
-        if not stage_jobs:
-            print(f&#34;⏭️  Skipping empty stage: {stage}&#34;)
-            continue
-
-        print(f&#34;\n🎯 Executing stage in parallel: {stage} ({len(stage_jobs)} job(s))&#34;)
-
-        # Use a process pool to run jobs in this stage concurrently.
-        # Note: JobExecutor must be picklable to be sent to worker processes.
-        # If it isn&#39;t, change _run_single_job to reconstruct the executor from config.
-        failures: list[tuple[JobConfig, BaseException]] = []
-
-        if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
-            for job in stage_jobs:
-                job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / self._sanitize_job_name(job.name)
-                job_dir.mkdir(parents=True, exist_ok=True)
-                self.job_executor.execute_job(job, job_dir=job_dir)
-        else:
-            with ProcessPoolExecutor(
-                max_workers=self.maximum_degree_of_parallelism,
-                mp_context=self._mp_ctx,
-            ) as pool:
-                futures = {}
-                for job in stage_jobs:
-                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / self._sanitize_job_name(job.name)
-                    job_dir.mkdir(parents=True, exist_ok=True)
-                    futures[pool.submit(_run_single_job, job, self.job_executor, job_dir)] = job
-
-                for fut in as_completed(futures):
-                    job = futures[fut]
-                    try:
-                        history = fut.result()
-                        self.job_executor.job_history.extend(history)
-                        print(f&#34;✅ Job completed: {job.name}&#34;)
-                    except BaseException as exc:  # catch all to surface any worker failures
-                        failures.append((job, exc))
-                        print(f&#34;❌ Job failed: {job.name} -&gt; {exc!r}&#34;)
-
-            if failures:
-                # If any job in the stage fails, stop the pipeline (common CI behavior).
-                print(&#34;\n🛑 Stopping pipeline due to failures in stage:&#34;, stage)
-                # Re-raise the first failure to signal error to caller/runner
-                raise failures[0][1]
-
-    print(&#34;\n🎉 Pipeline completed successfully!&#34;)</code></pre>
+    &#34;&#34;&#34;Execute all jobs in the pipeline, organized by stages.&#34;&#34;&#34;
+    self._runner.execute_pipeline(pipeline)
+    summary = self._event_collector.summary()
+    safe_print(summary.format_text())</code></pre>
 </details>
-<div class="desc"><p>Execute all jobs in the pipeline, organized by stages.
-Jobs within the same stage are executed in parallel across processes.</p></div>
+<div class="desc"><p>Execute all jobs in the pipeline, organized by stages.</p></div>
 </dd>
 </dl>
 </dd>
@@ -255,6 +150,7 @@ Jobs within the same stage are executed in parallel across processes.</p></div>
 <li>
 <h4><code><a title="bitrab.execution.scheduler.StageOrchestrator" href="#bitrab.execution.scheduler.StageOrchestrator">StageOrchestrator</a></code></h4>
 <ul class="">
+<li><code><a title="bitrab.execution.scheduler.StageOrchestrator.event_collector" href="#bitrab.execution.scheduler.StageOrchestrator.event_collector">event_collector</a></code></li>
 <li><code><a title="bitrab.execution.scheduler.StageOrchestrator.execute_pipeline" href="#bitrab.execution.scheduler.StageOrchestrator.execute_pipeline">execute_pipeline</a></code></li>
 </ul>
 </li>

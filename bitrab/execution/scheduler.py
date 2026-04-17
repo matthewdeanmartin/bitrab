@@ -10,7 +10,7 @@ from bitrab.execution.events import EventCollector
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner
 from bitrab.models.pipeline import JobConfig, PipelineConfig
-from bitrab.mutation import MutationConfig, ParallelBackendConfig
+from bitrab.mutation import MutationConfig, ParallelBackendConfig, WorktreeConfig
 
 
 class _StreamingCallbacks(PipelineCallbacks):
@@ -66,6 +66,7 @@ class StageOrchestrator:
         dry_run: bool = False,
         mutation_config: MutationConfig | None = None,
         parallel_backend: ParallelBackendConfig | None = None,
+        worktree_config: WorktreeConfig | None = None,
     ) -> None:
         self.job_executor = job_executor
         self._event_collector = EventCollector(inner=_StreamingCallbacks(dry_run=dry_run))
@@ -75,6 +76,7 @@ class StageOrchestrator:
             maximum_degree_of_parallelism=maximum_degree_of_parallelism,
             mutation_config=mutation_config,
             parallel_backend=parallel_backend,
+            worktree_config=worktree_config,
         )
 
     @property

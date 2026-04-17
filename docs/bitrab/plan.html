@@ -59,6 +59,104 @@ el.replaceWith(d);
 </details>
 <div class="desc"><p>Main entry point for the best-efforts-run command.</p></div>
 </dd>
+<dt id="bitrab.plan.filter_pipeline"><code class="name flex">
+<span>def <span class="ident">filter_pipeline</span></span>(<span>pipeline: PipelineConfig,<br>jobs: list[str] | None = None,<br>stages: list[str] | None = None) ‑> <a title="bitrab.models.pipeline.PipelineConfig" href="models/pipeline.html#bitrab.models.pipeline.PipelineConfig">PipelineConfig</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def filter_pipeline(
+    pipeline: PipelineConfig,
+    jobs: list[str] | None = None,
+    stages: list[str] | None = None,
+) -&gt; PipelineConfig:
+    &#34;&#34;&#34;Return a copy of *pipeline* with jobs and stages filtered.
+
+    Args:
+        pipeline: The original pipeline configuration.
+        jobs: If given, only keep jobs whose name is in this list.
+              Unknown names are silently ignored (callers should warn first).
+        stages: If given, only keep jobs whose stage is in this list.
+                Both filters are applied when both are provided.
+
+    Returns:
+        A new PipelineConfig with filtered jobs and trimmed stage list.
+    &#34;&#34;&#34;
+    filtered = list(pipeline.jobs)
+
+    if jobs is not None:
+        job_set = set(jobs)
+        filtered = [j for j in filtered if j.name in job_set]
+
+    if stages is not None:
+        stage_set = set(stages)
+        filtered = [j for j in filtered if j.stage in stage_set]
+
+    # Keep only stages that still have jobs, preserving original order
+    active_stages = {j.stage for j in filtered}
+    trimmed_stages = [s for s in pipeline.stages if s in active_stages]
+
+    return PipelineConfig(
+        stages=trimmed_stages,
+        variables=pipeline.variables,
+        default=pipeline.default,
+        jobs=filtered,
+    )</code></pre>
+</details>
+<div class="desc"><p>Return a copy of <em>pipeline</em> with jobs and stages filtered.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>pipeline</code></strong></dt>
+<dd>The original pipeline configuration.</dd>
+<dt><strong><code>jobs</code></strong></dt>
+<dd>If given, only keep jobs whose name is in this list.
+Unknown names are silently ignored (callers should warn first).</dd>
+<dt><strong><code>stages</code></strong></dt>
+<dd>If given, only keep jobs whose stage is in this list.
+Both filters are applied when both are provided.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A new PipelineConfig with filtered jobs and trimmed stage list.</p></div>
+</dd>
+<dt id="bitrab.plan.parse_duration"><code class="name flex">
+<span>def <span class="ident">parse_duration</span></span>(<span>value: Any) ‑> float | None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse_duration(value: Any) -&gt; float | None:
+    &#34;&#34;&#34;Parse a GitLab CI timeout string or numeric seconds to float seconds.
+
+    Supports formats like &#34;30m&#34;, &#34;1h 30m&#34;, &#34;2h&#34;, &#34;3600&#34;, 3600.
+    Returns None if value is None or empty.
+    &#34;&#34;&#34;
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip()
+    if not s:
+        return None
+    m = _DURATION_RE.fullmatch(s)
+    if m:
+        weeks, days, hours, minutes, seconds = (int(g or 0) for g in m.groups())
+        total = weeks * 7 * 86400 + days * 86400 + hours * 3600 + minutes * 60 + seconds
+        if total &gt; 0:
+            return float(total)
+    # fall back: try plain number string
+    try:
+        return float(s)
+    except ValueError:
+        return None</code></pre>
+</details>
+<div class="desc"><p>Parse a GitLab CI timeout string or numeric seconds to float seconds.</p>
+<p>Supports formats like "30m", "1h 30m", "2h", "3600", 3600.
+Returns None if value is None or empty.</p></div>
+</dd>
 </dl>
 </section>
 <section>
@@ -100,6 +198,9 @@ el.replaceWith(d);
         dry_run: bool = False,
         use_tui: bool = False,
         ci_mode: bool = False,
+        job_filter: list[str] | None = None,
+        stage_filter: list[str] | None = None,
+        parallel_backend: str | None = None,
     ) -&gt; None:
         &#34;&#34;&#34;
         Run the complete pipeline.
@@ -110,6 +211,9 @@ el.replaceWith(d);
             dry_run: Do we really run jobs.
             use_tui: Use Textual TUI with per-job tabs.
             ci_mode: CI mode - jobs write to files, output printed after each stage.
+            job_filter: If given, only run jobs whose names are in this list.
+            stage_filter: If given, only run jobs whose stages are in this list.
+            parallel_backend: Backend name (e.g., &#39;multiprocessing&#39;, &#39;threading&#39;, &#39;sequential&#39;).
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
@@ -119,16 +223,57 @@ el.replaceWith(d);
         raw_config = self.loader.load_config(config_path)
         pipeline = self.processor.process_config(raw_config)
 
+        # Apply job/stage filters with warnings for unknown names
+        if job_filter is not None or stage_filter is not None:
+            if job_filter is not None:
+                known_jobs = {j.name for j in pipeline.jobs}
+                for name in job_filter:
+                    if name not in known_jobs:
+                        safe_print(f&#34;⚠️  Unknown job: &#39;{name}&#39; (not found in pipeline)&#34;)
+            if stage_filter is not None:
+                known_stages = set(pipeline.stages)
+                for name in stage_filter:
+                    if name not in known_stages:
+                        safe_print(f&#34;⚠️  Unknown stage: &#39;{name}&#39; (not found in pipeline)&#34;)
+            pipeline = filter_pipeline(pipeline, jobs=job_filter, stages=stage_filter)
+            if not pipeline.jobs:
+                safe_print(&#34;⚠️  No jobs match the given filter — nothing to run.&#34;)
+                return
+
         # Set up execution components
-        variable_manager = VariableManager(pipeline.variables)
+        variable_manager = VariableManager(pipeline.variables, project_dir=self.base_path)
+
+        # Evaluate rules for each job
+        # We use a base environment (os + global + builtin) for rule evaluation
+        base_env = os.environ.copy()
+        base_env.update(variable_manager.gitlab_ci_vars)
+        base_env.update(variable_manager.base_variables)
+
+        for job in pipeline.jobs:
+            evaluate_rules(job, base_env, project_dir=self.base_path)
+
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-        if use_tui or ci_mode:
+        from bitrab.mutation import load_mutation_config, load_parallel_config
+
+        mutation_config = load_mutation_config(self.base_path)
+        parallel_config = load_parallel_config(self.base_path)
+        if parallel_backend is not None:
+            from bitrab.mutation import ParallelBackendConfig
+
+            parallel_config = ParallelBackendConfig(backend=parallel_backend)
+
+        event_collector = None
+        started_at = __import__(&#34;time&#34;).time()
+
+        if use_tui or (ci_mode and not dry_run):
             from bitrab.tui.orchestrator import TUIOrchestrator
 
             tui_orchestrator = TUIOrchestrator(
                 self.job_executor,
                 maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+                mutation_config=mutation_config,
+                parallel_backend=parallel_config,
             )
             if use_tui:
                 from bitrab.tui.app import PipelineApp
@@ -139,9 +284,20 @@ el.replaceWith(d);
                     raise RuntimeError(&#34;Pipeline failed — see TUI output for details&#34;)
             else:
                 tui_orchestrator.execute_pipeline_ci(pipeline)
+            event_collector = tui_orchestrator.event_collector
         else:
-            self.orchestrator = StageOrchestrator(self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run)
-            self.orchestrator.execute_pipeline(pipeline)</code></pre>
+            self.orchestrator = StageOrchestrator(
+                self.job_executor,
+                maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+                dry_run=dry_run,
+                mutation_config=mutation_config,
+                parallel_backend=parallel_config,
+            )
+            self.orchestrator.execute_pipeline(pipeline)
+            event_collector = getattr(self.orchestrator, &#34;event_collector&#34;, None)
+
+        if not dry_run and event_collector is not None:
+            _persist_run_log(self.base_path, event_collector, started_at, pipeline)</code></pre>
 </details>
 <div class="desc"><p>Main runner class that orchestrates the entire pipeline execution.</p>
 <h2 id="attributes">Attributes</h2>
@@ -156,7 +312,7 @@ el.replaceWith(d);
 <h3>Methods</h3>
 <dl>
 <dt id="bitrab.plan.LocalGitLabRunner.run_pipeline"><code class="name flex">
-<span>def <span class="ident">run_pipeline</span></span>(<span>self,<br>config_path: Path | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>use_tui: bool = False,<br>ci_mode: bool = False) ‑> None</span>
+<span>def <span class="ident">run_pipeline</span></span>(<span>self,<br>config_path: Path | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>use_tui: bool = False,<br>ci_mode: bool = False,<br>job_filter: list[str] | None = None,<br>stage_filter: list[str] | None = None,<br>parallel_backend: str | None = None) ‑> None</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -170,6 +326,9 @@ el.replaceWith(d);
     dry_run: bool = False,
     use_tui: bool = False,
     ci_mode: bool = False,
+    job_filter: list[str] | None = None,
+    stage_filter: list[str] | None = None,
+    parallel_backend: str | None = None,
 ) -&gt; None:
     &#34;&#34;&#34;
     Run the complete pipeline.
@@ -180,6 +339,9 @@ el.replaceWith(d);
         dry_run: Do we really run jobs.
         use_tui: Use Textual TUI with per-job tabs.
         ci_mode: CI mode - jobs write to files, output printed after each stage.
+        job_filter: If given, only run jobs whose names are in this list.
+        stage_filter: If given, only run jobs whose stages are in this list.
+        parallel_backend: Backend name (e.g., &#39;multiprocessing&#39;, &#39;threading&#39;, &#39;sequential&#39;).
 
     Raises:
         GitLabCIError: If there is an error in the pipeline configuration.
@@ -189,16 +351,57 @@ el.replaceWith(d);
     raw_config = self.loader.load_config(config_path)
     pipeline = self.processor.process_config(raw_config)
 
+    # Apply job/stage filters with warnings for unknown names
+    if job_filter is not None or stage_filter is not None:
+        if job_filter is not None:
+            known_jobs = {j.name for j in pipeline.jobs}
+            for name in job_filter:
+                if name not in known_jobs:
+                    safe_print(f&#34;⚠️  Unknown job: &#39;{name}&#39; (not found in pipeline)&#34;)
+        if stage_filter is not None:
+            known_stages = set(pipeline.stages)
+            for name in stage_filter:
+                if name not in known_stages:
+                    safe_print(f&#34;⚠️  Unknown stage: &#39;{name}&#39; (not found in pipeline)&#34;)
+        pipeline = filter_pipeline(pipeline, jobs=job_filter, stages=stage_filter)
+        if not pipeline.jobs:
+            safe_print(&#34;⚠️  No jobs match the given filter — nothing to run.&#34;)
+            return
+
     # Set up execution components
-    variable_manager = VariableManager(pipeline.variables)
+    variable_manager = VariableManager(pipeline.variables, project_dir=self.base_path)
+
+    # Evaluate rules for each job
+    # We use a base environment (os + global + builtin) for rule evaluation
+    base_env = os.environ.copy()
+    base_env.update(variable_manager.gitlab_ci_vars)
+    base_env.update(variable_manager.base_variables)
+
+    for job in pipeline.jobs:
+        evaluate_rules(job, base_env, project_dir=self.base_path)
+
     self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-    if use_tui or ci_mode:
+    from bitrab.mutation import load_mutation_config, load_parallel_config
+
+    mutation_config = load_mutation_config(self.base_path)
+    parallel_config = load_parallel_config(self.base_path)
+    if parallel_backend is not None:
+        from bitrab.mutation import ParallelBackendConfig
+
+        parallel_config = ParallelBackendConfig(backend=parallel_backend)
+
+    event_collector = None
+    started_at = __import__(&#34;time&#34;).time()
+
+    if use_tui or (ci_mode and not dry_run):
         from bitrab.tui.orchestrator import TUIOrchestrator
 
         tui_orchestrator = TUIOrchestrator(
             self.job_executor,
             maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+            mutation_config=mutation_config,
+            parallel_backend=parallel_config,
         )
         if use_tui:
             from bitrab.tui.app import PipelineApp
@@ -209,9 +412,20 @@ el.replaceWith(d);
                 raise RuntimeError(&#34;Pipeline failed — see TUI output for details&#34;)
         else:
             tui_orchestrator.execute_pipeline_ci(pipeline)
+        event_collector = tui_orchestrator.event_collector
     else:
-        self.orchestrator = StageOrchestrator(self.job_executor, maximum_degree_of_parallelism=maximum_degree_of_parallelism, dry_run=dry_run)
-        self.orchestrator.execute_pipeline(pipeline)</code></pre>
+        self.orchestrator = StageOrchestrator(
+            self.job_executor,
+            maximum_degree_of_parallelism=maximum_degree_of_parallelism,
+            dry_run=dry_run,
+            mutation_config=mutation_config,
+            parallel_backend=parallel_config,
+        )
+        self.orchestrator.execute_pipeline(pipeline)
+        event_collector = getattr(self.orchestrator, &#34;event_collector&#34;, None)
+
+    if not dry_run and event_collector is not None:
+        _persist_run_log(self.base_path, event_collector, started_at, pipeline)</code></pre>
 </details>
 <div class="desc"><p>Run the complete pipeline.</p>
 <h2 id="args">Args</h2>
@@ -226,6 +440,12 @@ el.replaceWith(d);
 <dd>Use Textual TUI with per-job tabs.</dd>
 <dt><strong><code>ci_mode</code></strong></dt>
 <dd>CI mode - jobs write to files, output printed after each stage.</dd>
+<dt><strong><code>job_filter</code></strong></dt>
+<dd>If given, only run jobs whose names are in this list.</dd>
+<dt><strong><code>stage_filter</code></strong></dt>
+<dd>If given, only run jobs whose stages are in this list.</dd>
+<dt><strong><code>parallel_backend</code></strong></dt>
+<dd>Backend name (e.g., 'multiprocessing', 'threading', 'sequential').</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>
@@ -264,6 +484,7 @@ el.replaceWith(d);
         &#34;after_script&#34;,
         &#34;cache&#34;,
         &#34;artifacts&#34;,
+        &#34;extends&#34;,
     }
 
     def process_config(self, raw_config: dict[str, Any]) -&gt; PipelineConfig:
@@ -276,19 +497,108 @@ el.replaceWith(d);
         Returns:
             A structured PipelineConfig object.
         &#34;&#34;&#34;
+        # Deep-copy to avoid mutating the caller&#39;s dict (BUG-4)
+        raw_config = copy.deepcopy(raw_config)
+
+        # Resolve extends: directives before building job objects
+        raw_config = self._resolve_extends(raw_config)
+
         # Extract global configuration
         stages = raw_config.get(&#34;stages&#34;, [&#34;test&#34;])
         global_variables = raw_config.get(&#34;variables&#34;, {})
         default_config = self._process_default_config(raw_config.get(&#34;default&#34;, {}))
 
-        # Process jobs
+        # Process jobs — skip reserved keywords and hidden templates (`.name`)
         jobs = []
         for name, job_data in raw_config.items():
-            if name not in self.RESERVED_KEYWORDS and isinstance(job_data, dict):
+            if name not in self.RESERVED_KEYWORDS and not name.startswith(&#34;.&#34;) and isinstance(job_data, dict):
                 job = self._process_job(name, job_data, default_config, global_variables)
                 jobs.append(job)
 
+        # Expand parallel: N and parallel: matrix: directives
+        jobs = self._expand_parallel_jobs(jobs, raw_config)
+
+        # Resolve needs references to expanded matrix/parallel jobs
+        jobs = self._resolve_expanded_needs(jobs)
+
         return PipelineConfig(stages=stages, variables=global_variables, default=default_config, jobs=jobs)
+
+    def _resolve_extends(self, raw_config: dict[str, Any]) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;Resolve all ``extends:`` directives in *raw_config*.
+
+        GitLab semantics:
+        - ``extends:`` may be a string (single parent) or list (multiple
+          parents; later entries take precedence, child overrides all).
+        - Hidden jobs (keys starting with ``.``) are valid base templates.
+        - Circular references raise ``GitlabRunnerError``.
+        - ``extends:`` is removed from each job after resolution.
+
+        Args:
+            raw_config: The deep-copied configuration dictionary (will be
+                mutated in-place and returned).
+
+        Returns:
+            The same dict with all ``extends:`` chains resolved.
+        &#34;&#34;&#34;
+        # Collect all job-like blocks (real jobs and hidden templates)
+        all_jobs: dict[str, dict[str, Any]] = {name: data for name, data in raw_config.items() if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS}
+
+        resolved: dict[str, dict[str, Any]] = {}
+
+        def _resolve_one(name: str, chain: list[str]) -&gt; dict[str, Any]:
+            if name in resolved:
+                return resolved[name]
+            if name in chain:
+                raise GitlabRunnerError(f&#34;`extends:` circular reference detected: {&#39; -&gt; &#39;.join(chain + [name])}&#34;)
+            if name not in all_jobs:
+                raise GitlabRunnerError(f&#34;`extends:` references unknown job or template: {name!r}&#34;)
+
+            job_data = dict(all_jobs[name])
+            parents_raw = job_data.pop(&#34;extends&#34;, None)
+            if parents_raw is None:
+                resolved[name] = job_data
+                return job_data
+
+            parents: list[str] = [parents_raw] if isinstance(parents_raw, str) else list(parents_raw)
+
+            merged: dict[str, Any] = {}
+            for parent in parents:
+                parent_resolved = _resolve_one(parent, chain + [name])
+                merged = self._deep_merge(merged, parent_resolved)
+
+            resolved[name] = self._deep_merge(merged, job_data)
+            return resolved[name]
+
+        for name in list(all_jobs):
+            _resolve_one(name, [])
+
+        for name, data in resolved.items():
+            raw_config[name] = data
+
+        return raw_config
+
+    @staticmethod
+    def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;Deep-merge *overlay* on top of *base*.
+
+        Dicts are merged recursively. All other types (lists, scalars) are
+        fully replaced by the overlay value, matching GitLab ``extends:``
+        semantics where a child list completely replaces the parent list.
+
+        Args:
+            base: The base dictionary.
+            overlay: The overlay dictionary whose values take precedence.
+
+        Returns:
+            A new merged dictionary.
+        &#34;&#34;&#34;
+        result = base.copy()
+        for key, value in overlay.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = PipelineProcessor._deep_merge(result[key], value)
+            else:
+                result[key] = value
+        return result
 
     def _process_default_config(self, default_data: dict[str, Any]) -&gt; DefaultConfig:
         &#34;&#34;&#34;
@@ -363,6 +673,106 @@ el.replaceWith(d);
             elif isinstance(_codes, list):
                 retry_exit_codes = [int(c) for c in _codes if isinstance(c, (int, str)) and str(c).isdigit()]
 
+        # GitLab-aligned allow_failure parsing
+        af_cfg = job_data.get(&#34;allow_failure&#34;, False)
+        allow_failure = False
+        allow_failure_exit_codes: list[int] = []
+
+        if isinstance(af_cfg, bool):
+            allow_failure = af_cfg
+        elif isinstance(af_cfg, dict):
+            allow_failure = True
+            _codes = af_cfg.get(&#34;exit_codes&#34;, [])
+            if isinstance(_codes, int):
+                allow_failure_exit_codes = [int(_codes)]
+            elif isinstance(_codes, list):
+                allow_failure_exit_codes = [int(c) for c in _codes if isinstance(c, (int, str)) and str(c).isdigit()]
+
+        # needs: DAG dependencies
+        needs_raw = job_data.get(&#34;needs&#34;, [])
+        needs: list[str] = []
+        if isinstance(needs_raw, list):
+            for item in needs_raw:
+                if isinstance(item, str):
+                    needs.append(item)
+                elif isinstance(item, dict) and &#34;job&#34; in item:
+                    needs.append(str(item[&#34;job&#34;]))
+
+        # timeout: maximum seconds the job may run
+        timeout = parse_duration(job_data.get(&#34;timeout&#34;))
+
+        # artifacts
+        artifacts_paths: list[str] = []
+        artifacts_when = &#34;on_success&#34;
+        artifacts_dotenv: str | None = None
+        artifacts_raw = job_data.get(&#34;artifacts&#34;, {})
+        if isinstance(artifacts_raw, dict):
+            _paths = artifacts_raw.get(&#34;paths&#34;, [])
+            if isinstance(_paths, list):
+                artifacts_paths = [str(p) for p in _paths if isinstance(p, str)]
+            _when = artifacts_raw.get(&#34;when&#34;, &#34;on_success&#34;)
+            if _when in {&#34;on_success&#34;, &#34;on_failure&#34;, &#34;always&#34;}:
+                artifacts_when = _when
+            # artifacts: reports: dotenv: — pipeline variable passing via dotenv file
+            _reports = artifacts_raw.get(&#34;reports&#34;, {})
+            if isinstance(_reports, dict):
+                _dotenv = _reports.get(&#34;dotenv&#34;)
+                if isinstance(_dotenv, str) and _dotenv:
+                    artifacts_dotenv = _dotenv
+                elif isinstance(_dotenv, list) and _dotenv:
+                    # GitLab accepts a list; we take the first entry
+                    artifacts_dotenv = str(_dotenv[0])
+
+        # dependencies: None means &#34;inherit all&#34; (GitLab default)
+        dependencies: list[str] | None = None
+        deps_raw = job_data.get(&#34;dependencies&#34;)
+        if deps_raw is not None:
+            if isinstance(deps_raw, list):
+                dependencies = [str(d) for d in deps_raw if isinstance(d, (str, int))]
+            else:
+                dependencies = []
+
+        # rules: conditional execution
+        rules_raw = job_data.get(&#34;rules&#34;, [])
+        rules: list[RuleConfig] = []
+        if isinstance(rules_raw, list):
+            for r in rules_raw:
+                if isinstance(r, dict):
+                    rule_needs: list[str] | None = None
+                    if &#34;needs&#34; in r:
+                        rule_needs = []
+                        _rn = r[&#34;needs&#34;]
+                        if isinstance(_rn, list):
+                            for item in _rn:
+                                if isinstance(item, str):
+                                    rule_needs.append(item)
+                                elif isinstance(item, dict) and &#34;job&#34; in item:
+                                    rule_needs.append(str(item[&#34;job&#34;]))
+
+                    rule_exists: list[str] | None = None
+                    if &#34;exists&#34; in r:
+                        _ex = r[&#34;exists&#34;]
+                        if isinstance(_ex, list):
+                            rule_exists = [str(p) for p in _ex]
+                        elif isinstance(_ex, str):
+                            rule_exists = [_ex]
+
+                    rules.append(
+                        RuleConfig(
+                            if_expr=r.get(&#34;if&#34;),
+                            when=r.get(&#34;when&#34;),
+                            allow_failure=r.get(&#34;allow_failure&#34;),
+                            variables=r.get(&#34;variables&#34;, {}),
+                            needs=rule_needs,
+                            exists=rule_exists,
+                        )
+                    )
+
+        # when keyword
+        when = job_data.get(&#34;when&#34;, &#34;on_success&#34;)
+        if when not in {&#34;on_success&#34;, &#34;on_failure&#34;, &#34;always&#34;, &#34;manual&#34;, &#34;never&#34;, &#34;delayed&#34;}:
+            when = &#34;on_success&#34;
+
         return JobConfig(
             name=name,
             stage=job_data.get(&#34;stage&#34;, &#34;test&#34;),
@@ -373,7 +783,166 @@ el.replaceWith(d);
             retry_max=retry_max,
             retry_when=retry_when,
             retry_exit_codes=retry_exit_codes,
+            allow_failure=allow_failure,
+            allow_failure_exit_codes=allow_failure_exit_codes,
+            when=when,
+            rules=rules,
+            needs=needs,
+            timeout=timeout,
+            artifacts_paths=artifacts_paths,
+            artifacts_when=artifacts_when,
+            artifacts_dotenv=artifacts_dotenv,
+            dependencies=dependencies,
         )
+
+    def _expand_parallel_jobs(
+        self,
+        jobs: list[JobConfig],
+        raw_config: dict[str, Any],
+    ) -&gt; list[JobConfig]:
+        &#34;&#34;&#34;Expand jobs that use ``parallel: N`` or ``parallel: matrix:`` into multiple jobs.
+
+        GitLab CI semantics:
+        - ``parallel: N`` creates N copies named ``job_name N/N`` with
+          ``CI_NODE_INDEX`` (1-based) and ``CI_NODE_TOTAL`` set.
+        - ``parallel: matrix: [...]`` computes the Cartesian product of the
+          variable lists and creates one job per combination, named
+          ``job_name: [VAR1=val1, VAR2=val2]``.
+        &#34;&#34;&#34;
+        expanded: list[JobConfig] = []
+
+        for job in jobs:
+            raw_job = raw_config.get(job.name, {})
+            parallel_raw = raw_job.get(&#34;parallel&#34;) if isinstance(raw_job, dict) else None
+
+            if parallel_raw is None:
+                expanded.append(job)
+                continue
+
+            if isinstance(parallel_raw, int):
+                # parallel: N — create N copies
+                n = max(1, min(parallel_raw, 200))
+                for idx in range(1, n + 1):
+                    clone = dataclasses.replace(
+                        job,
+                        name=f&#34;{job.name} {idx}/{n}&#34;,
+                        parallel_total=n,
+                        parallel_index=idx,
+                        variables={**job.variables, &#34;CI_NODE_INDEX&#34;: str(idx), &#34;CI_NODE_TOTAL&#34;: str(n)},
+                    )
+                    expanded.append(clone)
+
+            elif isinstance(parallel_raw, dict) and &#34;matrix&#34; in parallel_raw:
+                matrix_entries = parallel_raw[&#34;matrix&#34;]
+                if not isinstance(matrix_entries, list):
+                    expanded.append(job)
+                    continue
+
+                # Each matrix entry is a dict where values can be scalars or lists.
+                # We compute the Cartesian product within each entry, then concatenate
+                # all entries to get the full set of combinations.
+                all_combos: list[dict[str, str]] = []
+                for entry in matrix_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    keys = sorted(entry.keys())
+                    value_lists: list[list[str]] = []
+                    for key in keys:
+                        val = entry[key]
+                        if isinstance(val, list):
+                            value_lists.append([str(v) for v in val])
+                        else:
+                            value_lists.append([str(val)])
+                    for combo in itertools.product(*value_lists):
+                        all_combos.append(dict(zip(keys, combo)))
+
+                if not all_combos:
+                    expanded.append(job)
+                    continue
+
+                total = len(all_combos)
+                for idx, matrix_combo in enumerate(all_combos, 1):
+                    # GitLab names matrix jobs as: &#34;job_name: [K1=V1, K2=V2]&#34;
+                    label = &#34;, &#34;.join(f&#34;{k}={v}&#34; for k, v in sorted(matrix_combo.items()))
+                    clone = dataclasses.replace(
+                        job,
+                        name=f&#34;{job.name}: [{label}]&#34;,
+                        parallel_total=total,
+                        parallel_index=idx,
+                        variables={
+                            **job.variables,
+                            **matrix_combo,
+                            &#34;CI_NODE_INDEX&#34;: str(idx),
+                            &#34;CI_NODE_TOTAL&#34;: str(total),
+                        },
+                    )
+                    expanded.append(clone)
+            else:
+                expanded.append(job)
+
+        return expanded
+
+    @staticmethod
+    def _resolve_expanded_needs(jobs: list[JobConfig]) -&gt; list[JobConfig]:
+        &#34;&#34;&#34;Rewrite ``needs`` entries that reference a job that was expanded by ``parallel:``.
+
+        If job A has ``needs: [B]`` but B was expanded into ``B 1/3``, ``B 2/3``,
+        ``B 3/3``, then A&#39;s needs list is rewritten to depend on all three
+        expanded instances.  References that match an existing job name are left
+        unchanged.
+        &#34;&#34;&#34;
+        existing_names = {j.name for j in jobs}
+
+        # Build a map: original_name -&gt; list of expanded names
+        # Expanded jobs have parallel_total &gt; 0 and their name differs from
+        # the original.  We derive the original name by stripping the suffix.
+        expanded_map: dict[str, list[str]] = {}
+        for job in jobs:
+            if job.parallel_total &gt; 0:
+                # Parallel: N pattern: &#34;original N/N&#34;
+                # Matrix pattern: &#34;original: [KEY=VAL]&#34;
+                # We need the original name. We can infer it:
+                #   - For &#34;name K/N&#34;: everything before &#34; K/N&#34;
+                #   - For &#34;name: [...]&#34;: everything before &#34;: [&#34;
+                if &#34;: [&#34; in job.name:
+                    orig = job.name.split(&#34;: [&#34;)[0]
+                elif &#34;/&#34; in job.name:
+                    # &#34;original 1/3&#34; -&gt; strip &#34; 1/3&#34;
+                    parts = job.name.rsplit(&#34; &#34;, 1)
+                    orig = parts[0] if len(parts) == 2 and &#34;/&#34; in parts[1] else job.name
+                else:
+                    continue
+                expanded_map.setdefault(orig, []).append(job.name)
+
+        if not expanded_map:
+            return jobs
+
+        for job in jobs:
+            # Resolve needs
+            if job.needs:
+                new_needs: list[str] = []
+                for dep in job.needs:
+                    if dep in existing_names:
+                        new_needs.append(dep)
+                    elif dep in expanded_map:
+                        new_needs.extend(expanded_map[dep])
+                    else:
+                        new_needs.append(dep)
+                job.needs = new_needs
+
+            # Resolve dependencies (artifact injection)
+            if job.dependencies is not None:
+                new_deps: list[str] = []
+                for dep in job.dependencies:
+                    if dep in existing_names:
+                        new_deps.append(dep)
+                    elif dep in expanded_map:
+                        new_deps.extend(expanded_map[dep])
+                    else:
+                        new_deps.append(dep)
+                job.dependencies = new_deps
+
+        return jobs
 
     def _ensure_list(self, value: Union[str, list[str]]) -&gt; list[str]:
         &#34;&#34;&#34;
@@ -424,17 +993,29 @@ el.replaceWith(d);
     Returns:
         A structured PipelineConfig object.
     &#34;&#34;&#34;
+    # Deep-copy to avoid mutating the caller&#39;s dict (BUG-4)
+    raw_config = copy.deepcopy(raw_config)
+
+    # Resolve extends: directives before building job objects
+    raw_config = self._resolve_extends(raw_config)
+
     # Extract global configuration
     stages = raw_config.get(&#34;stages&#34;, [&#34;test&#34;])
     global_variables = raw_config.get(&#34;variables&#34;, {})
     default_config = self._process_default_config(raw_config.get(&#34;default&#34;, {}))
 
-    # Process jobs
+    # Process jobs — skip reserved keywords and hidden templates (`.name`)
     jobs = []
     for name, job_data in raw_config.items():
-        if name not in self.RESERVED_KEYWORDS and isinstance(job_data, dict):
+        if name not in self.RESERVED_KEYWORDS and not name.startswith(&#34;.&#34;) and isinstance(job_data, dict):
             job = self._process_job(name, job_data, default_config, global_variables)
             jobs.append(job)
+
+    # Expand parallel: N and parallel: matrix: directives
+    jobs = self._expand_parallel_jobs(jobs, raw_config)
+
+    # Resolve needs references to expanded matrix/parallel jobs
+    jobs = self._resolve_expanded_needs(jobs)
 
     return PipelineConfig(stages=stages, variables=global_variables, default=default_config, jobs=jobs)</code></pre>
 </details>
@@ -465,6 +1046,8 @@ el.replaceWith(d);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="bitrab.plan.best_efforts_run" href="#bitrab.plan.best_efforts_run">best_efforts_run</a></code></li>
+<li><code><a title="bitrab.plan.filter_pipeline" href="#bitrab.plan.filter_pipeline">filter_pipeline</a></code></li>
+<li><code><a title="bitrab.plan.parse_duration" href="#bitrab.plan.parse_duration">parse_duration</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

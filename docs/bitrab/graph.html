@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.6">
-<title>bitrab.config API documentation</title>
-<meta name="description" content="">
+<title>bitrab.graph API documentation</title>
+<meta name="description" content="ARCH-5: Pipeline dependency graph rendering …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -33,38 +33,60 @@ el.replaceWith(d);
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>bitrab.config</code></h1>
+<h1 class="title">Module <code>bitrab.graph</code></h1>
 </header>
 <section id="section-intro">
+<p>ARCH-5: Pipeline dependency graph rendering.</p>
+<p>Renders a pipeline's stage/job structure as either:
+- ASCII terminal output (default): stages as columns, jobs as rows, DAG arrows
+- DOT format (&ndash;format dot): Graphviz .dot for external rendering</p>
+<p>Usage::</p>
+<pre><code>from bitrab.graph import render_pipeline_graph
+print(render_pipeline_graph(pipeline))
+print(render_pipeline_graph(pipeline, fmt="dot"))
+</code></pre>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="bitrab.config.capabilities" href="capabilities.html">bitrab.config.capabilities</a></code></dt>
+<dt id="bitrab.graph.render_pipeline_graph"><code class="name flex">
+<span>def <span class="ident">render_pipeline_graph</span></span>(<span>pipeline: PipelineConfig, fmt: str = 'text') ‑> str</span>
+</code></dt>
 <dd>
-<div class="desc"><p>ARCH-3: Capability validation layer …</p></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.loader" href="loader.html">bitrab.config.loader</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.rules" href="rules.html">bitrab.config.rules</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.schema" href="schema.html">bitrab.config.schema</a></code></dt>
-<dd>
-<div class="desc"><p>Validates input folder and output folder assuming all yaml is pipeline yaml.</p></div>
-</dd>
-<dt><code class="name"><a title="bitrab.config.validate_pipeline" href="validate_pipeline.html">bitrab.config.validate_pipeline</a></code></dt>
-<dd>
-<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def render_pipeline_graph(pipeline: PipelineConfig, fmt: str = &#34;text&#34;) -&gt; str:
+    &#34;&#34;&#34;Render the pipeline as a dependency graph.
+
+    Args:
+        pipeline: The pipeline configuration to render.
+        fmt: Output format — ``&#34;text&#34;`` (default) or ``&#34;dot&#34;`` (Graphviz).
+
+    Returns:
+        A string representation of the pipeline graph.
+    &#34;&#34;&#34;
+    if fmt == &#34;dot&#34;:
+        return _render_dot(pipeline)
+    return _render_text(pipeline)</code></pre>
+</details>
+<div class="desc"><p>Render the pipeline as a dependency graph.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>pipeline</code></strong></dt>
+<dd>The pipeline configuration to render.</dd>
+<dt><strong><code>fmt</code></strong></dt>
+<dd>Output format — <code>"text"</code> (default) or <code>"dot"</code> (Graphviz).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A string representation of the pipeline graph.</p></div>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
@@ -76,16 +98,12 @@ el.replaceWith(d);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="bitrab" href="../index.html">bitrab</a></code></li>
+<li><code><a title="bitrab" href="index.html">bitrab</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="bitrab.config.capabilities" href="capabilities.html">bitrab.config.capabilities</a></code></li>
-<li><code><a title="bitrab.config.loader" href="loader.html">bitrab.config.loader</a></code></li>
-<li><code><a title="bitrab.config.rules" href="rules.html">bitrab.config.rules</a></code></li>
-<li><code><a title="bitrab.config.schema" href="schema.html">bitrab.config.schema</a></code></li>
-<li><code><a title="bitrab.config.validate_pipeline" href="validate_pipeline.html">bitrab.config.validate_pipeline</a></code></li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="bitrab.graph.render_pipeline_graph" href="#bitrab.graph.render_pipeline_graph">render_pipeline_graph</a></code></li>
 </ul>
 </li>
 </ul>

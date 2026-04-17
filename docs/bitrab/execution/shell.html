@@ -120,7 +120,7 @@ def force_subproc_mode(mode: str):
 <div class="desc"><p>Return a merged environment where <code>env</code> overrides current process env.</p></div>
 </dd>
 <dt id="bitrab.execution.shell.run_bash"><code class="name flex">
-<span>def <span class="ident">run_bash</span></span>(<span>script: str,<br>*,<br>env: dict[str, str] | None = None,<br>cwd: str | os.PathLike[str] | None = None,<br>mode: str = 'stream',<br>check: bool = True,<br>login_shell: bool = False,<br>force_color: bool | None = None,<br>stdout_target: <a title="bitrab.execution.shell.TextWriter" href="#bitrab.execution.shell.TextWriter">TextWriter</a> | None = None,<br>stderr_target: <a title="bitrab.execution.shell.TextWriter" href="#bitrab.execution.shell.TextWriter">TextWriter</a> | None = None) ‑> <a title="bitrab.execution.shell.RunResult" href="#bitrab.execution.shell.RunResult">RunResult</a></span>
+<span>def <span class="ident">run_bash</span></span>(<span>script: str,<br>*,<br>env: dict[str, str] | None = None,<br>cwd: str | os.PathLike[str] | None = None,<br>mode: str = 'stream',<br>check: bool = True,<br>login_shell: bool = False,<br>force_color: bool | None = None,<br>stdout_target: <a title="bitrab.execution.shell.TextWriter" href="#bitrab.execution.shell.TextWriter">TextWriter</a> | None = None,<br>stderr_target: <a title="bitrab.execution.shell.TextWriter" href="#bitrab.execution.shell.TextWriter">TextWriter</a> | None = None,<br>timeout: float | None = None) ‑> <a title="bitrab.execution.shell.RunResult" href="#bitrab.execution.shell.RunResult">RunResult</a></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -138,6 +138,7 @@ def force_subproc_mode(mode: str):
     force_color: bool | None = None,
     stdout_target: TextWriter | None = None,
     stderr_target: TextWriter | None = None,
+    timeout: float | None = None,
 ) -&gt; RunResult:
     &#34;&#34;&#34;Run a bash script via stdin.&#34;&#34;&#34;
     env_merged = merge_env(env)
@@ -164,7 +165,12 @@ def force_subproc_mode(mode: str):
             stderr=subprocess.PIPE,
             text=True,
         ) as proc:
-            out, err = proc.communicate(robust_script_content)
+            try:
+                out, err = proc.communicate(robust_script_content, timeout=timeout)
+            except subprocess.TimeoutExpired as toe:
+                proc.kill()
+                proc.communicate()
+                raise JobTimeoutError(f&#34;Job timed out after {timeout}s&#34;) from toe
             rc = proc.returncode
         result = RunResult(rc, out, err)
         if check:
@@ -175,30 +181,37 @@ def force_subproc_mode(mode: str):
     err_buf = _Buffer(stderr_target or sys.stderr)
 
     def _stream(pipe: IO[str], color: str, buf: _Buffer) -&gt; None:
-        # Read char-by-char for true streaming (no line-buffering delay).
-        # Accumulate into a line and flush the whole line at once so that
-        # downstream consumers (e.g. QueueWriter → TUI) receive coherent lines
-        # rather than individual characters.
+        # Read in blocks for efficiency while still streaming lines.
+        # Downstream consumers (e.g. QueueWriter → TUI) receive coherent lines.
         try:
             pending: list[str] = []
             while True:
-                ch = pipe.read(1)
-                if not ch:
+                chunk = pipe.read(1024)
+                if not chunk:
                     # EOF: flush any remaining partial line
                     if pending:
                         buf.write(f&#34;{color}{&#39;&#39;.join(pending)}{reset}&#34;)
                         buf.flush()
                     break
-                pending.append(ch)
-                if ch == &#34;\n&#34;:
-                    buf.write(f&#34;{color}{&#39;&#39;.join(pending)}{reset}&#34;)
-                    buf.flush()
-                    pending = []
+
+                # Split the chunk into lines, keeping track of any partial line at the end
+                lines = chunk.splitlines(keepends=True)
+                if not lines:
+                    continue
+
+                for _i, line in enumerate(lines):
+                    pending.append(line)
+                    if line.endswith((&#34;\n&#34;, &#34;\r&#34;)):
+                        buf.write(f&#34;{color}{&#39;&#39;.join(pending)}{reset}&#34;)
+                        buf.flush()
+                        pending = []
         finally:
             try:
                 pipe.close()
-            except Exception:  # nosec: clean up
+            except Exception:  # nosec B110
                 pass
+
+    _process_killed_by_timeout = False
 
     with subprocess.Popen(  # nosec
         bash,
@@ -221,9 +234,30 @@ def force_subproc_mode(mode: str):
         proc.stdin.write(robust_script_content)
         proc.stdin.close()
 
+        cancel_timer = threading.Event()
+        if timeout is not None:
+
+            def _kill_on_timeout() -&gt; None:
+                nonlocal _process_killed_by_timeout
+                if not cancel_timer.wait(timeout):
+                    _process_killed_by_timeout = True
+                    try:
+                        proc.kill()
+                    except OSError:
+                        pass
+
+            t_kill = threading.Thread(target=_kill_on_timeout, daemon=True)
+            t_kill.start()
+
         t_out.join()
         t_err.join()
         rc = proc.wait()
+
+        if timeout is not None:
+            cancel_timer.set()
+
+    if _process_killed_by_timeout:
+        raise JobTimeoutError(f&#34;Job timed out after {timeout}s&#34;)
 
     result = RunResult(rc, out_buf.getvalue(), err_buf.getvalue())
     if check:
@@ -368,8 +402,8 @@ def stdout_clean(self) -&gt; str:
 class TextWriter(Protocol):
     &#34;&#34;&#34;Minimal write/flush interface for job output targets.&#34;&#34;&#34;
 
-    def write(self, s: str) -&gt; object: ...
-    def flush(self) -&gt; object: ...</code></pre>
+    def write(self, s: str) -&gt; Any: ...
+    def flush(self) -&gt; Any: ...</code></pre>
 </details>
 <div class="desc"><p>Minimal write/flush interface for job output targets.</p></div>
 <h3>Ancestors</h3>
@@ -380,26 +414,26 @@ class TextWriter(Protocol):
 <h3>Methods</h3>
 <dl>
 <dt id="bitrab.execution.shell.TextWriter.flush"><code class="name flex">
-<span>def <span class="ident">flush</span></span>(<span>self) ‑> object</span>
+<span>def <span class="ident">flush</span></span>(<span>self) ‑> Any</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def flush(self) -&gt; object: ...</code></pre>
+<pre><code class="python">def flush(self) -&gt; Any: ...</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
 <dt id="bitrab.execution.shell.TextWriter.write"><code class="name flex">
-<span>def <span class="ident">write</span></span>(<span>self, s: str) ‑> object</span>
+<span>def <span class="ident">write</span></span>(<span>self, s: str) ‑> Any</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def write(self, s: str) -&gt; object: ...</code></pre>
+<pre><code class="python">def write(self, s: str) -&gt; Any: ...</code></pre>
 </details>
 <div class="desc"></div>
 </dd>

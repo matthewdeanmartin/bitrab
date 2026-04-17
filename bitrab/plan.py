@@ -620,6 +620,8 @@ class LocalGitLabRunner:
         job_filter: list[str] | None = None,
         stage_filter: list[str] | None = None,
         parallel_backend: str | None = None,
+        serial: bool | None = None,
+        use_worktrees: bool | None = None,
     ) -> None:
         """
         Run the complete pipeline.
@@ -673,7 +675,13 @@ class LocalGitLabRunner:
 
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-        from bitrab.mutation import load_mutation_config, load_parallel_config
+        from bitrab.mutation import (
+            WorktreeConfig,
+            load_mutation_config,
+            load_parallel_config,
+            load_serial_config,
+            load_worktree_config,
+        )
 
         mutation_config = load_mutation_config(self.base_path)
         parallel_config = load_parallel_config(self.base_path)
@@ -681,6 +689,27 @@ class LocalGitLabRunner:
             from bitrab.mutation import ParallelBackendConfig
 
             parallel_config = ParallelBackendConfig(backend=parallel_backend)
+
+        worktree_config = load_worktree_config(self.base_path)
+        if use_worktrees is not None:
+            worktree_config = WorktreeConfig(enabled=use_worktrees)
+
+        serial_config = load_serial_config(self.base_path)
+        serial_active = serial_config.enabled if serial is None else bool(serial)
+        if dry_run and not serial_active and parallel_backend is None and parallel_config.backend == "process":
+            from bitrab.mutation import ParallelBackendConfig
+
+            # Dry runs never execute user scripts, so process isolation adds spawn
+            # cost without providing any safety benefit.
+            parallel_config = ParallelBackendConfig(backend="thread")
+        if serial_active:
+            # Pin degree of parallelism to 1 — one job at a time, shared cwd.
+            # Formatters / autofixers that mutate the real tree must run like
+            # this so their changes land in the working copy, not a throwaway
+            # worktree.
+            maximum_degree_of_parallelism = 1
+            worktree_config = WorktreeConfig(enabled=False)
+            safe_print("🔒 Serial mode: running one job at a time in the project root (worktrees disabled).")
 
         event_collector = None
         started_at = __import__("time").time()
@@ -693,6 +722,7 @@ class LocalGitLabRunner:
                 maximum_degree_of_parallelism=maximum_degree_of_parallelism,
                 mutation_config=mutation_config,
                 parallel_backend=parallel_config,
+                worktree_config=worktree_config,
             )
             if use_tui:
                 from bitrab.tui.app import PipelineApp
@@ -711,6 +741,7 @@ class LocalGitLabRunner:
                 dry_run=dry_run,
                 mutation_config=mutation_config,
                 parallel_backend=parallel_config,
+                worktree_config=worktree_config,
             )
             self.orchestrator.execute_pipeline(pipeline)
             event_collector = getattr(self.orchestrator, "event_collector", None)

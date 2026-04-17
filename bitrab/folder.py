@@ -48,6 +48,7 @@ from bitrab._json import loads as json_loads
 
 _LOGS_DIR = "logs"
 _ARTIFACTS_DIR = "artifacts"
+_WORKTREES_DIR = "worktrees"
 _SIZE_WARN_BYTES_DEFAULT = 500 * 1024 * 1024  # 500 MB
 
 # ---------------------------------------------------------------------------
@@ -217,12 +218,14 @@ def scan_folder(
     logs_bytes = _dir_size_bytes(logs_path) if logs_path.exists() else 0
     artifact_bytes = _dir_size_bytes(artifacts_path) if artifacts_path.exists() else 0
 
-    # Job dirs = everything that isn't logs/ or artifacts/
+    # Job dirs = everything that isn't logs/, artifacts/, or worktrees/.
+    # Worktrees are transient and tracked by git metadata, so they don't count
+    # toward the "job dirs" total — any leftovers are cleaned by clean_worktrees.
     job_bytes = 0
     subdirs: list[str] = []
     try:
         for entry in os.scandir(bd):
-            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR):
+            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR, _WORKTREES_DIR):
                 job_bytes += _dir_size_bytes(Path(entry.path))
                 subdirs.append(entry.name)
     except OSError:
@@ -318,18 +321,38 @@ def clean_artifacts(project_dir: Path) -> int:
 
 
 def clean_job_dirs(project_dir: Path) -> int:
-    """Delete all job working directories (not logs or artifacts). Returns bytes freed."""
+    """Delete all job working directories (not logs, artifacts, or worktrees).
+
+    Returns bytes freed.  Worktrees are handled separately by
+    :func:`clean_worktrees` because they carry git metadata that must be pruned
+    through ``git worktree prune`` in addition to ``rmtree``.
+    """
     bd = bitrab_dir(project_dir)
     if not bd.exists():
         return 0
     freed = 0
     try:
         for entry in os.scandir(bd):
-            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR):
+            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR, _WORKTREES_DIR):
                 freed += _dir_size_bytes(Path(entry.path))
                 shutil.rmtree(entry.path)
     except OSError:
         pass
+    return freed
+
+
+def clean_worktrees(project_dir: Path) -> int:
+    """Delete ``.bitrab/worktrees/`` and prune git's worktree metadata.
+
+    Returns bytes freed.  Safe to run when no worktrees exist or when the
+    project isn't a git repo — both checks are handled inside
+    :func:`bitrab.git_worktree.prune_worktrees`.
+    """
+    from bitrab.git_worktree import prune_worktrees, worktree_root
+
+    wt_root = worktree_root(project_dir)
+    freed = _dir_size_bytes(wt_root) if wt_root.exists() else 0
+    prune_worktrees(project_dir)
     return freed
 
 
@@ -344,12 +367,24 @@ def clean_logs(project_dir: Path) -> int:
 
 
 def clean_all(project_dir: Path) -> int:
-    """Delete everything under ``.bitrab/``. Returns bytes freed."""
+    """Delete everything under ``.bitrab/``. Returns bytes freed.
+
+    Also prunes git's worktree metadata so stale entries under
+    ``.git/worktrees/`` don't linger after the directory is removed.
+    """
     bd = bitrab_dir(project_dir)
     if not bd.exists():
         return 0
     freed = _dir_size_bytes(bd)
-    shutil.rmtree(bd)
+    # Prune git metadata first so it doesn't complain about missing dirs.
+    try:
+        from bitrab.git_worktree import prune_worktrees
+
+        prune_worktrees(project_dir)
+    except Exception:  # pylint: disable=broad-except
+        pass
+    if bd.exists():
+        shutil.rmtree(bd)
     return freed
 
 

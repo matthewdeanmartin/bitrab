@@ -120,7 +120,7 @@ el.replaceWith(d);
 </dl></div>
 </dd>
 <dt id="bitrab.config.schema.run_validate_all"><code class="name flex">
-<span>def <span class="ident">run_validate_all</span></span>(<span>input_dir: Path, output_path: Path, parallelism: int | None = None) ‑> int</span>
+<span>def <span class="ident">run_validate_all</span></span>(<span>input_dir: Path, _output_path: Path, parallelism: int | None = None) ‑> int</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -129,7 +129,7 @@ el.replaceWith(d);
 </summary>
 <pre><code class="python">def run_validate_all(
     input_dir: Path,
-    output_path: Path,
+    _output_path: Path,
     parallelism: int | None = None,
 ) -&gt; int:
     &#34;&#34;&#34;
@@ -137,7 +137,7 @@ el.replaceWith(d);
 
     Args:
         input_dir: Directory containing YAML files to validate.
-        output_path: Path to write validation results.
+        _output_path: Path to write validation results.
         parallelism: Number of parallel processes (None for auto-detect).
 
     Returns:
@@ -220,7 +220,7 @@ el.replaceWith(d);
 <dl>
 <dt><strong><code>input_dir</code></strong></dt>
 <dd>Directory containing YAML files to validate.</dd>
-<dt><strong><code>output_path</code></strong></dt>
+<dt><strong><code>_output_path</code></strong></dt>
 <dd>Path to write validation results.</dd>
 <dt><strong><code>parallelism</code></strong></dt>
 <dd>Number of parallel processes (None for auto-detect).</dd>
@@ -298,7 +298,7 @@ el.replaceWith(d);
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, &#34;w&#34;, encoding=&#34;utf-8&#34;) as f:
-        f.write(orjson.dumps(output_data).decode())</code></pre>
+        f.write(json_dumps(output_data))</code></pre>
 </details>
 <div class="desc"><p>Write validation results to output file in JSON format.</p>
 <h2 id="args">Args</h2>

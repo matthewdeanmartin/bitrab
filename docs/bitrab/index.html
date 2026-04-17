@@ -49,6 +49,10 @@ A tool for running GitLab CI pipelines locally.</p></div>
 <dd>
 <div class="desc"></div>
 </dd>
+<dt><code class="name"><a title="bitrab.console" href="console.html">bitrab.console</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt><code class="name"><a title="bitrab.exceptions" href="exceptions.html">bitrab.exceptions</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -57,9 +61,21 @@ A tool for running GitLab CI pipelines locally.</p></div>
 <dd>
 <div class="desc"></div>
 </dd>
+<dt><code class="name"><a title="bitrab.folder" href="folder.html">bitrab.folder</a></code></dt>
+<dd>
+<div class="desc"><p>Manage the .bitrab/ workspace folder …</p></div>
+</dd>
+<dt><code class="name"><a title="bitrab.graph" href="graph.html">bitrab.graph</a></code></dt>
+<dd>
+<div class="desc"><p>ARCH-5: Pipeline dependency graph rendering …</p></div>
+</dd>
 <dt><code class="name"><a title="bitrab.models" href="models/index.html">bitrab.models</a></code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+<dt><code class="name"><a title="bitrab.mutation" href="mutation.html">bitrab.mutation</a></code></dt>
+<dd>
+<div class="desc"><p>Filesystem mutation detection for job execution …</p></div>
 </dd>
 <dt><code class="name"><a title="bitrab.plan" href="plan.html">bitrab.plan</a></code></dt>
 <dd>
@@ -72,6 +88,10 @@ A tool for running GitLab CI pipelines locally.</p></div>
 <dt><code class="name"><a title="bitrab.utils" href="utils/index.html">bitrab.utils</a></code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+<dt><code class="name"><a title="bitrab.watch" href="watch.html">bitrab.watch</a></code></dt>
+<dd>
+<div class="desc"><p>D4: Watch mode — re-run the pipeline when CI config files change.</p></div>
 </dd>
 </dl>
 </section>
@@ -89,36 +109,12 @@ A tool for running GitLab CI pipelines locally.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def main() -&gt; None:
-    &#34;&#34;&#34;Main entry point.&#34;&#34;&#34;
-    parser = create_parser()
-    args = parser.parse_args()
+    &#34;&#34;&#34;Lazily import the CLI entry point.&#34;&#34;&#34;
+    from bitrab.cli import main as cli_main
 
-    # Handle license display
-    if args.license:
-        print(__license__)
-        sys.exit(0)
-
-    # Configure logging
-    setup_logging(args.verbose, args.quiet)
-
-    # Handle no command (default to run)
-    if not args.command:
-        args.command = &#34;run&#34;
-        args.func = cmd_run
-        # Set defaults for run command
-        args.dry_run = False
-        args.parallel = None
-        args.jobs = None
-        args.no_tui = False
-
-    # Execute the command
-    try:
-        args.func(args)
-    except AttributeError:
-        parser.print_help()
-        sys.exit(1)</code></pre>
+    cli_main()</code></pre>
 </details>
-<div class="desc"><p>Main entry point.</p></div>
+<div class="desc"><p>Lazily import the CLI entry point.</p></div>
 </dd>
 </dl>
 </section>
@@ -134,12 +130,17 @@ A tool for running GitLab CI pipelines locally.</p></div>
 <ul>
 <li><code><a title="bitrab.cli" href="cli.html">bitrab.cli</a></code></li>
 <li><code><a title="bitrab.config" href="config/index.html">bitrab.config</a></code></li>
+<li><code><a title="bitrab.console" href="console.html">bitrab.console</a></code></li>
 <li><code><a title="bitrab.exceptions" href="exceptions.html">bitrab.exceptions</a></code></li>
 <li><code><a title="bitrab.execution" href="execution/index.html">bitrab.execution</a></code></li>
+<li><code><a title="bitrab.folder" href="folder.html">bitrab.folder</a></code></li>
+<li><code><a title="bitrab.graph" href="graph.html">bitrab.graph</a></code></li>
 <li><code><a title="bitrab.models" href="models/index.html">bitrab.models</a></code></li>
+<li><code><a title="bitrab.mutation" href="mutation.html">bitrab.mutation</a></code></li>
 <li><code><a title="bitrab.plan" href="plan.html">bitrab.plan</a></code></li>
 <li><code><a title="bitrab.tui" href="tui/index.html">bitrab.tui</a></code></li>
 <li><code><a title="bitrab.utils" href="utils/index.html">bitrab.utils</a></code></li>
+<li><code><a title="bitrab.watch" href="watch.html">bitrab.watch</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>

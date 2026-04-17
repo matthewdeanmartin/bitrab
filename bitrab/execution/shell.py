@@ -136,8 +136,20 @@ _BASH_WINDOWS_CANDIDATES = [
 _CACHED_BASH_PATH: str | None = None
 
 
+def _is_wsl_bash(path: str) -> bool:
+    # System32\bash.exe and the Store alias (WindowsApps\bash.exe) are WSL shims.
+    # They can't see Windows-style paths like C:\Users\...\tmp\pytest-of-...
+    # so jobs driven by bitrab (which pass Windows cwd/env) break inside WSL.
+    norm = path.replace("/", "\\").lower()
+    return "\\system32\\bash.exe" in norm or "\\windowsapps\\bash.exe" in norm
+
+
 def _find_bash_windows() -> str:
-    """Find bash on Windows: env override → PATH → common locations → fallback."""
+    """Find bash on Windows: env override → PATH → common locations.
+
+    Skips WSL's bash.exe shim and raises if nothing usable exists, so callers
+    get a clear error instead of a cryptic Popen failure later.
+    """
     global _CACHED_BASH_PATH
     if _CACHED_BASH_PATH:
         return _CACHED_BASH_PATH
@@ -147,7 +159,7 @@ def _find_bash_windows() -> str:
         _CACHED_BASH_PATH = override
         return override
     on_path = shutil.which("bash")
-    if on_path:
+    if on_path and not _is_wsl_bash(on_path):
         _CACHED_BASH_PATH = on_path
         return on_path
     for candidate in _BASH_WINDOWS_CANDIDATES:
@@ -155,8 +167,7 @@ def _find_bash_windows() -> str:
             _CACHED_BASH_PATH = candidate
             return candidate
 
-    _CACHED_BASH_PATH = _BASH_WINDOWS_CANDIDATES[0]
-    return _CACHED_BASH_PATH
+    raise BitrabError("Could not locate a usable bash.exe on Windows. Install Git for Windows (provides C:\\Program Files\\Git\\bin\\bash.exe) or set BITRAB_BASH_PATH to a Git Bash / MSYS bash executable. WSL's bash.exe is not supported because it cannot see Windows-style paths.")
 
 
 def _pick_bash(login_shell: bool) -> list[str]:

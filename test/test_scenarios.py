@@ -12,6 +12,7 @@ allow_failure, artifacts, when conditions, variable precedence.
 
 from __future__ import annotations
 
+import subprocess  # nosec
 import textwrap
 from pathlib import Path
 
@@ -175,6 +176,39 @@ class TestVariableManager:
         job = JobConfig(name="j", stage="test", variables={})
         env = vm.prepare_environment(job)
         assert env["CI_PROJECT_NAME"] == "my_project"
+
+    def test_git_variables_batched_for_repo_metadata(self, tmp_path, monkeypatch):
+        commands: list[tuple[str, ...]] = []
+        real_run = subprocess.run
+
+        def counting_run(*args, **kwargs):
+            cmd = tuple(args[0])
+            commands.append(cmd)
+            return real_run(*args, **kwargs)
+
+        subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)  # nosec
+        subprocess.run(["git", "-C", str(tmp_path), "config", "user.email", "test@example.com"], check=True)  # nosec
+        subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "Test"], check=True)  # nosec
+        subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", "git@github.com:octo-org/sample-repo.git"], check=True)  # nosec
+        (tmp_path / "README.md").write_text("hello\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)  # nosec
+        subprocess.run(["git", "-C", str(tmp_path), "commit", "-q", "-m", "init"], check=True)  # nosec
+
+        monkeypatch.setattr("bitrab.execution.variables.subprocess.run", counting_run)
+
+        vm = VariableManager(project_dir=tmp_path)
+        env = vm.prepare_environment(JobConfig(name="j", stage="test", variables={}))
+
+        assert env["CI_COMMIT_SHA"]
+        assert env["CI_COMMIT_TITLE"] == "init"
+        assert env["CI_PROJECT_NAMESPACE"] == "octo-org"
+        assert env["CI_PROJECT_PATH"] == "octo-org/sample-repo"
+        assert env["CI_PROJECT_URL"] == "https://github.com/octo-org/sample-repo"
+        assert len(commands) == 4
+        assert commands[0][1:3] == ("log", "-1")
+        assert commands[1][1:] == ("branch", "--show-current")
+        assert commands[2][1:4] == ("describe", "--tags", "--exact-match")
+        assert commands[3][1:4] == ("remote", "get-url", "origin")
 
 
 # ===========================================================================

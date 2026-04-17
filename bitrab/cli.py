@@ -208,6 +208,12 @@ def cmd_run(args: argparse.Namespace) -> None:
         if args.dry_run:
             safe_print("🔎 Dry-run mode enabled — jobs will only report what would run and will succeed.")
 
+        # --serial forces one-job-at-a-time + no worktrees (for autofixers).
+        # --no-worktrees disables worktrees without forcing serial execution.
+        serial = getattr(args, "serial", False) or None
+        no_worktrees = getattr(args, "no_worktrees", False)
+        use_worktrees = False if no_worktrees else None
+
         runner.run_pipeline(
             config_path=config_path,
             maximum_degree_of_parallelism=args.parallel,
@@ -217,6 +223,8 @@ def cmd_run(args: argparse.Namespace) -> None:
             job_filter=job_filter,
             stage_filter=stage_filter,
             parallel_backend=getattr(args, "parallel_backend", None),
+            serial=serial,
+            use_worktrees=use_worktrees,
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -471,6 +479,8 @@ def cmd_watch(args: argparse.Namespace) -> None:
         "job_filter": args.jobs if args.jobs else None,
         "stage_filter": args.stage if args.stage else None,
         "parallel_backend": getattr(args, "parallel_backend", None),
+        "serial": True if getattr(args, "serial", False) else None,
+        "use_worktrees": False if getattr(args, "no_worktrees", False) else None,
     }
 
     run_watch(config_path.resolve(), runner_kwargs)
@@ -511,7 +521,7 @@ def cmd_debug(args: argparse.Namespace) -> None:
 
 def cmd_clean(args: argparse.Namespace) -> None:
     """Clean up artifacts and temporary files in .bitrab/."""
-    from bitrab.folder import clean_artifacts, clean_job_dirs, scan_folder
+    from bitrab.folder import clean_artifacts, clean_job_dirs, clean_worktrees, scan_folder
 
     project_dir = Path(args.config).parent if getattr(args, "config", None) else Path.cwd()
     dry_run = getattr(args, "dry_run", False)
@@ -528,6 +538,8 @@ def cmd_clean(args: argparse.Namespace) -> None:
             safe_print(f"   artifacts  {summary.artifacts_human}")
         if what in ("all", "jobs"):
             safe_print(f"   job dirs   {summary.job_dirs_human}")
+        if what in ("all", "worktrees"):
+            safe_print("   worktrees  (git worktree prune + .bitrab/worktrees/)")
         if what == "all":
             safe_print(f"   logs       {summary.logs_human}  ({summary.run_count} run(s))")
         safe_print(f"   total      {summary.total_human}")
@@ -538,6 +550,8 @@ def cmd_clean(args: argparse.Namespace) -> None:
         freed += clean_artifacts(project_dir)
     if what in ("all", "jobs"):
         freed += clean_job_dirs(project_dir)
+    if what in ("all", "worktrees"):
+        freed += clean_worktrees(project_dir)
     if what == "all":
         from bitrab.folder import clean_logs
 
@@ -700,6 +714,16 @@ Version: {__version__}
         metavar="BACKEND",
         help="Parallel execution backend: 'thread' or 'process' (overrides pyproject.toml)",
     )
+    run_parser.add_argument(
+        "--serial",
+        action="store_true",
+        help="Run jobs one at a time in the project root (disables worktrees). Use for formatters/autofixers that need to mutate the real tree.",
+    )
+    run_parser.add_argument(
+        "--no-worktrees",
+        action="store_true",
+        help="Disable per-job git worktree isolation. Parallel jobs will share the project root and may conflict on filesystem writes.",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
@@ -717,6 +741,16 @@ Version: {__version__}
         choices=["thread", "process"],
         metavar="BACKEND",
         help="Parallel execution backend: 'thread' or 'process' (overrides pyproject.toml)",
+    )
+    watch_parser.add_argument(
+        "--serial",
+        action="store_true",
+        help="Run jobs one at a time in the project root (disables worktrees).",
+    )
+    watch_parser.add_argument(
+        "--no-worktrees",
+        action="store_true",
+        help="Disable per-job git worktree isolation.",
     )
     watch_parser.set_defaults(func=cmd_watch)
 
@@ -772,9 +806,9 @@ Version: {__version__}
     clean_parser.add_argument("--dry-run", action="store_true", help="Show what would be removed without deleting files")
     clean_parser.add_argument(
         "--what",
-        choices=["all", "artifacts", "jobs"],
+        choices=["all", "artifacts", "jobs", "worktrees"],
         default="all",
-        help="What to clean: all (default), artifacts only, or job dirs only",
+        help="What to clean: all (default), artifacts only, job dirs only, or worktrees only",
     )
     clean_parser.set_defaults(func=cmd_clean)
 
@@ -822,9 +856,9 @@ Version: {__version__}
     folder_clean.add_argument("--dry-run", action="store_true", help="Preview what would be removed")
     folder_clean.add_argument(
         "--what",
-        choices=["all", "artifacts", "jobs"],
+        choices=["all", "artifacts", "jobs", "worktrees"],
         default="all",
-        help="What to clean: all (default), artifacts only, or job dirs only",
+        help="What to clean: all (default), artifacts only, job dirs only, or worktrees only",
     )
     folder_clean.set_defaults(func=cmd_folder, folder_cmd="clean")
 
@@ -857,6 +891,8 @@ def main() -> None:
         args.stage = None
         args.no_tui = False
         args.parallel_backend = None
+        args.serial = False
+        args.no_worktrees = False
 
     # Execute the command
     try:

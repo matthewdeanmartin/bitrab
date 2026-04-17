@@ -26,6 +26,6 @@ def test_benchmark_moderate_dry_run(benchmark, tmp_path):
     runner = LocalGitLabRunner(base_path=tmp_path)
 
     def run():
-        runner.run_pipeline(config_path=ci_file, dry_run=True, maximum_degree_of_parallelism=2)
+        runner.run_pipeline(config_path=ci_file, dry_run=True, maximum_degree_of_parallelism=2, parallel_backend="thread")
 
     benchmark(run)

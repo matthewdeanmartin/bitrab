@@ -113,6 +113,32 @@ el.replaceWith(d);
 <li>builtins.Exception</li>
 <li>builtins.BaseException</li>
 </ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="bitrab.exceptions.JobTimeoutError" href="#bitrab.exceptions.JobTimeoutError">JobTimeoutError</a></li>
+</ul>
+</dd>
+<dt id="bitrab.exceptions.JobTimeoutError"><code class="flex name class">
+<span>class <span class="ident">JobTimeoutError</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class JobTimeoutError(JobExecutionError):
+    &#34;&#34;&#34;Raised when a job exceeds its configured timeout.&#34;&#34;&#34;</code></pre>
+</details>
+<div class="desc"><p>Raised when a job exceeds its configured timeout.</p></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="bitrab.exceptions.JobExecutionError" href="#bitrab.exceptions.JobExecutionError">JobExecutionError</a></li>
+<li><a title="bitrab.exceptions.GitlabRunnerError" href="#bitrab.exceptions.GitlabRunnerError">GitlabRunnerError</a></li>
+<li><a title="bitrab.exceptions.BitrabError" href="#bitrab.exceptions.BitrabError">BitrabError</a></li>
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
 </dd>
 </dl>
 </section>
@@ -137,6 +163,9 @@ el.replaceWith(d);
 </li>
 <li>
 <h4><code><a title="bitrab.exceptions.JobExecutionError" href="#bitrab.exceptions.JobExecutionError">JobExecutionError</a></code></h4>
+</li>
+<li>
+<h4><code><a title="bitrab.exceptions.JobTimeoutError" href="#bitrab.exceptions.JobTimeoutError">JobTimeoutError</a></code></h4>
 </li>
 </ul>
 </li>

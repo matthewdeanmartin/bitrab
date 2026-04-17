@@ -41,6 +41,7 @@ el.replaceWith(d);
 multiprocessing.Manager().Queue() so the Textual app can display per-job logs.</p>
 <p>For CI mode (no TUI), jobs write to per-job log files and the files are printed
 to stdout after each stage completes.</p>
+<p>Both modes are thin callback wrappers around :class:<code>StagePipelineRunner</code>.</p>
 </section>
 <section>
 </section>
@@ -114,7 +115,7 @@ to stdout after each stage completes.</p>
 </dd>
 <dt id="bitrab.tui.orchestrator.TUIOrchestrator"><code class="flex name class">
 <span>class <span class="ident">TUIOrchestrator</span></span>
-<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None)</span>
+<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -134,6 +135,8 @@ to stdout after each stage completes.</p>
         job_executor: JobExecutor,
         maximum_degree_of_parallelism: int | None = None,
         mp_ctx: Any = None,
+        mutation_config: MutationConfig | None = None,
+        parallel_backend: ParallelBackendConfig | None = None,
     ) -&gt; None:
         self.job_executor = job_executor
         cpu_cnt = os.cpu_count() or 1
@@ -144,11 +147,24 @@ to stdout after each stage completes.</p>
             else:
                 mp_ctx = mp.get_context(&#34;spawn&#34;)
         self._mp_ctx = mp_ctx
+        self._mutation_config = mutation_config or MutationConfig()
+        self._parallel_backend = parallel_backend or ParallelBackendConfig()
 
         # Cancel/control state
         self._cancel_event: threading.Event = threading.Event()
         # job_name -&gt; worker OS PID (populated via Manager().dict() in parallel path)
         self._worker_pids: dict[str, int] = {}
+        # Structured event collector (populated per execution)
+        self._event_collector: EventCollector | None = None
+
+    @property
+    def event_collector(self) -&gt; EventCollector | None:
+        &#34;&#34;&#34;Access the structured event collector from the last execution.&#34;&#34;&#34;
+        return self._event_collector
+
+    def is_running(self) -&gt; bool:
+        &#34;&#34;&#34;Return True if the pipeline is actively running (not cancelled, not done).&#34;&#34;&#34;
+        return not self._cancel_event.is_set()
 
     def reset(self) -&gt; None:
         &#34;&#34;&#34;Reset orchestrator state for a fresh pipeline run.&#34;&#34;&#34;
@@ -160,11 +176,7 @@ to stdout after each stage completes.</p>
         self._cancel_event.set()
 
     def cancel_job(self, job_name: str) -&gt; None:
-        &#34;&#34;&#34;Best-effort: send SIGTERM/taskkill to the worker process running job_name.
-
-        Note: on Windows, taskkill /F kills the entire process tree immediately,
-        so after_script will NOT run for the cancelled job.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Best-effort: send SIGTERM/taskkill to the worker process running job_name.&#34;&#34;&#34;
         pid = self._worker_pids.get(job_name)
         if pid is None:
             return
@@ -174,24 +186,21 @@ to stdout after each stage completes.</p>
             else:
                 os.kill(pid, signal.SIGTERM)
         except (ProcessLookupError, PermissionError, OSError):
-            pass  # process already exited
+            pass
 
     def run_job_inline(self, job: JobConfig, app: PipelineApp) -&gt; None:
-        &#34;&#34;&#34;Run a single job inline in the calling thread (for restart-job).
-
-        Must be called from a background thread (not the event loop thread).
-        Creates its own ephemeral Manager and Queue.
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Run a single job inline in the calling thread (for restart-job).&#34;&#34;&#34;
         from bitrab.tui.app import JobOutput, JobStatusChanged
 
         mgr = self._mp_ctx.Manager()
         output_queue = mgr.Queue()
-        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / sanitize_job_name(job.name)
         job_dir.mkdir(parents=True, exist_ok=True)
         app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
         writer = QueueWriter(output_queue, job.name)
         try:
-            self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
+            self.job_executor.execute_job(ctx=ctx)
             app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
         except Exception:
             app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
@@ -200,192 +209,53 @@ to stdout after each stage completes.</p>
             mgr.shutdown()
 
     def execute_pipeline_tui(self, pipeline: PipelineConfig, app: PipelineApp) -&gt; None:
-        &#34;&#34;&#34;Execute pipeline with live output routed to Textual TUI.
-
-        Called from a background thread (via app.run_worker(thread=True)).
-        Uses call_from_thread to post messages to the event loop.
-        &#34;&#34;&#34;
-        from bitrab.tui.app import JobOutput, JobStatusChanged
-
-        jobs_by_stage = self._organize_jobs_by_stage(pipeline)
-
-        # Create Manager once for the whole pipeline run
+        &#34;&#34;&#34;Execute pipeline with live output routed to Textual TUI.&#34;&#34;&#34;
         mgr = self._mp_ctx.Manager()
         output_queue = mgr.Queue()
         worker_pids = mgr.dict()
-        self._worker_pids = worker_pids  # type: ignore[assignment]
+        self._worker_pids = worker_pids  # type: ignore
+
+        tui_callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event)
+        self._event_collector = EventCollector(inner=tui_callbacks)
 
         try:
-            for stage in pipeline.stages:
-                # Check for cancellation before starting each new stage
-                if self._cancel_event.is_set():
-                    app.call_from_thread(app.on_pipeline_cancelled)
-                    return
-
-                stage_jobs = jobs_by_stage.get(stage, [])
-                if not stage_jobs:
-                    continue
-
-                app.call_from_thread(app.update_stage_status, stage, len(stage_jobs))
-
-                if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
-                    # Single-job path: run inline in this thread, still use queue
-                    for job in stage_jobs:
-                        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
-                        job_dir.mkdir(parents=True, exist_ok=True)
-                        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
-                        writer = QueueWriter(output_queue, job.name)
-                        try:
-                            self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
-                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
-                        except Exception as exc:
-                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
-                            raise exc
-                        finally:
-                            # drain any queued output
-                            self._drain_queue_sync(output_queue, app, JobOutput)
-                else:
-                    active_jobs: set[str] = set()
-                    failures: list[tuple[JobConfig, BaseException]] = []
-
-                    with ProcessPoolExecutor(
-                        max_workers=self.maximum_degree_of_parallelism,
-                        mp_context=self._mp_ctx,
-                    ) as pool:
-                        futures = {}
-                        for job in stage_jobs:
-                            job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
-                            job_dir.mkdir(parents=True, exist_ok=True)
-                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
-                            active_jobs.add(job.name)
-                            futures[pool.submit(_run_single_job_queued, job, self.job_executor, job_dir, output_queue, worker_pids)] = job
-
-                        # Drain queue while futures run
-                        while active_jobs:
-                            try:
-                                job_name, text = output_queue.get(timeout=0.05)
-                                if text is None:
-                                    active_jobs.discard(job_name)
-                                else:
-                                    app.call_from_thread(app.post_message, JobOutput(job_name, text))
-                            except Empty:
-                                if all(f.done() for f in futures):
-                                    break
-
-                        # Collect results
-                        for fut in as_completed(futures):
-                            job = futures[fut]
-                            try:
-                                history = fut.result()
-                                self.job_executor.job_history.extend(history)
-                                app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
-                            except BaseException as exc:
-                                failures.append((job, exc))
-                                app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
-
-                    if failures:
-                        raise failures[0][1]
-
-            # After all stages complete, check if cancelled during final stage
-            if self._cancel_event.is_set():
-                app.call_from_thread(app.on_pipeline_cancelled)
-            else:
-                app.call_from_thread(app.on_pipeline_complete, True)
-        except Exception as exc:
-            app.call_from_thread(app.on_pipeline_complete, False)
-            raise exc
+            runner = StagePipelineRunner(
+                job_executor=self.job_executor,
+                callbacks=self._event_collector,
+                maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
+                mp_ctx=self._mp_ctx,
+                mutation_config=self._mutation_config,
+                parallel_backend=self._parallel_backend,
+            )
+            runner.execute_pipeline(pipeline)
         finally:
             mgr.shutdown()
 
     def execute_pipeline_ci(self, pipeline: PipelineConfig) -&gt; None:
-        &#34;&#34;&#34;Execute pipeline in CI mode: jobs write to files, printed when done.
-
-        No TUI. Jobs still run in parallel per stage for speed.
-        Output files written to .bitrab/&lt;job_name&gt;/output.log
-        &#34;&#34;&#34;
-        print(&#34;🚀 Starting pipeline (CI mode - parallel jobs, sequential stages)&#34;)
-        print(f&#34;📋 Stages: {&#39;, &#39;.join(pipeline.stages)}&#34;)
-
-        jobs_by_stage = self._organize_jobs_by_stage(pipeline)
-
-        for stage in pipeline.stages:
-            stage_jobs = jobs_by_stage.get(stage, [])
-            if not stage_jobs:
-                print(f&#34;⏭️  Skipping empty stage: {stage}&#34;)
-                continue
-
-            print(f&#34;\n🎯 Stage: {stage} ({len(stage_jobs)} job(s) running in parallel)&#34;)
-
-            log_paths: dict[str, Path | None] = {}
-            failures: list[tuple[JobConfig, BaseException]] = []
-
-            if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
-                for job in stage_jobs:
-                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
-                    log_path = job_dir / &#34;output.log&#34;
-                    log_paths[job.name] = log_path
-                    job_dir.mkdir(parents=True, exist_ok=True)
-                    print(f&#34;  ▶ {job.name}&#34;)
-                    try:
-                        with open(log_path, &#34;w&#34;, encoding=&#34;utf-8&#34;) as fh:
-                            self.job_executor.execute_job(job, job_dir=job_dir, output_writer=fh)
-                    except Exception as exc:
-                        failures.append((job, exc))
-            else:
-                with ProcessPoolExecutor(
-                    max_workers=self.maximum_degree_of_parallelism,
-                    mp_context=self._mp_ctx,
-                ) as pool:
-                    futures = {}
-                    for job in stage_jobs:
-                        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
-                        log_path = job_dir / &#34;output.log&#34;
-                        log_paths[job.name] = log_path
-                        print(f&#34;  ▶ {job.name}&#34;)
-                        futures[pool.submit(_run_single_job_file, job, self.job_executor, job_dir, log_path)] = job
-
-                    for fut in as_completed(futures):
-                        job = futures[fut]
-                        try:
-                            history = fut.result()
-                            self.job_executor.job_history.extend(history)
-                        except BaseException as exc:
-                            failures.append((job, exc))
-
-            # Print all logs after stage completes
-            for job in stage_jobs:
-                job_log: Path | None = log_paths.get(job.name)
-                status = &#34;✅&#34; if not any(j.name == job.name for j, _ in failures) else &#34;❌&#34;
-                print(f&#34;\n{&#39;=&#39; * 60}&#34;)
-                print(f&#34;{status} Job: {job.name} (stage: {stage})&#34;)
-                print(f&#34;{&#39;=&#39; * 60}&#34;)
-                if job_log and job_log.exists():
-                    print(job_log.read_text(encoding=&#34;utf-8&#34;))
-                else:
-                    print(&#34;(no output)&#34;)
-
-            if failures:
-                print(f&#34;\n🛑 Stage {stage} failed. Stopping pipeline.&#34;)
-                raise failures[0][1]
-
-        print(&#34;\n🎉 Pipeline completed successfully!&#34;)
+        &#34;&#34;&#34;Execute pipeline in CI mode: jobs write to files, printed when done.&#34;&#34;&#34;
+        ci_callbacks = _CIFileCallbacks()
+        self._event_collector = EventCollector(inner=ci_callbacks)
+        runner = StagePipelineRunner(
+            job_executor=self.job_executor,
+            callbacks=self._event_collector,
+            maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
+            mp_ctx=self._mp_ctx,
+            mutation_config=self._mutation_config,
+            parallel_backend=self._parallel_backend,
+        )
+        runner.execute_pipeline(pipeline)
+        summary = self._event_collector.summary()
+        print(summary.format_text())
 
     def _drain_queue_sync(self, queue: Any, app: PipelineApp, job_output_cls: Any) -&gt; None:
-        &#34;&#34;&#34;Drain any remaining items from queue after single-job inline execution.&#34;&#34;&#34;
+        &#34;&#34;&#34;Drain remaining items from queue after single-job inline execution.&#34;&#34;&#34;
         while True:
             try:
                 job_name, text = queue.get_nowait()
                 if text is not None:
                     app.call_from_thread(app.post_message, job_output_cls(job_name, text))
             except Empty:
-                break
-
-    def _organize_jobs_by_stage(self, pipeline: PipelineConfig) -&gt; dict[str, list[JobConfig]]:
-        &#34;&#34;&#34;Organize jobs by stage.&#34;&#34;&#34;
-        jobs_by_stage: dict[str, list[JobConfig]] = {}
-        for job in pipeline.jobs:
-            jobs_by_stage.setdefault(job.stage, []).append(job)
-        return jobs_by_stage</code></pre>
+                break</code></pre>
 </details>
 <div class="desc"><p>Pipeline orchestrator that feeds output to the Textual TUI or CI log files.</p>
 <h2 id="attributes">Attributes</h2>
@@ -395,6 +265,22 @@ to stdout after each stage completes.</p>
 <dt><strong><code>maximum_degree_of_parallelism</code></strong></dt>
 <dd>Max parallel jobs per stage.</dd>
 </dl></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator.event_collector"><code class="name">prop <span class="ident">event_collector</span> : EventCollector | None</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def event_collector(self) -&gt; EventCollector | None:
+    &#34;&#34;&#34;Access the structured event collector from the last execution.&#34;&#34;&#34;
+    return self._event_collector</code></pre>
+</details>
+<div class="desc"><p>Access the structured event collector from the last execution.</p></div>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="bitrab.tui.orchestrator.TUIOrchestrator.cancel_job"><code class="name flex">
@@ -406,11 +292,7 @@ to stdout after each stage completes.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def cancel_job(self, job_name: str) -&gt; None:
-    &#34;&#34;&#34;Best-effort: send SIGTERM/taskkill to the worker process running job_name.
-
-    Note: on Windows, taskkill /F kills the entire process tree immediately,
-    so after_script will NOT run for the cancelled job.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Best-effort: send SIGTERM/taskkill to the worker process running job_name.&#34;&#34;&#34;
     pid = self._worker_pids.get(job_name)
     if pid is None:
         return
@@ -420,11 +302,9 @@ to stdout after each stage completes.</p>
         else:
             os.kill(pid, signal.SIGTERM)
     except (ProcessLookupError, PermissionError, OSError):
-        pass  # process already exited</code></pre>
+        pass</code></pre>
 </details>
-<div class="desc"><p>Best-effort: send SIGTERM/taskkill to the worker process running job_name.</p>
-<p>Note: on Windows, taskkill /F kills the entire process tree immediately,
-so after_script will NOT run for the cancelled job.</p></div>
+<div class="desc"><p>Best-effort: send SIGTERM/taskkill to the worker process running job_name.</p></div>
 </dd>
 <dt id="bitrab.tui.orchestrator.TUIOrchestrator.cancel_pipeline"><code class="name flex">
 <span>def <span class="ident">cancel_pipeline</span></span>(<span>self) ‑> None</span>
@@ -449,81 +329,22 @@ so after_script will NOT run for the cancelled job.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def execute_pipeline_ci(self, pipeline: PipelineConfig) -&gt; None:
-    &#34;&#34;&#34;Execute pipeline in CI mode: jobs write to files, printed when done.
-
-    No TUI. Jobs still run in parallel per stage for speed.
-    Output files written to .bitrab/&lt;job_name&gt;/output.log
-    &#34;&#34;&#34;
-    print(&#34;🚀 Starting pipeline (CI mode - parallel jobs, sequential stages)&#34;)
-    print(f&#34;📋 Stages: {&#39;, &#39;.join(pipeline.stages)}&#34;)
-
-    jobs_by_stage = self._organize_jobs_by_stage(pipeline)
-
-    for stage in pipeline.stages:
-        stage_jobs = jobs_by_stage.get(stage, [])
-        if not stage_jobs:
-            print(f&#34;⏭️  Skipping empty stage: {stage}&#34;)
-            continue
-
-        print(f&#34;\n🎯 Stage: {stage} ({len(stage_jobs)} job(s) running in parallel)&#34;)
-
-        log_paths: dict[str, Path | None] = {}
-        failures: list[tuple[JobConfig, BaseException]] = []
-
-        if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
-            for job in stage_jobs:
-                job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
-                log_path = job_dir / &#34;output.log&#34;
-                log_paths[job.name] = log_path
-                job_dir.mkdir(parents=True, exist_ok=True)
-                print(f&#34;  ▶ {job.name}&#34;)
-                try:
-                    with open(log_path, &#34;w&#34;, encoding=&#34;utf-8&#34;) as fh:
-                        self.job_executor.execute_job(job, job_dir=job_dir, output_writer=fh)
-                except Exception as exc:
-                    failures.append((job, exc))
-        else:
-            with ProcessPoolExecutor(
-                max_workers=self.maximum_degree_of_parallelism,
-                mp_context=self._mp_ctx,
-            ) as pool:
-                futures = {}
-                for job in stage_jobs:
-                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
-                    log_path = job_dir / &#34;output.log&#34;
-                    log_paths[job.name] = log_path
-                    print(f&#34;  ▶ {job.name}&#34;)
-                    futures[pool.submit(_run_single_job_file, job, self.job_executor, job_dir, log_path)] = job
-
-                for fut in as_completed(futures):
-                    job = futures[fut]
-                    try:
-                        history = fut.result()
-                        self.job_executor.job_history.extend(history)
-                    except BaseException as exc:
-                        failures.append((job, exc))
-
-        # Print all logs after stage completes
-        for job in stage_jobs:
-            job_log: Path | None = log_paths.get(job.name)
-            status = &#34;✅&#34; if not any(j.name == job.name for j, _ in failures) else &#34;❌&#34;
-            print(f&#34;\n{&#39;=&#39; * 60}&#34;)
-            print(f&#34;{status} Job: {job.name} (stage: {stage})&#34;)
-            print(f&#34;{&#39;=&#39; * 60}&#34;)
-            if job_log and job_log.exists():
-                print(job_log.read_text(encoding=&#34;utf-8&#34;))
-            else:
-                print(&#34;(no output)&#34;)
-
-        if failures:
-            print(f&#34;\n🛑 Stage {stage} failed. Stopping pipeline.&#34;)
-            raise failures[0][1]
-
-    print(&#34;\n🎉 Pipeline completed successfully!&#34;)</code></pre>
+    &#34;&#34;&#34;Execute pipeline in CI mode: jobs write to files, printed when done.&#34;&#34;&#34;
+    ci_callbacks = _CIFileCallbacks()
+    self._event_collector = EventCollector(inner=ci_callbacks)
+    runner = StagePipelineRunner(
+        job_executor=self.job_executor,
+        callbacks=self._event_collector,
+        maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
+        mp_ctx=self._mp_ctx,
+        mutation_config=self._mutation_config,
+        parallel_backend=self._parallel_backend,
+    )
+    runner.execute_pipeline(pipeline)
+    summary = self._event_collector.summary()
+    print(summary.format_text())</code></pre>
 </details>
-<div class="desc"><p>Execute pipeline in CI mode: jobs write to files, printed when done.</p>
-<p>No TUI. Jobs still run in parallel per stage for speed.
-Output files written to .bitrab/<job_name>/output.log</p></div>
+<div class="desc"><p>Execute pipeline in CI mode: jobs write to files, printed when done.</p></div>
 </dd>
 <dt id="bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_tui"><code class="name flex">
 <span>def <span class="ident">execute_pipeline_tui</span></span>(<span>self, pipeline: PipelineConfig, app: PipelineApp) ‑> None</span>
@@ -534,106 +355,43 @@ Output files written to .bitrab/<job_name>/output.log</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def execute_pipeline_tui(self, pipeline: PipelineConfig, app: PipelineApp) -&gt; None:
-    &#34;&#34;&#34;Execute pipeline with live output routed to Textual TUI.
-
-    Called from a background thread (via app.run_worker(thread=True)).
-    Uses call_from_thread to post messages to the event loop.
-    &#34;&#34;&#34;
-    from bitrab.tui.app import JobOutput, JobStatusChanged
-
-    jobs_by_stage = self._organize_jobs_by_stage(pipeline)
-
-    # Create Manager once for the whole pipeline run
+    &#34;&#34;&#34;Execute pipeline with live output routed to Textual TUI.&#34;&#34;&#34;
     mgr = self._mp_ctx.Manager()
     output_queue = mgr.Queue()
     worker_pids = mgr.dict()
-    self._worker_pids = worker_pids  # type: ignore[assignment]
+    self._worker_pids = worker_pids  # type: ignore
+
+    tui_callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event)
+    self._event_collector = EventCollector(inner=tui_callbacks)
 
     try:
-        for stage in pipeline.stages:
-            # Check for cancellation before starting each new stage
-            if self._cancel_event.is_set():
-                app.call_from_thread(app.on_pipeline_cancelled)
-                return
-
-            stage_jobs = jobs_by_stage.get(stage, [])
-            if not stage_jobs:
-                continue
-
-            app.call_from_thread(app.update_stage_status, stage, len(stage_jobs))
-
-            if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
-                # Single-job path: run inline in this thread, still use queue
-                for job in stage_jobs:
-                    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
-                    job_dir.mkdir(parents=True, exist_ok=True)
-                    app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
-                    writer = QueueWriter(output_queue, job.name)
-                    try:
-                        self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
-                        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
-                    except Exception as exc:
-                        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
-                        raise exc
-                    finally:
-                        # drain any queued output
-                        self._drain_queue_sync(output_queue, app, JobOutput)
-            else:
-                active_jobs: set[str] = set()
-                failures: list[tuple[JobConfig, BaseException]] = []
-
-                with ProcessPoolExecutor(
-                    max_workers=self.maximum_degree_of_parallelism,
-                    mp_context=self._mp_ctx,
-                ) as pool:
-                    futures = {}
-                    for job in stage_jobs:
-                        job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
-                        job_dir.mkdir(parents=True, exist_ok=True)
-                        app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
-                        active_jobs.add(job.name)
-                        futures[pool.submit(_run_single_job_queued, job, self.job_executor, job_dir, output_queue, worker_pids)] = job
-
-                    # Drain queue while futures run
-                    while active_jobs:
-                        try:
-                            job_name, text = output_queue.get(timeout=0.05)
-                            if text is None:
-                                active_jobs.discard(job_name)
-                            else:
-                                app.call_from_thread(app.post_message, JobOutput(job_name, text))
-                        except Empty:
-                            if all(f.done() for f in futures):
-                                break
-
-                    # Collect results
-                    for fut in as_completed(futures):
-                        job = futures[fut]
-                        try:
-                            history = fut.result()
-                            self.job_executor.job_history.extend(history)
-                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
-                        except BaseException as exc:
-                            failures.append((job, exc))
-                            app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
-
-                if failures:
-                    raise failures[0][1]
-
-        # After all stages complete, check if cancelled during final stage
-        if self._cancel_event.is_set():
-            app.call_from_thread(app.on_pipeline_cancelled)
-        else:
-            app.call_from_thread(app.on_pipeline_complete, True)
-    except Exception as exc:
-        app.call_from_thread(app.on_pipeline_complete, False)
-        raise exc
+        runner = StagePipelineRunner(
+            job_executor=self.job_executor,
+            callbacks=self._event_collector,
+            maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
+            mp_ctx=self._mp_ctx,
+            mutation_config=self._mutation_config,
+            parallel_backend=self._parallel_backend,
+        )
+        runner.execute_pipeline(pipeline)
     finally:
         mgr.shutdown()</code></pre>
 </details>
-<div class="desc"><p>Execute pipeline with live output routed to Textual TUI.</p>
-<p>Called from a background thread (via app.run_worker(thread=True)).
-Uses call_from_thread to post messages to the event loop.</p></div>
+<div class="desc"><p>Execute pipeline with live output routed to Textual TUI.</p></div>
+</dd>
+<dt id="bitrab.tui.orchestrator.TUIOrchestrator.is_running"><code class="name flex">
+<span>def <span class="ident">is_running</span></span>(<span>self) ‑> bool</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_running(self) -&gt; bool:
+    &#34;&#34;&#34;Return True if the pipeline is actively running (not cancelled, not done).&#34;&#34;&#34;
+    return not self._cancel_event.is_set()</code></pre>
+</details>
+<div class="desc"><p>Return True if the pipeline is actively running (not cancelled, not done).</p></div>
 </dd>
 <dt id="bitrab.tui.orchestrator.TUIOrchestrator.reset"><code class="name flex">
 <span>def <span class="ident">reset</span></span>(<span>self) ‑> None</span>
@@ -659,21 +417,18 @@ Uses call_from_thread to post messages to the event loop.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def run_job_inline(self, job: JobConfig, app: PipelineApp) -&gt; None:
-    &#34;&#34;&#34;Run a single job inline in the calling thread (for restart-job).
-
-    Must be called from a background thread (not the event loop thread).
-    Creates its own ephemeral Manager and Queue.
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Run a single job inline in the calling thread (for restart-job).&#34;&#34;&#34;
     from bitrab.tui.app import JobOutput, JobStatusChanged
 
     mgr = self._mp_ctx.Manager()
     output_queue = mgr.Queue()
-    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / _sanitize_job_name(job.name)
+    job_dir = self.job_executor.project_dir / &#34;.bitrab&#34; / sanitize_job_name(job.name)
     job_dir.mkdir(parents=True, exist_ok=True)
     app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;running&#34;))
     writer = QueueWriter(output_queue, job.name)
     try:
-        self.job_executor.execute_job(job, job_dir=job_dir, output_writer=writer)
+        ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
+        self.job_executor.execute_job(ctx=ctx)
         app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;success&#34;))
     except Exception:
         app.call_from_thread(app.post_message, JobStatusChanged(job.name, &#34;failed&#34;))
@@ -681,9 +436,7 @@ Uses call_from_thread to post messages to the event loop.</p></div>
         self._drain_queue_sync(output_queue, app, JobOutput)
         mgr.shutdown()</code></pre>
 </details>
-<div class="desc"><p>Run a single job inline in the calling thread (for restart-job).</p>
-<p>Must be called from a background thread (not the event loop thread).
-Creates its own ephemeral Manager and Queue.</p></div>
+<div class="desc"><p>Run a single job inline in the calling thread (for restart-job).</p></div>
 </dd>
 </dl>
 </dd>
@@ -714,8 +467,10 @@ Creates its own ephemeral Manager and Queue.</p></div>
 <ul class="">
 <li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.cancel_job" href="#bitrab.tui.orchestrator.TUIOrchestrator.cancel_job">cancel_job</a></code></li>
 <li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.cancel_pipeline" href="#bitrab.tui.orchestrator.TUIOrchestrator.cancel_pipeline">cancel_pipeline</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.event_collector" href="#bitrab.tui.orchestrator.TUIOrchestrator.event_collector">event_collector</a></code></li>
 <li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_ci" href="#bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_ci">execute_pipeline_ci</a></code></li>
 <li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_tui" href="#bitrab.tui.orchestrator.TUIOrchestrator.execute_pipeline_tui">execute_pipeline_tui</a></code></li>
+<li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.is_running" href="#bitrab.tui.orchestrator.TUIOrchestrator.is_running">is_running</a></code></li>
 <li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.reset" href="#bitrab.tui.orchestrator.TUIOrchestrator.reset">reset</a></code></li>
 <li><code><a title="bitrab.tui.orchestrator.TUIOrchestrator.run_job_inline" href="#bitrab.tui.orchestrator.TUIOrchestrator.run_job_inline">run_job_inline</a></code></li>
 </ul>

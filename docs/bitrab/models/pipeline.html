@@ -98,7 +98,7 @@ class DefaultConfig:
 </dd>
 <dt id="bitrab.models.pipeline.JobConfig"><code class="flex name class">
 <span>class <span class="ident">JobConfig</span></span>
-<span>(</span><span>name: str,<br>stage: str = 'test',<br>script: list[str] = &lt;factory&gt;,<br>variables: dict[str, str] = &lt;factory&gt;,<br>before_script: list[str] = &lt;factory&gt;,<br>after_script: list[str] = &lt;factory&gt;,<br>retry_max: int = 0,<br>retry_when: list[str] = &lt;factory&gt;,<br>retry_exit_codes: list[int] = &lt;factory&gt;)</span>
+<span>(</span><span>name: str,<br>stage: str = 'test',<br>script: list[str] = &lt;factory&gt;,<br>variables: dict[str, str] = &lt;factory&gt;,<br>before_script: list[str] = &lt;factory&gt;,<br>after_script: list[str] = &lt;factory&gt;,<br>retry_max: int = 0,<br>retry_when: list[str] = &lt;factory&gt;,<br>retry_exit_codes: list[int] = &lt;factory&gt;,<br>allow_failure: bool = False,<br>allow_failure_exit_codes: list[int] = &lt;factory&gt;,<br>when: str = 'on_success',<br>rules: list[<a title="bitrab.models.pipeline.RuleConfig" href="#bitrab.models.pipeline.RuleConfig">RuleConfig</a>] = &lt;factory&gt;,<br>needs: list[str] = &lt;factory&gt;,<br>timeout: float | None = None,<br>artifacts_paths: list[str] = &lt;factory&gt;,<br>artifacts_when: str = 'on_success',<br>artifacts_dotenv: str | None = None,<br>dependencies: list[str] | None = None,<br>parallel_total: int = 0,<br>parallel_index: int = 0)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -129,7 +129,41 @@ class JobConfig:
     # GitLab-aligned retry fields
     retry_max: int = 0
     retry_when: list[str] = field(default_factory=list)
-    retry_exit_codes: list[int] = field(default_factory=list)  # empty =&gt; not used</code></pre>
+    retry_exit_codes: list[int] = field(default_factory=list)  # empty =&gt; not used
+
+    # allow_failure: job failure doesn&#39;t fail the pipeline
+    allow_failure: bool = False
+    allow_failure_exit_codes: list[int] = field(default_factory=list)
+
+    # when: controls job execution condition
+    when: str = &#34;on_success&#34;  # on_success | on_failure | always | manual | never
+
+    # rules: list of conditional rules
+    rules: list[RuleConfig] = field(default_factory=list)
+
+    # DAG execution: explicit job dependencies (bypasses stage ordering)
+    needs: list[str] = field(default_factory=list)
+
+    # timeout: maximum seconds the job may run (None = no limit)
+    timeout: float | None = None
+
+    # artifacts: files to preserve after job completion
+    artifacts_paths: list[str] = field(default_factory=list)
+    artifacts_when: str = &#34;on_success&#34;  # on_success | on_failure | always
+    # artifacts: reports: dotenv: — path to a dotenv file produced by the job
+    # whose variables are injected into downstream jobs (GitLab pipeline variable passing)
+    artifacts_dotenv: str | None = None
+
+    # dependencies: named jobs whose artifacts to copy before this job runs
+    # None = inherit all (GitLab default); [] = no artifacts
+    dependencies: list[str] | None = None
+
+    # parallel: job duplication / matrix expansion
+    # parallel_total: total number of parallel instances (set by parallel: N or matrix expansion)
+    # parallel_index: 1-based index of this instance within the parallel group
+    # These are populated after matrix expansion; the original job has both as 0.
+    parallel_total: int = 0
+    parallel_index: int = 0</code></pre>
 </details>
 <div class="desc"><p>Configuration for a single job.</p>
 <h2 id="attributes">Attributes</h2>
@@ -153,11 +187,47 @@ class JobConfig:
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
+<dt id="bitrab.models.pipeline.JobConfig.allow_failure"><code class="name">var <span class="ident">allow_failure</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.JobConfig.allow_failure_exit_codes"><code class="name">var <span class="ident">allow_failure_exit_codes</span> : list[int]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.JobConfig.artifacts_dotenv"><code class="name">var <span class="ident">artifacts_dotenv</span> : str | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.JobConfig.artifacts_paths"><code class="name">var <span class="ident">artifacts_paths</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.JobConfig.artifacts_when"><code class="name">var <span class="ident">artifacts_when</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
 <dt id="bitrab.models.pipeline.JobConfig.before_script"><code class="name">var <span class="ident">before_script</span> : list[str]</code></dt>
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
+<dt id="bitrab.models.pipeline.JobConfig.dependencies"><code class="name">var <span class="ident">dependencies</span> : list[str] | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
 <dt id="bitrab.models.pipeline.JobConfig.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.JobConfig.needs"><code class="name">var <span class="ident">needs</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.JobConfig.parallel_index"><code class="name">var <span class="ident">parallel_index</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.JobConfig.parallel_total"><code class="name">var <span class="ident">parallel_total</span> : int</code></dt>
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
@@ -173,6 +243,10 @@ class JobConfig:
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
+<dt id="bitrab.models.pipeline.JobConfig.rules"><code class="name">var <span class="ident">rules</span> : list[<a title="bitrab.models.pipeline.RuleConfig" href="#bitrab.models.pipeline.RuleConfig">RuleConfig</a>]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
 <dt id="bitrab.models.pipeline.JobConfig.script"><code class="name">var <span class="ident">script</span> : list[str]</code></dt>
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
@@ -181,7 +255,15 @@ class JobConfig:
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
+<dt id="bitrab.models.pipeline.JobConfig.timeout"><code class="name">var <span class="ident">timeout</span> : float | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
 <dt id="bitrab.models.pipeline.JobConfig.variables"><code class="name">var <span class="ident">variables</span> : dict[str, str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.JobConfig.when"><code class="name">var <span class="ident">when</span> : str</code></dt>
 <dd>
 <div class="desc"><p>The type of the None singleton.</p></div>
 </dd>
@@ -245,6 +327,77 @@ class PipelineConfig:
 </dd>
 </dl>
 </dd>
+<dt id="bitrab.models.pipeline.RuleConfig"><code class="flex name class">
+<span>class <span class="ident">RuleConfig</span></span>
+<span>(</span><span>if_expr: str | None = None,<br>when: str | None = None,<br>allow_failure: bool | None = None,<br>variables: dict[str, str] = &lt;factory&gt;,<br>needs: list[str] | None = None,<br>exists: list[str] | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class RuleConfig:
+    &#34;&#34;&#34;
+    Configuration for a single rule in a job.
+
+    Attributes:
+        if_expr: Expression to evaluate (e.g. &#39;$CI_COMMIT_TAG&#39;).
+        when: Condition to apply if rule matches.
+        allow_failure: Override allow_failure if rule matches.
+        variables: Variables to inject if rule matches.
+        needs: Override needs if rule matches.
+    &#34;&#34;&#34;
+
+    if_expr: str | None = None
+    when: str | None = None
+    allow_failure: bool | None = None
+    variables: dict[str, str] = field(default_factory=dict)
+    needs: list[str] | None = None
+    exists: list[str] | None = None</code></pre>
+</details>
+<div class="desc"><p>Configuration for a single rule in a job.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>if_expr</code></strong></dt>
+<dd>Expression to evaluate (e.g. '$CI_COMMIT_TAG').</dd>
+<dt><strong><code>when</code></strong></dt>
+<dd>Condition to apply if rule matches.</dd>
+<dt><strong><code>allow_failure</code></strong></dt>
+<dd>Override allow_failure if rule matches.</dd>
+<dt><strong><code>variables</code></strong></dt>
+<dd>Variables to inject if rule matches.</dd>
+<dt><strong><code>needs</code></strong></dt>
+<dd>Override needs if rule matches.</dd>
+</dl></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.models.pipeline.RuleConfig.allow_failure"><code class="name">var <span class="ident">allow_failure</span> : bool | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.RuleConfig.exists"><code class="name">var <span class="ident">exists</span> : list[str] | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.RuleConfig.if_expr"><code class="name">var <span class="ident">if_expr</span> : str | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.RuleConfig.needs"><code class="name">var <span class="ident">needs</span> : list[str] | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.RuleConfig.variables"><code class="name">var <span class="ident">variables</span> : dict[str, str]</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.models.pipeline.RuleConfig.when"><code class="name">var <span class="ident">when</span> : str | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
 </dl>
 </section>
 </article>
@@ -270,16 +423,28 @@ class PipelineConfig:
 </li>
 <li>
 <h4><code><a title="bitrab.models.pipeline.JobConfig" href="#bitrab.models.pipeline.JobConfig">JobConfig</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="bitrab.models.pipeline.JobConfig.after_script" href="#bitrab.models.pipeline.JobConfig.after_script">after_script</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.allow_failure" href="#bitrab.models.pipeline.JobConfig.allow_failure">allow_failure</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.allow_failure_exit_codes" href="#bitrab.models.pipeline.JobConfig.allow_failure_exit_codes">allow_failure_exit_codes</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.artifacts_dotenv" href="#bitrab.models.pipeline.JobConfig.artifacts_dotenv">artifacts_dotenv</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.artifacts_paths" href="#bitrab.models.pipeline.JobConfig.artifacts_paths">artifacts_paths</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.artifacts_when" href="#bitrab.models.pipeline.JobConfig.artifacts_when">artifacts_when</a></code></li>
 <li><code><a title="bitrab.models.pipeline.JobConfig.before_script" href="#bitrab.models.pipeline.JobConfig.before_script">before_script</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.dependencies" href="#bitrab.models.pipeline.JobConfig.dependencies">dependencies</a></code></li>
 <li><code><a title="bitrab.models.pipeline.JobConfig.name" href="#bitrab.models.pipeline.JobConfig.name">name</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.needs" href="#bitrab.models.pipeline.JobConfig.needs">needs</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.parallel_index" href="#bitrab.models.pipeline.JobConfig.parallel_index">parallel_index</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.parallel_total" href="#bitrab.models.pipeline.JobConfig.parallel_total">parallel_total</a></code></li>
 <li><code><a title="bitrab.models.pipeline.JobConfig.retry_exit_codes" href="#bitrab.models.pipeline.JobConfig.retry_exit_codes">retry_exit_codes</a></code></li>
 <li><code><a title="bitrab.models.pipeline.JobConfig.retry_max" href="#bitrab.models.pipeline.JobConfig.retry_max">retry_max</a></code></li>
 <li><code><a title="bitrab.models.pipeline.JobConfig.retry_when" href="#bitrab.models.pipeline.JobConfig.retry_when">retry_when</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.rules" href="#bitrab.models.pipeline.JobConfig.rules">rules</a></code></li>
 <li><code><a title="bitrab.models.pipeline.JobConfig.script" href="#bitrab.models.pipeline.JobConfig.script">script</a></code></li>
 <li><code><a title="bitrab.models.pipeline.JobConfig.stage" href="#bitrab.models.pipeline.JobConfig.stage">stage</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.timeout" href="#bitrab.models.pipeline.JobConfig.timeout">timeout</a></code></li>
 <li><code><a title="bitrab.models.pipeline.JobConfig.variables" href="#bitrab.models.pipeline.JobConfig.variables">variables</a></code></li>
+<li><code><a title="bitrab.models.pipeline.JobConfig.when" href="#bitrab.models.pipeline.JobConfig.when">when</a></code></li>
 </ul>
 </li>
 <li>
@@ -289,6 +454,17 @@ class PipelineConfig:
 <li><code><a title="bitrab.models.pipeline.PipelineConfig.jobs" href="#bitrab.models.pipeline.PipelineConfig.jobs">jobs</a></code></li>
 <li><code><a title="bitrab.models.pipeline.PipelineConfig.stages" href="#bitrab.models.pipeline.PipelineConfig.stages">stages</a></code></li>
 <li><code><a title="bitrab.models.pipeline.PipelineConfig.variables" href="#bitrab.models.pipeline.PipelineConfig.variables">variables</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.models.pipeline.RuleConfig" href="#bitrab.models.pipeline.RuleConfig">RuleConfig</a></code></h4>
+<ul class="two-column">
+<li><code><a title="bitrab.models.pipeline.RuleConfig.allow_failure" href="#bitrab.models.pipeline.RuleConfig.allow_failure">allow_failure</a></code></li>
+<li><code><a title="bitrab.models.pipeline.RuleConfig.exists" href="#bitrab.models.pipeline.RuleConfig.exists">exists</a></code></li>
+<li><code><a title="bitrab.models.pipeline.RuleConfig.if_expr" href="#bitrab.models.pipeline.RuleConfig.if_expr">if_expr</a></code></li>
+<li><code><a title="bitrab.models.pipeline.RuleConfig.needs" href="#bitrab.models.pipeline.RuleConfig.needs">needs</a></code></li>
+<li><code><a title="bitrab.models.pipeline.RuleConfig.variables" href="#bitrab.models.pipeline.RuleConfig.variables">variables</a></code></li>
+<li><code><a title="bitrab.models.pipeline.RuleConfig.when" href="#bitrab.models.pipeline.RuleConfig.when">when</a></code></li>
 </ul>
 </li>
 </ul>

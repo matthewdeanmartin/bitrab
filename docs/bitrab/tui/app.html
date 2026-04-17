@@ -45,7 +45,11 @@ quit
 c
 copy active tab's log to clipboard
 X
-cancel pipeline (stops after current stage)</p>
+cancel pipeline (stops after current stage)
+r
+restart entire pipeline
+R
+restart active job only</p>
 </section>
 <section>
 </section>
@@ -143,7 +147,7 @@ cancel pipeline (stops after current stage)</p>
 </dd>
 <dt id="bitrab.tui.app.PipelineApp"><code class="flex name class">
 <span>class <span class="ident">PipelineApp</span></span>
-<span>(</span><span>pipeline: PipelineConfig, orchestrator: TUIOrchestrator)</span>
+<span>(</span><span>pipeline: PipelineConfig,<br>orchestrator: TUIOrchestrator,<br>*,<br>close_on_completion: bool = False)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -165,16 +169,22 @@ cancel pipeline (stops after current stage)</p>
         Binding(&#34;q&#34;, &#34;quit_app&#34;, &#34;Quit&#34;, show=True),
         Binding(&#34;c&#34;, &#34;copy_log&#34;, &#34;Copy log&#34;, show=True),
         Binding(&#34;X&#34;, &#34;cancel_pipeline&#34;, &#34;Cancel pipeline&#34;, show=True),
+        Binding(&#34;r&#34;, &#34;restart_pipeline&#34;, &#34;Restart pipeline&#34;, show=True),
+        Binding(&#34;R&#34;, &#34;restart_job&#34;, &#34;Restart job&#34;, show=True),
     ]
 
-    def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator) -&gt; None:
+    def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False) -&gt; None:
         super().__init__()
         self._pipeline = pipeline
         self._orchestrator = orchestrator
+        self._close_on_completion = close_on_completion
         # Map job name → tab_id for fast lookup
         self._job_tab_ids: dict[str, str] = {}
         # Track pipeline success for exit code
         self._pipeline_success: bool | None = None
+        # Set when on_pipeline_awaiting_manual has fired; prevents on_pipeline_complete
+        # from overwriting the summary message.
+        self._awaiting_manual: bool = False
 
     # ------------------------------------------------------------------
     # Layout
@@ -186,8 +196,8 @@ cancel pipeline (stops after current stage)</p>
         yield Static(&#34;Initializing pipeline…&#34;, id=&#34;summary&#34;)
         with Static(id=&#34;action-bar&#34;):
             yield Button(&#34;🚫 Cancel  [X]&#34;, id=&#34;cancel-pipeline-btn&#34;, variant=&#34;warning&#34;)
-            yield Button(&#34;↺ Restart pipeline&#34;, id=&#34;restart-pipeline-btn&#34;, variant=&#34;primary&#34;)
-            yield Button(&#34;↩ Restart job&#34;, id=&#34;restart-job-btn&#34;, variant=&#34;default&#34;)
+            yield Button(&#34;↺ Restart pipeline  [r]&#34;, id=&#34;restart-pipeline-btn&#34;, variant=&#34;primary&#34;)
+            yield Button(&#34;↩ Restart job  [R]&#34;, id=&#34;restart-job-btn&#34;, variant=&#34;default&#34;)
             yield Button(&#34;✕ Cancel job&#34;, id=&#34;cancel-job-btn&#34;, variant=&#34;error&#34;)
         with TabbedContent():
             for job in self._pipeline.jobs:
@@ -225,14 +235,26 @@ cancel pipeline (stops after current stage)</p>
         summary = self.query_one(&#34;#summary&#34;, Static)
         summary.update(f&#34;Stage: [{stage}]  Running {job_count} job(s)…&#34;)
 
+    def on_pipeline_awaiting_manual(self) -&gt; None:
+        &#34;&#34;&#34;Called when all auto-runnable jobs finished but manual jobs remain.&#34;&#34;&#34;
+        self._pipeline_success = True
+        self._awaiting_manual = True
+        summary = self.query_one(&#34;#summary&#34;, Static)
+        summary.update(&#34;⏸️  Pipeline paused — manual jobs are ready to trigger.&#34;)
+        if self._close_on_completion:
+            self.exit(0)
+
     def on_pipeline_complete(self, success: bool) -&gt; None:
         &#34;&#34;&#34;Called by orchestrator when the whole pipeline finishes.&#34;&#34;&#34;
         self._pipeline_success = success
-        summary = self.query_one(&#34;#summary&#34;, Static)
-        if success:
-            summary.update(&#34;🎉 Pipeline completed successfully!&#34;)
-        else:
-            summary.update(&#34;❌ Pipeline failed.&#34;)
+        if not self._awaiting_manual:
+            summary = self.query_one(&#34;#summary&#34;, Static)
+            if success:
+                summary.update(&#34;🎉 Pipeline completed successfully!&#34;)
+            else:
+                summary.update(&#34;❌ Pipeline failed.&#34;)
+        if self._close_on_completion and not self._awaiting_manual:
+            self.exit(0 if success else 1)
 
     def on_pipeline_cancelled(self) -&gt; None:
         &#34;&#34;&#34;Called by orchestrator when the pipeline is cancelled by user.&#34;&#34;&#34;
@@ -248,6 +270,8 @@ cancel pipeline (stops after current stage)</p>
                     tab.label = self._job_label_for(job_name, &#34;cancelled&#34;)  # type: ignore[assignment]
             except Exception:  # nosec B110
                 pass
+        if self._close_on_completion:
+            self.exit(1)
 
     # ------------------------------------------------------------------
     # Message handlers (run on event loop thread)
@@ -351,8 +375,8 @@ cancel pipeline (stops after current stage)</p>
 
     def action_restart_pipeline(self) -&gt; None:
         &#34;&#34;&#34;Reset all UI state and re-run the entire pipeline from scratch.&#34;&#34;&#34;
-        # Guard: don&#39;t restart while pipeline is actively running (no cancel set, not yet done)
-        if self._pipeline_success is None and not self._orchestrator._cancel_event.is_set():
+        # Guard: don&#39;t restart while pipeline is actively running (not cancelled, not yet done)
+        if self._pipeline_success is None and self._orchestrator.is_running():
             self.query_one(&#34;#copy-status&#34;, Static).update(&#34;Cancel the pipeline first before restarting.&#34;)
             return
 
@@ -622,8 +646,8 @@ you are using <code>textual run</code> with the <code>dev</code> switch.</dd>
 </summary>
 <pre><code class="python">def action_restart_pipeline(self) -&gt; None:
     &#34;&#34;&#34;Reset all UI state and re-run the entire pipeline from scratch.&#34;&#34;&#34;
-    # Guard: don&#39;t restart while pipeline is actively running (no cancel set, not yet done)
-    if self._pipeline_success is None and not self._orchestrator._cancel_event.is_set():
+    # Guard: don&#39;t restart while pipeline is actively running (not cancelled, not yet done)
+    if self._pipeline_success is None and self._orchestrator.is_running():
         self.query_one(&#34;#copy-status&#34;, Static).update(&#34;Cancel the pipeline first before restarting.&#34;)
         return
 
@@ -666,8 +690,8 @@ you are using <code>textual run</code> with the <code>dev</code> switch.</dd>
     yield Static(&#34;Initializing pipeline…&#34;, id=&#34;summary&#34;)
     with Static(id=&#34;action-bar&#34;):
         yield Button(&#34;🚫 Cancel  [X]&#34;, id=&#34;cancel-pipeline-btn&#34;, variant=&#34;warning&#34;)
-        yield Button(&#34;↺ Restart pipeline&#34;, id=&#34;restart-pipeline-btn&#34;, variant=&#34;primary&#34;)
-        yield Button(&#34;↩ Restart job&#34;, id=&#34;restart-job-btn&#34;, variant=&#34;default&#34;)
+        yield Button(&#34;↺ Restart pipeline  [r]&#34;, id=&#34;restart-pipeline-btn&#34;, variant=&#34;primary&#34;)
+        yield Button(&#34;↩ Restart job  [R]&#34;, id=&#34;restart-job-btn&#34;, variant=&#34;default&#34;)
         yield Button(&#34;✕ Cancel job&#34;, id=&#34;cancel-job-btn&#34;, variant=&#34;error&#34;)
     with TabbedContent():
         for job in self._pipeline.jobs:
@@ -771,6 +795,25 @@ you are using <code>textual run</code> with the <code>dev</code> switch.</dd>
 </details>
 <div class="desc"><p>Start the pipeline worker once the UI is ready.</p></div>
 </dd>
+<dt id="bitrab.tui.app.PipelineApp.on_pipeline_awaiting_manual"><code class="name flex">
+<span>def <span class="ident">on_pipeline_awaiting_manual</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def on_pipeline_awaiting_manual(self) -&gt; None:
+    &#34;&#34;&#34;Called when all auto-runnable jobs finished but manual jobs remain.&#34;&#34;&#34;
+    self._pipeline_success = True
+    self._awaiting_manual = True
+    summary = self.query_one(&#34;#summary&#34;, Static)
+    summary.update(&#34;⏸️  Pipeline paused — manual jobs are ready to trigger.&#34;)
+    if self._close_on_completion:
+        self.exit(0)</code></pre>
+</details>
+<div class="desc"><p>Called when all auto-runnable jobs finished but manual jobs remain.</p></div>
+</dd>
 <dt id="bitrab.tui.app.PipelineApp.on_pipeline_cancelled"><code class="name flex">
 <span>def <span class="ident">on_pipeline_cancelled</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -792,7 +835,9 @@ you are using <code>textual run</code> with the <code>dev</code> switch.</dd>
             if tab and _STATUS_ICONS[&#34;running&#34;] in str(tab.label):
                 tab.label = self._job_label_for(job_name, &#34;cancelled&#34;)  # type: ignore[assignment]
         except Exception:  # nosec B110
-            pass</code></pre>
+            pass
+    if self._close_on_completion:
+        self.exit(1)</code></pre>
 </details>
 <div class="desc"><p>Called by orchestrator when the pipeline is cancelled by user.</p></div>
 </dd>
@@ -807,11 +852,14 @@ you are using <code>textual run</code> with the <code>dev</code> switch.</dd>
 <pre><code class="python">def on_pipeline_complete(self, success: bool) -&gt; None:
     &#34;&#34;&#34;Called by orchestrator when the whole pipeline finishes.&#34;&#34;&#34;
     self._pipeline_success = success
-    summary = self.query_one(&#34;#summary&#34;, Static)
-    if success:
-        summary.update(&#34;🎉 Pipeline completed successfully!&#34;)
-    else:
-        summary.update(&#34;❌ Pipeline failed.&#34;)</code></pre>
+    if not self._awaiting_manual:
+        summary = self.query_one(&#34;#summary&#34;, Static)
+        if success:
+            summary.update(&#34;🎉 Pipeline completed successfully!&#34;)
+        else:
+            summary.update(&#34;❌ Pipeline failed.&#34;)
+    if self._close_on_completion and not self._awaiting_manual:
+        self.exit(0 if success else 1)</code></pre>
 </details>
 <div class="desc"><p>Called by orchestrator when the whole pipeline finishes.</p></div>
 </dd>
@@ -882,6 +930,7 @@ you are using <code>textual run</code> with the <code>dev</code> switch.</dd>
 <li><code><a title="bitrab.tui.app.PipelineApp.on_job_output" href="#bitrab.tui.app.PipelineApp.on_job_output">on_job_output</a></code></li>
 <li><code><a title="bitrab.tui.app.PipelineApp.on_job_status_changed" href="#bitrab.tui.app.PipelineApp.on_job_status_changed">on_job_status_changed</a></code></li>
 <li><code><a title="bitrab.tui.app.PipelineApp.on_mount" href="#bitrab.tui.app.PipelineApp.on_mount">on_mount</a></code></li>
+<li><code><a title="bitrab.tui.app.PipelineApp.on_pipeline_awaiting_manual" href="#bitrab.tui.app.PipelineApp.on_pipeline_awaiting_manual">on_pipeline_awaiting_manual</a></code></li>
 <li><code><a title="bitrab.tui.app.PipelineApp.on_pipeline_cancelled" href="#bitrab.tui.app.PipelineApp.on_pipeline_cancelled">on_pipeline_cancelled</a></code></li>
 <li><code><a title="bitrab.tui.app.PipelineApp.on_pipeline_complete" href="#bitrab.tui.app.PipelineApp.on_pipeline_complete">on_pipeline_complete</a></code></li>
 <li><code><a title="bitrab.tui.app.PipelineApp.update_stage_status" href="#bitrab.tui.app.PipelineApp.update_stage_status">update_stage_status</a></code></li>
