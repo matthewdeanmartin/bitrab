@@ -1,0 +1,43 @@
+# Canonical read-only quality gate for this repository.
+
+stages:
+  - quality
+
+format_check:
+  stage: quality
+  script:
+    - python -m isort --check-only .
+    - python -m black --check bitrab test
+
+ruff:
+  stage: quality
+  script:
+    - python -m ruff check .
+
+mypy:
+  stage: quality
+  script:
+    - python -m mypy bitrab --ignore-missing-imports --check-untyped-defs
+
+pylint:
+  stage: quality
+  script:
+    - python -m pylint bitrab --fail-under 9.8 --rcfile=.pylintrc
+
+bandit:
+  stage: quality
+  script:
+    - python -m bandit bitrab -r --quiet
+
+smoke:
+  stage: quality
+  script:
+    - bash scripts/basic_checks.sh
+
+pytest:
+  stage: quality
+  script:
+    - >-
+      python -m pytest test -vv --cov=bitrab --cov-report=html --cov-report=xml
+      --cov-fail-under 35 --cov-branch --junitxml=junit.xml
+      -o junit_family=legacy --timeout=15 --session-timeout=600

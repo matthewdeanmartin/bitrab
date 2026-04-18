@@ -3,6 +3,9 @@ set dotenv-load := true
 LOGS_DIR := ".justlogs"
 STAMP_DIR := ".build_history"
 NO_COLOR_ENV := "NO_COLOR=1 CLICOLOR=0 FORCE_COLOR=0 PY_COLORS=0"
+BITRAB_CONFIG := ".bitrab-ci.yml"
+QUALITY_GATE_PARALLEL := "4"
+QUALITY_GATE_BACKEND := "thread"
 
 venv := `if [ -z "${VIRTUAL_ENV-}" ]; then echo "uv run"; else echo ""; fi`
 
@@ -38,6 +41,8 @@ help:
     @echo "  check-spelling   Run spelling checks"
     @echo "  check-changelog  Validate changelog format"
     @echo "  check-all-docs   Run all documentation checks"
+    @echo "  quality-gate     Validate and run the shared bitrab quality gate"
+    @echo "  quality-gate-serial Run the shared bitrab quality gate in serial mode"
     @echo "  refresh-schema   Refresh vendored GitLab schema files"
     @echo "  publish          Build the distribution"
 
@@ -320,6 +325,20 @@ check-llm: mypy-llm lint-llm bandit-llm test-llm smoke-llm
 
 # Compatibility alias for fast-verify.
 check-fast: fast-verify
+
+# Validate and run the shared bitrab quality gate in parallel.
+quality-gate: uv-lock install-plugins
+    @echo "Validating shared bitrab quality gate"
+    {{NO_COLOR_ENV}} {{venv}} bitrab -c {{BITRAB_CONFIG}} validate
+    @echo "Running shared bitrab quality gate"
+    {{NO_COLOR_ENV}} {{venv}} bitrab -c {{BITRAB_CONFIG}} run --no-tui --parallel {{QUALITY_GATE_PARALLEL}} --parallel-backend {{QUALITY_GATE_BACKEND}} --no-worktrees
+
+# Validate and run the shared bitrab quality gate in serial mode.
+quality-gate-serial: uv-lock install-plugins
+    @echo "Validating shared bitrab quality gate"
+    {{NO_COLOR_ENV}} {{venv}} bitrab -c {{BITRAB_CONFIG}} validate
+    @echo "Running shared bitrab quality gate in serial mode"
+    {{NO_COLOR_ENV}} {{venv}} bitrab -c {{BITRAB_CONFIG}} run --no-tui --serial
 
 # Refresh vendored GitLab schema assets.
 refresh-schema:

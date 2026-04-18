@@ -6,6 +6,9 @@ LOGS_DIR := .build_logs
 STAMP_DIR := .build_history
 VERIFY_TARGETS := ruff mypy pylint bandit smoke pytest
 NO_COLOR_ENV := NO_COLOR=1 CLICOLOR=0 FORCE_COLOR=0 PY_COLORS=0
+BITRAB_CONFIG := .bitrab-ci.yml
+QUALITY_GATE_PARALLEL ?= 4
+QUALITY_GATE_BACKEND ?= thread
 
 # if you wrap everything in uv run, it runs slower.
 ifeq ($(origin VIRTUAL_ENV),undefined)
@@ -61,6 +64,8 @@ help:
 	@echo "  prerelease           Run all pre-release checks (metadata, version, docs, tests)"
 	@echo "  prerelease-llm       Run compact pre-release checks (token-efficient)"
 	@echo "  publish-gha          Dispatch the GitHub Actions publish workflow"
+	@echo "  quality-gate         Validate and run the shared bitrab quality gate"
+	@echo "  quality-gate-serial  Run the shared bitrab quality gate in serial mode"
 	@echo "  refresh-schema       Refresh vendored GitLab schema files"
 	@echo "  build-dist           Build the distribution package"
 	@echo "  publish              Run prerelease checks then build the distribution"
@@ -379,6 +384,20 @@ gha-upgrade: gha-pin gha-validate
 publish-gha:
 	@echo "Dispatching GitHub Actions publish workflow"
 	gh workflow run publish_to_pypi.yml --ref main
+
+.PHONY: quality-gate
+quality-gate: uv-lock install-plugins
+	@echo "Validating shared bitrab quality gate"
+	$(NO_COLOR_ENV) $(VENV) bitrab -c $(BITRAB_CONFIG) validate
+	@echo "Running shared bitrab quality gate"
+	$(NO_COLOR_ENV) $(VENV) bitrab -c $(BITRAB_CONFIG) run --no-tui --parallel $(QUALITY_GATE_PARALLEL) --parallel-backend $(QUALITY_GATE_BACKEND) --no-worktrees
+
+.PHONY: quality-gate-serial
+quality-gate-serial: uv-lock install-plugins
+	@echo "Validating shared bitrab quality gate"
+	$(NO_COLOR_ENV) $(VENV) bitrab -c $(BITRAB_CONFIG) validate
+	@echo "Running shared bitrab quality gate in serial mode"
+	$(NO_COLOR_ENV) $(VENV) bitrab -c $(BITRAB_CONFIG) run --no-tui --serial
 
 .PHONY: prerelease
 prerelease: metadata-sync-check version-check dev-status-check check-all-docs test

@@ -189,7 +189,10 @@ class TestVariableManager:
         subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)  # nosec
         subprocess.run(["git", "-C", str(tmp_path), "config", "user.email", "test@example.com"], check=True)  # nosec
         subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "Test"], check=True)  # nosec
-        subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", "git@github.com:octo-org/sample-repo.git"], check=True)  # nosec
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "remote", "add", "origin", "git@github.com:octo-org/sample-repo.git"],
+            check=True,
+        )  # nosec
         (tmp_path / "README.md").write_text("hello\n", encoding="utf-8")
         subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)  # nosec
         subprocess.run(["git", "-C", str(tmp_path), "commit", "-q", "-m", "init"], check=True)  # nosec

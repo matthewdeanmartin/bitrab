@@ -1,5 +1,10 @@
 # AGENTS.md — bitrab developer guide for AI agents
 
+## Read the bitrab skill first
+
+For repo-local bitrab usage patterns, read `.github/skills/bitrab/SKILL.md` before inventing new workflows.
+It captures the shared quality-gate command, safe parallelism defaults, and when to prefer serial execution.
+
 ## Running the pipeline locally (dogfooding)
 
 To run the project's own `.gitlab-ci.yml` locally:
@@ -41,10 +46,13 @@ just help
 Preferred workflows:
 
 ```bash
+make quality-gate
+just quality-gate
 make check-human
 just check-human
 ```
 
+- `quality-gate` validates and runs the shared `.bitrab-ci.yml` read-only gate through bitrab
 - `fix` is the mutating phase
 - `verify` is the read-only verification phase
 - `check-ci` is non-mutating and CI-safe

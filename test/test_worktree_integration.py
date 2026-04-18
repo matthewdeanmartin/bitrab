@@ -7,7 +7,6 @@ correctly, and the real project root is unchanged.
 
 from __future__ import annotations
 
-import shutil
 import subprocess  # nosec
 import textwrap
 from pathlib import Path

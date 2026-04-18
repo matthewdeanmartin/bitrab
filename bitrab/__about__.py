@@ -1,9 +1,19 @@
 """Metadata for bitrab."""
 
-__all__ = ["__title__", "__version__", "__description__", "__readme__", "__credits__", "__keywords__", "__license__", "__requires_python__", "__status__"]
+__all__ = [
+    "__title__",
+    "__version__",
+    "__description__",
+    "__readme__",
+    "__credits__",
+    "__keywords__",
+    "__license__",
+    "__requires_python__",
+    "__status__",
+]
 
 __title__ = "bitrab"
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __description__ = "Run GitLab CI pipelines locally"
 __readme__ = "README.md"
 __credits__ = [{"name": "Matthew Martin", "email": "matthewdeanmartin@gmail.com"}]

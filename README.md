@@ -44,7 +44,9 @@ bitrab run --no-tui --parallel 1
 For this repo's own dogfooding flow:
 
 ```bash
-uv run bitrab run --no-tui --parallel 1
+make quality-gate
+just quality-gate
+uv run bitrab -c .bitrab-ci.yml run --no-tui --parallel 4 --parallel-backend thread --no-worktrees
 ```
 
 ## Usage

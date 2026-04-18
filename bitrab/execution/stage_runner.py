@@ -18,7 +18,6 @@ import os
 import re
 import subprocess  # nosec
 import sys
-import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
@@ -275,8 +274,8 @@ def _worktree_worker(
             try:
                 collect_artifacts(job, project_dir, succeeded, effective_dir=wt_path)
                 collect_dotenv_report(job, project_dir, succeeded, effective_dir=wt_path)
-            except Exception:  # pylint: disable=broad-except
-                pass
+            except OSError as exc:
+                print(f"⚠️ Failed to collect job outputs for {job.name}: {exc}", file=sys.stderr)
 
         return history, str(wt_path)
 
@@ -325,7 +324,9 @@ class StagePipelineRunner:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
         cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        self.maximum_degree_of_parallelism = (
+            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        )
         if mp_ctx is None:
             if sys.platform == "win32":
                 mp_ctx = mp.get_context("spawn")
@@ -443,7 +444,9 @@ class StagePipelineRunner:
                 inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
                 dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
-            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None)
+            ctx = self.job_executor.build_context(
+                job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None
+            )
             ctx = cb.enrich_context(ctx)
             succeeded = True
 
@@ -665,7 +668,9 @@ class DagPipelineRunner:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
         cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        self.maximum_degree_of_parallelism = (
+            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        )
         if mp_ctx is None:
             mp_ctx = mp.get_context("spawn")
         self._mp_ctx = mp_ctx
@@ -804,7 +809,9 @@ class DagPipelineRunner:
                 inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
                 dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
             writer = cb.make_output_writer(job, job_dir)
-            ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None)
+            ctx = self.job_executor.build_context(
+                job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None
+            )
             ctx = cb.enrich_context(ctx)
             succeeded = True
 

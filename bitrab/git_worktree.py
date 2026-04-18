@@ -32,10 +32,10 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess  # nosec
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 _WORKTREES_SUBDIR = ".bitrab/worktrees"
 _INVALID_NAME_CHARS_RE = re.compile(r'[\\/:*?"<>|\s]+')
@@ -126,9 +126,7 @@ def create_worktree(project_dir: Path, name: str) -> WorktreeContext:
         cwd=project_dir,
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"git worktree add failed for {target}: {result.stderr.strip() or result.stdout.strip()}"
-        )
+        raise RuntimeError(f"git worktree add failed for {target}: {result.stderr.strip() or result.stdout.strip()}")
     return WorktreeContext(worktree_path=target, project_dir=project_dir)
 
 

@@ -33,6 +33,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import sys
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -181,7 +182,9 @@ class FolderSummary:
             lines.append(f"  Contents : {', '.join(self.subdirs)}")
         if self.is_large:
             lines.append("")
-            lines.append(f"  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean")
+            lines.append(
+                f"  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean"
+            )
         return "\n".join(lines)
 
 
@@ -381,8 +384,8 @@ def clean_all(project_dir: Path) -> int:
         from bitrab.git_worktree import prune_worktrees
 
         prune_worktrees(project_dir)
-    except Exception:  # pylint: disable=broad-except
-        pass
+    except OSError as exc:
+        print(f"⚠️ Failed to prune bitrab worktrees: {exc}", file=sys.stderr)
     if bd.exists():
         shutil.rmtree(bd)
     return freed

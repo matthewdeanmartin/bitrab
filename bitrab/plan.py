@@ -170,7 +170,11 @@ class PipelineProcessor:
             The same dict with all ``extends:`` chains resolved.
         """
         # Collect all job-like blocks (real jobs and hidden templates)
-        all_jobs: dict[str, dict[str, Any]] = {name: data for name, data in raw_config.items() if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS}
+        all_jobs: dict[str, dict[str, Any]] = {
+            name: data
+            for name, data in raw_config.items()
+            if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS
+        }
 
         resolved: dict[str, dict[str, Any]] = {}
 
@@ -635,6 +639,8 @@ class LocalGitLabRunner:
             job_filter: If given, only run jobs whose names are in this list.
             stage_filter: If given, only run jobs whose stages are in this list.
             parallel_backend: Backend name (e.g., 'multiprocessing', 'threading', 'sequential').
+            serial: Run jobs one at a time, safe for mutating jobs.
+            use_worktrees: Use git to run all jobs in parallel even if some of them mutate the file system
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.

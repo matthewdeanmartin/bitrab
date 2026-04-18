@@ -292,7 +292,7 @@ source_folder = "bitrab"
 
 [tool.bitrab]
 # Set to true to warn when a job modifies files outside the whitelist.
-warn_on_mutation = false
+warn_on_mutation = true
 
 # Parallel execution backend: "process" (default) or "thread".
 #   process: full isolation via ProcessPoolExecutor (GIL-free, heavier)
@@ -303,4 +303,4 @@ parallel_backend = "process"
 # Glob patterns (relative to project root) that are safe to ignore.
 # These are added to the built-in list (.mypy_cache/**, .pytest_cache/**,
 # **/__pycache__/**, .bitrab/**, *.pyc, .coverage, etc.).
-whitelist = []
+whitelist = ["junit.xml"]
