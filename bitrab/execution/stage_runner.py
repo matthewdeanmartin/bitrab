@@ -18,7 +18,6 @@ import os
 import re
 import subprocess  # nosec
 import sys
-import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 import subprocess  # nosec
 from pathlib import Path
 

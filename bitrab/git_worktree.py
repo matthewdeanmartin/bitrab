@@ -35,7 +35,7 @@ import subprocess  # nosec
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from collections.abc import Iterator
 
 _WORKTREES_SUBDIR = ".bitrab/worktrees"
 _INVALID_NAME_CHARS_RE = re.compile(r'[\\/:*?"<>|\s]+')
