@@ -188,3 +188,35 @@ def test_worktree_mode_falls_back_gracefully_outside_git(tmp_path: Path) -> None
 
     # Falls back to plain execution: file exists in the project dir.
     assert (tmp_path / "plain.txt").exists()
+
+
+def test_configured_external_worktree_root_keeps_repo_clean(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    external_root = tmp_path.parent / f"{tmp_path.name}-worktrees"
+    (tmp_path / "pyproject.toml").write_text(
+        f'[tool.bitrab]\nworktree_root = "{external_root.as_posix()}"\n',
+        encoding="utf-8",
+    )
+    _write_ci(
+        tmp_path,
+        """
+        stages: [build]
+
+        one:
+          stage: build
+          script: ["echo one"]
+        two:
+          stage: build
+          script: ["echo two"]
+        """,
+    )
+
+    runner = LocalGitLabRunner(base_path=tmp_path)
+    runner.run_pipeline(
+        config_path=tmp_path / ".gitlab-ci.yml",
+        maximum_degree_of_parallelism=2,
+    )
+
+    assert not (tmp_path / ".bitrab" / "worktrees").exists()
+    if external_root.exists():
+        assert not any(external_root.iterdir()), f"external worktree root not empty: {list(external_root.iterdir())}"

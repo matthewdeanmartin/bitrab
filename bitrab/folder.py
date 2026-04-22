@@ -352,10 +352,11 @@ def clean_worktrees(project_dir: Path) -> int:
     :func:`bitrab.git_worktree.prune_worktrees`.
     """
     from bitrab.git_worktree import prune_worktrees, worktree_root
+    from bitrab.mutation import load_worktree_config
 
-    wt_root = worktree_root(project_dir)
+    wt_root = worktree_root(project_dir, root=load_worktree_config(project_dir).root)
     freed = _dir_size_bytes(wt_root) if wt_root.exists() else 0
-    prune_worktrees(project_dir)
+    prune_worktrees(project_dir, root=wt_root)
     return freed
 
 

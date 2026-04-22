@@ -698,7 +698,7 @@ class LocalGitLabRunner:
 
         worktree_config = load_worktree_config(self.base_path)
         if use_worktrees is not None:
-            worktree_config = WorktreeConfig(enabled=use_worktrees)
+            worktree_config = WorktreeConfig(enabled=use_worktrees, root=worktree_config.root)
 
         serial_config = load_serial_config(self.base_path)
         serial_active = serial_config.enabled if serial is None else bool(serial)
@@ -714,7 +714,7 @@ class LocalGitLabRunner:
             # this so their changes land in the working copy, not a throwaway
             # worktree.
             maximum_degree_of_parallelism = 1
-            worktree_config = WorktreeConfig(enabled=False)
+            worktree_config = WorktreeConfig(enabled=False, root=worktree_config.root)
             safe_print("🔒 Serial mode: running one job at a time in the project root (worktrees disabled).")
 
         event_collector = None

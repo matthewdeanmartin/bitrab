@@ -65,6 +65,9 @@ bitrab run --no-tui --serial
 `--serial` forces one job at a time in the project root and disables worktrees, which is the safe choice for
 formatters, autofixers, and other intentional mutations.
 
+If repo-local `.bitrab\worktrees` interferes with your tools, set `[tool.bitrab].worktree_root` in `pyproject.toml`,
+for example `~/.bitrab/worktrees/bitrab`.
+
 ## What Bitrab is
 
 Bitrab is a local runner for a practical subset of GitLab CI. It executes jobs as native shell processes, supports stage

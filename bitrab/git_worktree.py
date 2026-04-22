@@ -7,10 +7,12 @@ each worker gets its own checkout of the same commit, sharing the object store
 with the main repo, so the cost is roughly "create a directory and write a few
 metadata files" rather than a full clone.
 
-The worktrees live under ``.bitrab/worktrees/<sanitized_job_name>/`` — the
-``.bitrab/`` directory is already gitignored, which is fine for a worktree:
-git tracks worktree location via ``.git/worktrees/`` metadata, not via the
-working-tree files, so ignored paths and worktrees coexist without problems.
+By default the worktrees live under ``.bitrab/worktrees/<sanitized_job_name>/``.
+Projects may override that root via ``[tool.bitrab].worktree_root`` in
+``pyproject.toml``. The default ``.bitrab/`` directory is already gitignored,
+which is fine for a worktree: git tracks worktree location via
+``.git/worktrees/`` metadata, not via the working-tree files, so ignored paths
+and worktrees coexist without problems.
 
 Public API:
 
@@ -91,24 +93,24 @@ def _sanitize_name(name: str) -> str:
     return cleaned or "job"
 
 
-def worktree_root(project_dir: Path) -> Path:
+def worktree_root(project_dir: Path, root: Path | None = None) -> Path:
     """Directory that holds all per-job worktrees."""
-    return project_dir / _WORKTREES_SUBDIR
+    return root if root is not None else project_dir / _WORKTREES_SUBDIR
 
 
-def worktree_path_for(project_dir: Path, name: str) -> Path:
+def worktree_path_for(project_dir: Path, name: str, root: Path | None = None) -> Path:
     """Compute the worktree directory for a job name (without creating it)."""
-    return worktree_root(project_dir) / _sanitize_name(name)
+    return worktree_root(project_dir, root=root) / _sanitize_name(name)
 
 
-def create_worktree(project_dir: Path, name: str) -> WorktreeContext:
+def create_worktree(project_dir: Path, name: str, root: Path | None = None) -> WorktreeContext:
     """Create a detached-HEAD worktree for *project_dir* at the configured path.
 
     The worktree is created with ``--detach`` so we do not pollute the branch
     namespace.  If a worktree already exists at the target path (left over from
     a previous crashed run) it is removed first.
     """
-    target = worktree_path_for(project_dir, name)
+    target = worktree_path_for(project_dir, name, root=root)
     target.parent.mkdir(parents=True, exist_ok=True)
 
     # If something is already there, tear it down — a stale entry would make
@@ -147,22 +149,22 @@ def remove_worktree(ctx: WorktreeContext) -> None:
 
 
 @contextmanager
-def job_worktree(project_dir: Path, name: str) -> Iterator[Path]:
+def job_worktree(project_dir: Path, name: str, root: Path | None = None) -> Iterator[Path]:
     """Context manager: create a worktree, yield its path, always remove it."""
-    ctx = create_worktree(project_dir, name)
+    ctx = create_worktree(project_dir, name, root=root)
     try:
         yield ctx.worktree_path
     finally:
         remove_worktree(ctx)
 
 
-def prune_worktrees(project_dir: Path) -> None:
+def prune_worktrees(project_dir: Path, root: Path | None = None) -> None:
     """Best-effort cleanup: run ``git worktree prune`` and remove the root dir.
 
     Called by ``bitrab folder clean``.  Safe to run when no worktrees exist.
     """
     if is_git_repo(project_dir):
         _run_git(["worktree", "prune"], cwd=project_dir)
-    root = worktree_root(project_dir)
-    if root.exists():
-        shutil.rmtree(root, ignore_errors=True)
+    resolved_root = worktree_root(project_dir, root=root)
+    if resolved_root.exists():
+        shutil.rmtree(resolved_root, ignore_errors=True)

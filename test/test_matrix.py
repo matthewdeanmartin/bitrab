@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from bitrab.models.pipeline import PipelineConfig
-from bitrab.mutation import ParallelBackendConfig, load_parallel_config
+from pathlib import Path
+
+from bitrab.mutation import ParallelBackendConfig, load_parallel_config, load_worktree_config
 from bitrab.plan import PipelineProcessor
 
 # ---------------------------------------------------------------------------
@@ -480,3 +482,24 @@ class TestLoadParallelConfig:
         (tmp_path / "pyproject.toml").write_text('[tool.bitrab]\nparallel_backend = "THREAD"\n')
         cfg = load_parallel_config(tmp_path)
         assert cfg.backend == "thread"
+
+
+class TestLoadWorktreeConfig:
+    def test_default_root_is_none(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'foo'\n")
+        cfg = load_worktree_config(tmp_path)
+        assert cfg.enabled
+        assert cfg.root is None
+
+    def test_relative_root_resolves_from_project_dir(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text('[tool.bitrab]\nworktree_root = ".cache/worktrees"\n')
+        cfg = load_worktree_config(tmp_path)
+        assert cfg.root == tmp_path / ".cache" / "worktrees"
+
+    def test_home_root_expands(self, tmp_path, monkeypatch):
+        home = tmp_path / "home"
+        monkeypatch.setenv("HOME", str(home))
+        monkeypatch.setenv("USERPROFILE", str(home))
+        (tmp_path / "pyproject.toml").write_text('[tool.bitrab]\nworktree_root = "~/.bitrab/worktrees"\n')
+        cfg = load_worktree_config(tmp_path)
+        assert cfg.root == Path(home) / ".bitrab" / "worktrees"

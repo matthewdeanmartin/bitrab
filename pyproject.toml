@@ -299,6 +299,8 @@ warn_on_mutation = true
 #   thread:  shared memory via ThreadPoolExecutor (lighter, GIL-bound)
 parallel_backend = "process"
 
+worktree_root = "~/.bitrab/worktrees/bitrab"
+
 [tool.bitrab.mutation]
 # Glob patterns (relative to project root) that are safe to ignore.
 # These are added to the built-in list (.mypy_cache/**, .pytest_cache/**,

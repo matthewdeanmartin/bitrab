@@ -123,6 +123,7 @@ Bitrab also reads `pyproject.toml` for local execution behavior in `mutation.py`
 
 - `parallel_backend`
 - `use_git_worktrees`
+- `worktree_root`
 - `serial`
 - `warn_on_mutation`
 - mutation whitelist patterns

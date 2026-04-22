@@ -229,6 +229,7 @@ def _worktree_worker(
     *,
     _inner_worker: Callable[..., list[RunResult]],
     _project_dir: str,
+    _worktree_root: str | None = None,
     _completed_jobs: list[str],
     **extra: Any,
 ) -> tuple[list[RunResult], str]:
@@ -249,7 +250,8 @@ def _worktree_worker(
     diagnostics; artifacts are already copied out by the time the caller sees it.
     """
     project_dir = Path(_project_dir)
-    with job_worktree(project_dir, job.name) as wt_path:
+    root = Path(_worktree_root) if _worktree_root is not None else None
+    with job_worktree(project_dir, job.name, root=root) as wt_path:
         scoped_executor = _scope_executor_to_worktree(executor, wt_path)
 
         # Upstream artifacts land in the worktree so the job can consume them.
@@ -535,6 +537,9 @@ class StagePipelineRunner:
                         job_dir,
                         _inner_worker=inner_worker,
                         _project_dir=str(self.job_executor.project_dir),
+                        _worktree_root=(
+                            str(self._worktree_config.root) if self._worktree_config.root is not None else None
+                        ),
                         _completed_jobs=list(self._completed_jobs),
                         **extra,
                     )
@@ -889,6 +894,9 @@ class DagPipelineRunner:
                         job_dir,
                         _inner_worker=inner_worker,
                         _project_dir=str(self.job_executor.project_dir),
+                        _worktree_root=(
+                            str(self._worktree_config.root) if self._worktree_config.root is not None else None
+                        ),
                         _completed_jobs=list(self._completed_jobs),
                         **extra,
                     )

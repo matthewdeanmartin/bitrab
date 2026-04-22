@@ -95,12 +95,16 @@ class WorktreeConfig:
     Attributes:
         enabled: If True (default) and the project is a git repo, each
             parallel job runs inside its own detached-HEAD worktree under
-            ``.bitrab/worktrees/<job>/``.  Serial execution never creates
-            worktrees — there is no parallel conflict to avoid.  Outside of
-            a git repo the feature is a silent no-op.
+            ``.bitrab/worktrees/<job>/`` by default. Serial execution never
+            creates worktrees — there is no parallel conflict to avoid.
+            Outside of a git repo the feature is a silent no-op.
+        root: Optional override for the directory that holds per-job
+            worktrees. ``~`` and environment variables are expanded, and
+            relative paths are resolved from the project root.
     """
 
     enabled: bool = True
+    root: Path | None = None
 
 
 @dataclass
@@ -151,7 +155,8 @@ def load_worktree_config(project_dir: Path) -> WorktreeConfig:
 
     The default is *enabled* — the whole point of bitrab's parallel story is
     speed, and worktrees are what keep parallel jobs from fighting.  Users can
-    opt out via ``use_git_worktrees = false``.
+    opt out via ``use_git_worktrees = false`` and may relocate scratch
+    worktrees with ``worktree_root = "..."``.
     """
     pyproject = project_dir / "pyproject.toml"
     if not pyproject.exists():
@@ -160,7 +165,12 @@ def load_worktree_config(project_dir: Path) -> WorktreeConfig:
     data = _load_toml(pyproject)
     bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
     enabled = bool(bitrab_section.get("use_git_worktrees", True))
-    return WorktreeConfig(enabled=enabled)
+    root_value = bitrab_section.get("worktree_root")
+    root: Path | None = None
+    if root_value is not None:
+        expanded = Path(os.path.expandvars(os.path.expanduser(str(root_value))))
+        root = expanded if expanded.is_absolute() else project_dir / expanded
+    return WorktreeConfig(enabled=enabled, root=root)
 
 
 def load_serial_config(project_dir: Path) -> SerialConfig:
