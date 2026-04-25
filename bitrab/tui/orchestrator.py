@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import queue as _queue
 import signal
 import subprocess  # nosec
 import sys
@@ -119,6 +120,8 @@ class _TUICallbacks(PipelineCallbacks):
         self._worker_pids = worker_pids
         self._cancel_event = cancel_event
         self._active_jobs: set[str] = set()
+        self._serial_drain_stop: threading.Event | None = None
+        self._serial_drain_thread: threading.Thread | None = None
 
     def on_stage_start(self, stage: str, jobs: list[JobConfig]) -> None:
         self._app.call_from_thread(self._app.update_stage_status, stage, len(jobs))
@@ -128,10 +131,46 @@ class _TUICallbacks(PipelineCallbacks):
 
         self._app.call_from_thread(self._app.post_message, JobStatusChanged(job.name, "running"))
         self._active_jobs.add(job.name)
+        self._start_serial_drain()
+
+    def _start_serial_drain(self) -> None:
+        """Start a background thread that continuously drains the output queue.
+
+        Only one drain thread runs at a time; starting a second is a no-op.
+        Used during serial job execution where poll_during_parallel is never called.
+        """
+        if self._serial_drain_thread is not None and self._serial_drain_thread.is_alive():
+            return
+        self._serial_drain_stop = threading.Event()
+        stop = self._serial_drain_stop
+
+        def _drain_loop() -> None:
+            from bitrab.tui.app import JobOutput
+
+            while not stop.is_set():
+                try:
+                    while True:
+                        job_name, text = self._output_queue.get(timeout=0.02)
+                        if text is not None:
+                            self._app.call_from_thread(self._app.post_message, JobOutput(job_name, text))
+                except Empty:
+                    pass
+
+        self._serial_drain_thread = threading.Thread(target=_drain_loop, daemon=True)
+        self._serial_drain_thread.start()
+
+    def _stop_serial_drain(self) -> None:
+        if self._serial_drain_stop is not None:
+            self._serial_drain_stop.set()
+        if self._serial_drain_thread is not None:
+            self._serial_drain_thread.join(timeout=0.5)
+        self._serial_drain_stop = None
+        self._serial_drain_thread = None
 
     def on_job_complete(self, outcome: JobOutcome) -> None:
         from bitrab.tui.app import JobStatusChanged
 
+        self._stop_serial_drain()
         if outcome.allowed_failure:
             status = "warned"
         elif outcome.success:
@@ -334,12 +373,27 @@ class TUIOrchestrator:
         """Run a single job inline in the calling thread (for restart-job)."""
         from bitrab.tui.app import JobOutput, JobStatusChanged
 
-        mgr = self._mp_ctx.Manager()
-        output_queue = mgr.Queue()
+        output_queue: Any = _queue.Queue()
         job_dir = self.job_executor.project_dir / ".bitrab" / sanitize_job_name(job.name)
         job_dir.mkdir(parents=True, exist_ok=True)
         app.call_from_thread(app.post_message, JobStatusChanged(job.name, "running"))
         writer = QueueWriter(output_queue, job.name)
+
+        stop_drain = threading.Event()
+
+        def _drain_loop() -> None:
+            while not stop_drain.is_set():
+                try:
+                    while True:
+                        job_name, text = output_queue.get(timeout=0.02)
+                        if text is not None:
+                            app.call_from_thread(app.post_message, JobOutput(job_name, text))
+                except Empty:
+                    pass
+
+        drain_thread = threading.Thread(target=_drain_loop, daemon=True)
+        drain_thread.start()
+
         try:
             ctx = self.job_executor.build_context(job, job_dir=job_dir, output_writer=writer)
             self.job_executor.execute_job(ctx=ctx)
@@ -347,15 +401,26 @@ class TUIOrchestrator:
         except Exception:
             app.call_from_thread(app.post_message, JobStatusChanged(job.name, "failed"))
         finally:
+            stop_drain.set()
+            drain_thread.join(timeout=0.5)
             self._drain_queue_sync(output_queue, app, JobOutput)
-            mgr.shutdown()
 
     def execute_pipeline_tui(self, pipeline: PipelineConfig, app: PipelineApp) -> None:
         """Execute pipeline with live output routed to Textual TUI."""
-        mgr = self._mp_ctx.Manager()
-        output_queue = mgr.Queue()
-        worker_pids = mgr.dict()
-        self._worker_pids = worker_pids  # type: ignore
+        use_threads = self._parallel_backend.backend == "thread"
+
+        if use_threads:
+            # Threads share memory — a plain queue.Queue avoids the Manager
+            # process hop and gives lower-latency streaming to the TUI.
+            output_queue: Any = _queue.Queue()
+            worker_pids: Any = {}
+            mgr = None
+        else:
+            mgr = self._mp_ctx.Manager()
+            output_queue = mgr.Queue()
+            worker_pids = mgr.dict()
+
+        self._worker_pids = worker_pids
 
         tui_callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event)
         self._event_collector = EventCollector(inner=tui_callbacks)
@@ -372,7 +437,8 @@ class TUIOrchestrator:
             )
             runner.execute_pipeline(pipeline)
         finally:
-            mgr.shutdown()
+            if mgr is not None:
+                mgr.shutdown()
 
     def execute_pipeline_ci(self, pipeline: PipelineConfig) -> None:
         """Execute pipeline in CI mode: jobs write to files, printed when done."""
