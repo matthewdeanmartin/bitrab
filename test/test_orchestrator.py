@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import sys
-import threading
 from pathlib import Path
-from queue import Empty, SimpleQueue
-from unittest.mock import MagicMock, call, patch
+from queue import SimpleQueue
+from unittest.mock import MagicMock, patch
 
 import pytest
 

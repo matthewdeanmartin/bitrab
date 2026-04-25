@@ -229,9 +229,7 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                 CapabilityDiagnostic(
                     level=DiagnosticLevel.WARNING,
                     feature="resource_group",
-                    message=(
-                        f"Job '{job_name}': 'resource_group:' is defined but mutual exclusion is not enforced locally."
-                    ),
+                    message=(f"Job '{job_name}': 'resource_group:' is defined but mutual exclusion is not enforced locally."),
                 )
             )
 
@@ -257,9 +255,7 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                         CapabilityDiagnostic(
                             level=DiagnosticLevel.WARNING,
                             feature="rules:changes",
-                            message=(
-                                f"Job '{job_name}', rule {i + 1}: 'changes:' conditions are not yet evaluated locally and will be skipped."
-                            ),
+                            message=(f"Job '{job_name}', rule {i + 1}: 'changes:' conditions are not yet evaluated locally and will be skipped."),
                         )
                     )
 

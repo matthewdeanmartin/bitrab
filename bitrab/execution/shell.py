@@ -167,9 +167,7 @@ def _find_bash_windows() -> str:
             _CACHED_BASH_PATH = candidate
             return candidate
 
-    raise BitrabError(
-        "Could not locate a usable bash.exe on Windows. Install Git for Windows (provides C:\\Program Files\\Git\\bin\\bash.exe) or set BITRAB_BASH_PATH to a Git Bash / MSYS bash executable. WSL's bash.exe is not supported because it cannot see Windows-style paths."
-    )
+    raise BitrabError("Could not locate a usable bash.exe on Windows. Install Git for Windows (provides C:\\Program Files\\Git\\bin\\bash.exe) or set BITRAB_BASH_PATH to a Git Bash / MSYS bash executable. WSL's bash.exe is not supported because it cannot see Windows-style paths.")
 
 
 def _pick_bash(login_shell: bool) -> list[str]:

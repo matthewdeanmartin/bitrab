@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from bitrab.execution.variables import (
     _derive_git_variables,
@@ -359,7 +358,7 @@ class TestVariableManager:
     def test_prepare_environment_does_not_mutate_shared_base(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
         job = self._make_job(variables={"MUTATE_CHECK": "yes"})
-        env = vm.prepare_environment(job)
+        vm.prepare_environment(job)
         # The shared base should not contain the job variable
         assert "MUTATE_CHECK" not in vm._shared_base_env
 

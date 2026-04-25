@@ -182,9 +182,7 @@ class FolderSummary:
             lines.append(f"  Contents : {', '.join(self.subdirs)}")
         if self.is_large:
             lines.append("")
-            lines.append(
-                f"  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean"
-            )
+            lines.append(f"  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean")
         return "\n".join(lines)
 
 
