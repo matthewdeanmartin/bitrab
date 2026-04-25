@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.6">
+<title>bitrab.git_worktree API documentation</title>
+<meta name="description" content="Git worktree lifecycle for per-job filesystem isolation …">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>bitrab.git_worktree</code></h1>
+</header>
+<section id="section-intro">
+<p>Git worktree lifecycle for per-job filesystem isolation.</p>
+<p>When jobs run in parallel they share the project root.
+Any job that mutates the
+filesystem (writes files, installs packages, generates build outputs) will stomp
+on sibling jobs running concurrently.
+<code>git worktree</code> gives us a cheap way out:
+each worker gets its own checkout of the same commit, sharing the object store
+with the main repo, so the cost is roughly "create a directory and write a few
+metadata files" rather than a full clone.</p>
+<p>By default the worktrees live under <code>.bitrab/worktrees/&lt;sanitized_job_name&gt;/</code>.
+Projects may override that root via <code>[tool.bitrab].<a title="bitrab.git_worktree.worktree_root" href="#bitrab.git_worktree.worktree_root">worktree_root()</a></code> in
+<code>pyproject.toml</code>. The default <code>.bitrab/</code> directory is already gitignored,
+which is fine for a worktree: git tracks worktree location via
+<code>.git/worktrees/</code> metadata, not via the working-tree files, so ignored paths
+and worktrees coexist without problems.</p>
+<p>Public API:</p>
+<ul>
+<li>:func:<code><a title="bitrab.git_worktree.is_git_available" href="#bitrab.git_worktree.is_git_available">is_git_available()</a></code> — is the <code>git</code> binary callable at all?</li>
+<li>:func:<code><a title="bitrab.git_worktree.is_git_repo" href="#bitrab.git_worktree.is_git_repo">is_git_repo()</a></code> — is <em>project_dir</em> inside a git working copy?</li>
+<li>:func:<code><a title="bitrab.git_worktree.can_use_worktrees" href="#bitrab.git_worktree.can_use_worktrees">can_use_worktrees()</a></code> — both of the above are True.</li>
+<li>:func:<code><a title="bitrab.git_worktree.create_worktree" href="#bitrab.git_worktree.create_worktree">create_worktree()</a></code> / :func:<code><a title="bitrab.git_worktree.remove_worktree" href="#bitrab.git_worktree.remove_worktree">remove_worktree()</a></code> — low-level lifecycle.</li>
+<li>:func:<code><a title="bitrab.git_worktree.job_worktree" href="#bitrab.git_worktree.job_worktree">job_worktree()</a></code> — context manager; always removes the worktree.</li>
+<li>:func:<code><a title="bitrab.git_worktree.prune_worktrees" href="#bitrab.git_worktree.prune_worktrees">prune_worktrees()</a></code> — housekeeping for abandoned worktrees.</li>
+</ul>
+<p>Everything here is best-effort on the <em>remove</em> side: a killed process can leave
+an orphan directory under <code>.bitrab/worktrees/</code> and an orphan entry in
+<code>.git/worktrees/</code>.
+:func:<code><a title="bitrab.git_worktree.prune_worktrees" href="#bitrab.git_worktree.prune_worktrees">prune_worktrees()</a></code> plus <code>git worktree prune</code> is how
+we recover.</p>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="bitrab.git_worktree.can_use_worktrees"><code class="name flex">
+<span>def <span class="ident">can_use_worktrees</span></span>(<span>project_dir: Path) ‑> bool</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def can_use_worktrees(project_dir: Path) -&gt; bool:
+    &#34;&#34;&#34;Return True iff git is available and *project_dir* is a git repo.&#34;&#34;&#34;
+    return is_git_available() and is_git_repo(project_dir)</code></pre>
+</details>
+<div class="desc"><p>Return True iff git is available and <em>project_dir</em> is a git repo.</p></div>
+</dd>
+<dt id="bitrab.git_worktree.create_worktree"><code class="name flex">
+<span>def <span class="ident">create_worktree</span></span>(<span>project_dir: Path, name: str, root: Path | None = None) ‑> <a title="bitrab.git_worktree.WorktreeContext" href="#bitrab.git_worktree.WorktreeContext">WorktreeContext</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def create_worktree(project_dir: Path, name: str, root: Path | None = None) -&gt; WorktreeContext:
+    &#34;&#34;&#34;Create a detached-HEAD worktree for *project_dir* at the configured path.
+
+    The worktree is created with ``--detach`` so we do not pollute the branch
+    namespace.  If a worktree already exists at the target path (left over from
+    a previous crashed run) it is removed first.
+    &#34;&#34;&#34;
+    target = worktree_path_for(project_dir, name, root=root)
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    # If something is already there, tear it down — a stale entry would make
+    # `git worktree add` fail.  We try git first (so the metadata is cleaned),
+    # then fall back to a plain directory removal.
+    if target.exists():
+        _run_git([&#34;worktree&#34;, &#34;remove&#34;, &#34;--force&#34;, str(target)], cwd=project_dir)
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+    # Prune dangling metadata in case a previous run left orphans behind.
+    _run_git([&#34;worktree&#34;, &#34;prune&#34;], cwd=project_dir)
+
+    result = _run_git(
+        [&#34;worktree&#34;, &#34;add&#34;, &#34;--detach&#34;, str(target)],
+        cwd=project_dir,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f&#34;git worktree add failed for {target}: {result.stderr.strip() or result.stdout.strip()}&#34;)
+    return WorktreeContext(worktree_path=target, project_dir=project_dir)</code></pre>
+</details>
+<div class="desc"><p>Create a detached-HEAD worktree for <em>project_dir</em> at the configured path.</p>
+<p>The worktree is created with <code>--detach</code> so we do not pollute the branch
+namespace.
+If a worktree already exists at the target path (left over from
+a previous crashed run) it is removed first.</p></div>
+</dd>
+<dt id="bitrab.git_worktree.is_git_available"><code class="name flex">
+<span>def <span class="ident">is_git_available</span></span>(<span>) ‑> bool</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_git_available() -&gt; bool:
+    &#34;&#34;&#34;Return True if the ``git`` executable is on PATH.&#34;&#34;&#34;
+    return shutil.which(&#34;git&#34;) is not None</code></pre>
+</details>
+<div class="desc"><p>Return True if the <code>git</code> executable is on PATH.</p></div>
+</dd>
+<dt id="bitrab.git_worktree.is_git_repo"><code class="name flex">
+<span>def <span class="ident">is_git_repo</span></span>(<span>project_dir: Path) ‑> bool</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_git_repo(project_dir: Path) -&gt; bool:
+    &#34;&#34;&#34;Return True if *project_dir* lives inside a git working copy.&#34;&#34;&#34;
+    if not is_git_available():
+        return False
+    try:
+        result = _run_git([&#34;rev-parse&#34;, &#34;--is-inside-work-tree&#34;], cwd=project_dir)
+    except (OSError, FileNotFoundError):
+        return False
+    return result.returncode == 0 and result.stdout.strip() == &#34;true&#34;</code></pre>
+</details>
+<div class="desc"><p>Return True if <em>project_dir</em> lives inside a git working copy.</p></div>
+</dd>
+<dt id="bitrab.git_worktree.is_repo_dirty"><code class="name flex">
+<span>def <span class="ident">is_repo_dirty</span></span>(<span>project_dir: Path) ‑> bool</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_repo_dirty(project_dir: Path) -&gt; bool:
+    &#34;&#34;&#34;Return True if the repo has uncommitted changes or untracked files.
+
+    Worktrees check out HEAD, so dirty working-tree changes are not present in
+    the worktree.  Callers should warn the user before running in parallel mode.
+    &#34;&#34;&#34;
+    if not can_use_worktrees(project_dir):
+        return False
+    result = _run_git([&#34;status&#34;, &#34;--porcelain&#34;], cwd=project_dir)
+    return result.returncode == 0 and bool(result.stdout.strip())</code></pre>
+</details>
+<div class="desc"><p>Return True if the repo has uncommitted changes or untracked files.</p>
+<p>Worktrees check out HEAD, so dirty working-tree changes are not present in
+the worktree.
+Callers should warn the user before running in parallel mode.</p></div>
+</dd>
+<dt id="bitrab.git_worktree.job_worktree"><code class="name flex">
+<span>def <span class="ident">job_worktree</span></span>(<span>project_dir: Path, name: str, root: Path | None = None) ‑> Iterator[pathlib.Path]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@contextmanager
+def job_worktree(project_dir: Path, name: str, root: Path | None = None) -&gt; Iterator[Path]:
+    &#34;&#34;&#34;Context manager: create a worktree, yield its path, always remove it.&#34;&#34;&#34;
+    ctx = create_worktree(project_dir, name, root=root)
+    try:
+        yield ctx.worktree_path
+    finally:
+        remove_worktree(ctx)</code></pre>
+</details>
+<div class="desc"><p>Context manager: create a worktree, yield its path, always remove it.</p></div>
+</dd>
+<dt id="bitrab.git_worktree.prune_worktrees"><code class="name flex">
+<span>def <span class="ident">prune_worktrees</span></span>(<span>project_dir: Path, root: Path | None = None) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def prune_worktrees(project_dir: Path, root: Path | None = None) -&gt; None:
+    &#34;&#34;&#34;Best-effort cleanup: run ``git worktree prune`` and remove the root dir.
+
+    Called by ``bitrab folder clean``.  Safe to run when no worktrees exist.
+    &#34;&#34;&#34;
+    if is_git_repo(project_dir):
+        _run_git([&#34;worktree&#34;, &#34;prune&#34;], cwd=project_dir)
+    resolved_root = worktree_root(project_dir, root=root)
+    if resolved_root.exists():
+        shutil.rmtree(resolved_root, ignore_errors=True)</code></pre>
+</details>
+<div class="desc"><p>Best-effort cleanup: run <code>git worktree prune</code> and remove the root dir.</p>
+<p>Called by <code><a title="bitrab" href="index.html">bitrab</a> folder clean</code>.
+Safe to run when no worktrees exist.</p></div>
+</dd>
+<dt id="bitrab.git_worktree.remove_worktree"><code class="name flex">
+<span>def <span class="ident">remove_worktree</span></span>(<span>ctx: <a title="bitrab.git_worktree.WorktreeContext" href="#bitrab.git_worktree.WorktreeContext">WorktreeContext</a>) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def remove_worktree(ctx: WorktreeContext) -&gt; None:
+    &#34;&#34;&#34;Tear down a worktree, ignoring the usual &#39;already gone&#39; errors.
+
+    We run ``git worktree remove --force`` first so the metadata under
+    ``.git/worktrees`` is cleaned; then we ``shutil.rmtree`` as a belt-and-
+    braces step in case git left artifacts behind (happens occasionally on
+    Windows when a subprocess still holds a handle).
+    &#34;&#34;&#34;
+    _run_git(
+        [&#34;worktree&#34;, &#34;remove&#34;, &#34;--force&#34;, str(ctx.worktree_path)],
+        cwd=ctx.project_dir,
+    )
+    if ctx.worktree_path.exists():
+        shutil.rmtree(ctx.worktree_path, ignore_errors=True)</code></pre>
+</details>
+<div class="desc"><p>Tear down a worktree, ignoring the usual 'already gone' errors.</p>
+<p>We run <code>git worktree remove --force</code> first so the metadata under
+<code>.git/worktrees</code> is cleaned; then we <code>shutil.rmtree</code> as a belt-and-
+braces step in case git left artifacts behind (happens occasionally on
+Windows when a subprocess still holds a handle).</p></div>
+</dd>
+<dt id="bitrab.git_worktree.worktree_path_for"><code class="name flex">
+<span>def <span class="ident">worktree_path_for</span></span>(<span>project_dir: Path, name: str, root: Path | None = None) ‑> pathlib.Path</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def worktree_path_for(project_dir: Path, name: str, root: Path | None = None) -&gt; Path:
+    &#34;&#34;&#34;Compute the worktree directory for a job name (without creating it).&#34;&#34;&#34;
+    return worktree_root(project_dir, root=root) / _sanitize_name(name)</code></pre>
+</details>
+<div class="desc"><p>Compute the worktree directory for a job name (without creating it).</p></div>
+</dd>
+<dt id="bitrab.git_worktree.worktree_root"><code class="name flex">
+<span>def <span class="ident">worktree_root</span></span>(<span>project_dir: Path, root: Path | None = None) ‑> pathlib.Path</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def worktree_root(project_dir: Path, root: Path | None = None) -&gt; Path:
+    &#34;&#34;&#34;Directory that holds all per-job worktrees.&#34;&#34;&#34;
+    return root if root is not None else project_dir / _WORKTREES_SUBDIR</code></pre>
+</details>
+<div class="desc"><p>Directory that holds all per-job worktrees.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="bitrab.git_worktree.WorktreeContext"><code class="flex name class">
+<span>class <span class="ident">WorktreeContext</span></span>
+<span>(</span><span>worktree_path: Path, project_dir: Path)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass(frozen=True)
+class WorktreeContext:
+    &#34;&#34;&#34;Paths describing a live worktree checkout.&#34;&#34;&#34;
+
+    worktree_path: Path
+    project_dir: Path</code></pre>
+</details>
+<div class="desc"><p>Paths describing a live worktree checkout.</p></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.git_worktree.WorktreeContext.project_dir"><code class="name">var <span class="ident">project_dir</span> : pathlib.Path</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.git_worktree.WorktreeContext.worktree_path"><code class="name">var <span class="ident">worktree_path</span> : pathlib.Path</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="bitrab" href="index.html">bitrab</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="bitrab.git_worktree.can_use_worktrees" href="#bitrab.git_worktree.can_use_worktrees">can_use_worktrees</a></code></li>
+<li><code><a title="bitrab.git_worktree.create_worktree" href="#bitrab.git_worktree.create_worktree">create_worktree</a></code></li>
+<li><code><a title="bitrab.git_worktree.is_git_available" href="#bitrab.git_worktree.is_git_available">is_git_available</a></code></li>
+<li><code><a title="bitrab.git_worktree.is_git_repo" href="#bitrab.git_worktree.is_git_repo">is_git_repo</a></code></li>
+<li><code><a title="bitrab.git_worktree.is_repo_dirty" href="#bitrab.git_worktree.is_repo_dirty">is_repo_dirty</a></code></li>
+<li><code><a title="bitrab.git_worktree.job_worktree" href="#bitrab.git_worktree.job_worktree">job_worktree</a></code></li>
+<li><code><a title="bitrab.git_worktree.prune_worktrees" href="#bitrab.git_worktree.prune_worktrees">prune_worktrees</a></code></li>
+<li><code><a title="bitrab.git_worktree.remove_worktree" href="#bitrab.git_worktree.remove_worktree">remove_worktree</a></code></li>
+<li><code><a title="bitrab.git_worktree.worktree_path_for" href="#bitrab.git_worktree.worktree_path_for">worktree_path_for</a></code></li>
+<li><code><a title="bitrab.git_worktree.worktree_root" href="#bitrab.git_worktree.worktree_root">worktree_root</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="bitrab.git_worktree.WorktreeContext" href="#bitrab.git_worktree.WorktreeContext">WorktreeContext</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.git_worktree.WorktreeContext.project_dir" href="#bitrab.git_worktree.WorktreeContext.project_dir">project_dir</a></code></li>
+<li><code><a title="bitrab.git_worktree.WorktreeContext.worktree_path" href="#bitrab.git_worktree.WorktreeContext.worktree_path">worktree_path</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.6</a>.</p>
+</footer>
+</body>
+</html>

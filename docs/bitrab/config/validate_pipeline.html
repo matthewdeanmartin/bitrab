@@ -194,7 +194,7 @@ el.replaceWith(d);
 
     def get_schema(self) -&gt; dict[str, Any]:
         &#34;&#34;&#34;
-        Get the GitLab CI schema, trying URL first, then cache, then fallback.
+        Get the GitLab CI schema, trying file cache, then bundled package schema, then URL.
 
         Returns:
             Schema dictionary.
@@ -213,18 +213,18 @@ el.replaceWith(d);
             _SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
-        # Try to fetch from URL first
+        # Use bundled package schema before hitting the network
+        schema = self._load_fallback_schema()
+        if schema:
+            logger.debug(&#34;Using gitlab schema from package&#34;)
+            _SCHEMA_CACHE[self.cache_file] = schema
+            return schema
+
+        # Fall back to fetching from URL
         schema = self._fetch_schema_from_url()
         if schema:
             logger.debug(&#34;Using schema from URL&#34;)
             self._save_schema_to_cache(schema)
-            _SCHEMA_CACHE[self.cache_file] = schema
-            return schema
-
-        # Fall back to package resource
-        schema = self._load_fallback_schema()
-        if schema:
-            logger.debug(&#34;Using gitlab schema from package&#34;)
             _SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
@@ -305,7 +305,7 @@ el.replaceWith(d);
 </summary>
 <pre><code class="python">def get_schema(self) -&gt; dict[str, Any]:
     &#34;&#34;&#34;
-    Get the GitLab CI schema, trying URL first, then cache, then fallback.
+    Get the GitLab CI schema, trying file cache, then bundled package schema, then URL.
 
     Returns:
         Schema dictionary.
@@ -324,7 +324,14 @@ el.replaceWith(d);
         _SCHEMA_CACHE[self.cache_file] = schema
         return schema
 
-    # Try to fetch from URL first
+    # Use bundled package schema before hitting the network
+    schema = self._load_fallback_schema()
+    if schema:
+        logger.debug(&#34;Using gitlab schema from package&#34;)
+        _SCHEMA_CACHE[self.cache_file] = schema
+        return schema
+
+    # Fall back to fetching from URL
     schema = self._fetch_schema_from_url()
     if schema:
         logger.debug(&#34;Using schema from URL&#34;)
@@ -332,16 +339,9 @@ el.replaceWith(d);
         _SCHEMA_CACHE[self.cache_file] = schema
         return schema
 
-    # Fall back to package resource
-    schema = self._load_fallback_schema()
-    if schema:
-        logger.debug(&#34;Using gitlab schema from package&#34;)
-        _SCHEMA_CACHE[self.cache_file] = schema
-        return schema
-
     raise RuntimeError(&#34;Could not load schema from URL, cache, or fallback resource&#34;)</code></pre>
 </details>
-<div class="desc"><p>Get the GitLab CI schema, trying URL first, then cache, then fallback.</p>
+<div class="desc"><p>Get the GitLab CI schema, trying file cache, then bundled package schema, then URL.</p>
 <h2 id="returns">Returns</h2>
 <p>Schema dictionary.</p>
 <h2 id="raises">Raises</h2>

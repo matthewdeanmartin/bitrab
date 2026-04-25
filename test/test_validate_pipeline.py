@@ -70,21 +70,21 @@ def test_get_schema_order(validator, mock_schema):
     with patch.object(validator, "_load_schema_from_cache", return_value=mock_schema):
         assert validator.get_schema() == mock_schema
 
-    # 2. Test URL fetch hit (cache miss)
+    # 2. Test bundled package schema hit (cache miss)
     with patch.object(validator, "_load_schema_from_cache", return_value=None):
-        with patch.object(validator, "_fetch_schema_from_url", return_value=mock_schema):
-            with patch.object(validator, "_save_schema_to_cache") as mock_save:
-                # Actually validator.get_schema is decorated with @cache (which is lru_cache(maxsize=None))
-                # We need to clear the cache for each test call if we want to test the logic again.
+        with patch.object(validator, "_load_fallback_schema", return_value=mock_schema):
+            with patch.object(validator, "_fetch_schema_from_url") as mock_fetch:
                 validator.get_schema.cache_clear()
                 assert validator.get_schema() == mock_schema
-                mock_save.assert_called_once_with(mock_schema)
-    # 3. Test fallback hit (cache and URL miss)
+                mock_fetch.assert_not_called()
+    # 3. Test URL fetch hit (cache and package schema miss)
     with patch.object(validator, "_load_schema_from_cache", return_value=None):
-        with patch.object(validator, "_fetch_schema_from_url", return_value=None):
-            with patch.object(validator, "_load_fallback_schema", return_value=mock_schema):
-                validator.get_schema.cache_clear()
-                assert validator.get_schema() == mock_schema
+        with patch.object(validator, "_load_fallback_schema", return_value=None):
+            with patch.object(validator, "_fetch_schema_from_url", return_value=mock_schema):
+                with patch.object(validator, "_save_schema_to_cache") as mock_save:
+                    validator.get_schema.cache_clear()
+                    assert validator.get_schema() == mock_schema
+                    mock_save.assert_called_once_with(mock_schema)
 
 
 def test_get_schema_all_fail(validator):

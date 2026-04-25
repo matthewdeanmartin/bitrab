@@ -95,15 +95,29 @@ on demand by :func:<code><a title="bitrab.folder.scan_folder" href="#bitrab.fold
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def clean_all(project_dir: Path) -&gt; int:
-    &#34;&#34;&#34;Delete everything under ``.bitrab/``. Returns bytes freed.&#34;&#34;&#34;
+    &#34;&#34;&#34;Delete everything under ``.bitrab/``. Returns bytes freed.
+
+    Also prunes git&#39;s worktree metadata so stale entries under
+    ``.git/worktrees/`` don&#39;t linger after the directory is removed.
+    &#34;&#34;&#34;
     bd = bitrab_dir(project_dir)
     if not bd.exists():
         return 0
     freed = _dir_size_bytes(bd)
-    shutil.rmtree(bd)
+    # Prune git metadata first so it doesn&#39;t complain about missing dirs.
+    try:
+        from bitrab.git_worktree import prune_worktrees
+
+        prune_worktrees(project_dir)
+    except OSError as exc:
+        print(f&#34;⚠️ Failed to prune bitrab worktrees: {exc}&#34;, file=sys.stderr)
+    if bd.exists():
+        shutil.rmtree(bd)
     return freed</code></pre>
 </details>
-<div class="desc"><p>Delete everything under <code>.bitrab/</code>. Returns bytes freed.</p></div>
+<div class="desc"><p>Delete everything under <code>.bitrab/</code>. Returns bytes freed.</p>
+<p>Also prunes git's worktree metadata so stale entries under
+<code>.git/worktrees/</code> don't linger after the directory is removed.</p></div>
 </dd>
 <dt id="bitrab.folder.clean_artifacts"><code class="name flex">
 <span>def <span class="ident">clean_artifacts</span></span>(<span>project_dir: Path) ‑> int</span>
@@ -133,21 +147,30 @@ on demand by :func:<code><a title="bitrab.folder.scan_folder" href="#bitrab.fold
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def clean_job_dirs(project_dir: Path) -&gt; int:
-    &#34;&#34;&#34;Delete all job working directories (not logs or artifacts). Returns bytes freed.&#34;&#34;&#34;
+    &#34;&#34;&#34;Delete all job working directories (not logs, artifacts, or worktrees).
+
+    Returns bytes freed.  Worktrees are handled separately by
+    :func:`clean_worktrees` because they carry git metadata that must be pruned
+    through ``git worktree prune`` in addition to ``rmtree``.
+    &#34;&#34;&#34;
     bd = bitrab_dir(project_dir)
     if not bd.exists():
         return 0
     freed = 0
     try:
         for entry in os.scandir(bd):
-            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR):
+            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR, _WORKTREES_DIR):
                 freed += _dir_size_bytes(Path(entry.path))
                 shutil.rmtree(entry.path)
     except OSError:
         pass
     return freed</code></pre>
 </details>
-<div class="desc"><p>Delete all job working directories (not logs or artifacts). Returns bytes freed.</p></div>
+<div class="desc"><p>Delete all job working directories (not logs, artifacts, or worktrees).</p>
+<p>Returns bytes freed.
+Worktrees are handled separately by
+:func:<code><a title="bitrab.folder.clean_worktrees" href="#bitrab.folder.clean_worktrees">clean_worktrees()</a></code> because they carry git metadata that must be pruned
+through <code>git worktree prune</code> in addition to <code>rmtree</code>.</p></div>
 </dd>
 <dt id="bitrab.folder.clean_logs"><code class="name flex">
 <span>def <span class="ident">clean_logs</span></span>(<span>project_dir: Path) ‑> int</span>
@@ -167,6 +190,35 @@ on demand by :func:<code><a title="bitrab.folder.scan_folder" href="#bitrab.fold
     return freed</code></pre>
 </details>
 <div class="desc"><p>Delete <code>.bitrab/logs/</code>. Returns bytes freed.</p></div>
+</dd>
+<dt id="bitrab.folder.clean_worktrees"><code class="name flex">
+<span>def <span class="ident">clean_worktrees</span></span>(<span>project_dir: Path) ‑> int</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def clean_worktrees(project_dir: Path) -&gt; int:
+    &#34;&#34;&#34;Delete ``.bitrab/worktrees/`` and prune git&#39;s worktree metadata.
+
+    Returns bytes freed.  Safe to run when no worktrees exist or when the
+    project isn&#39;t a git repo — both checks are handled inside
+    :func:`bitrab.git_worktree.prune_worktrees`.
+    &#34;&#34;&#34;
+    from bitrab.git_worktree import prune_worktrees, worktree_root
+    from bitrab.mutation import load_worktree_config
+
+    wt_root = worktree_root(project_dir, root=load_worktree_config(project_dir).root)
+    freed = _dir_size_bytes(wt_root) if wt_root.exists() else 0
+    prune_worktrees(project_dir, root=wt_root)
+    return freed</code></pre>
+</details>
+<div class="desc"><p>Delete <code>.bitrab/worktrees/</code> and prune git's worktree metadata.</p>
+<p>Returns bytes freed.
+Safe to run when no worktrees exist or when the
+project isn't a git repo — both checks are handled inside
+:func:<code><a title="bitrab.git_worktree.prune_worktrees" href="git_worktree.html#bitrab.git_worktree.prune_worktrees">prune_worktrees()</a></code>.</p></div>
 </dd>
 <dt id="bitrab.folder.list_runs"><code class="name flex">
 <span>def <span class="ident">list_runs</span></span>(<span>project_dir: Path) ‑> list[<a title="bitrab.folder.RunRecord" href="#bitrab.folder.RunRecord">RunRecord</a>]</span>
@@ -300,12 +352,14 @@ on demand by :func:<code><a title="bitrab.folder.scan_folder" href="#bitrab.fold
     logs_bytes = _dir_size_bytes(logs_path) if logs_path.exists() else 0
     artifact_bytes = _dir_size_bytes(artifacts_path) if artifacts_path.exists() else 0
 
-    # Job dirs = everything that isn&#39;t logs/ or artifacts/
+    # Job dirs = everything that isn&#39;t logs/, artifacts/, or worktrees/.
+    # Worktrees are transient and tracked by git metadata, so they don&#39;t count
+    # toward the &#34;job dirs&#34; total — any leftovers are cleaned by clean_worktrees.
     job_bytes = 0
     subdirs: list[str] = []
     try:
         for entry in os.scandir(bd):
-            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR):
+            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR, _WORKTREES_DIR):
                 job_bytes += _dir_size_bytes(Path(entry.path))
                 subdirs.append(entry.name)
     except OSError:
@@ -717,6 +771,7 @@ def started_at_iso(self) -&gt; str:
 <li><code><a title="bitrab.folder.clean_artifacts" href="#bitrab.folder.clean_artifacts">clean_artifacts</a></code></li>
 <li><code><a title="bitrab.folder.clean_job_dirs" href="#bitrab.folder.clean_job_dirs">clean_job_dirs</a></code></li>
 <li><code><a title="bitrab.folder.clean_logs" href="#bitrab.folder.clean_logs">clean_logs</a></code></li>
+<li><code><a title="bitrab.folder.clean_worktrees" href="#bitrab.folder.clean_worktrees">clean_worktrees</a></code></li>
 <li><code><a title="bitrab.folder.list_runs" href="#bitrab.folder.list_runs">list_runs</a></code></li>
 <li><code><a title="bitrab.folder.maybe_warn_size" href="#bitrab.folder.maybe_warn_size">maybe_warn_size</a></code></li>
 <li><code><a title="bitrab.folder.prune_runs" href="#bitrab.folder.prune_runs">prune_runs</a></code></li>

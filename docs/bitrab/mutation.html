@@ -122,6 +122,64 @@ section is absent.</p></div>
 <p>Returns the default (process) config if <code>pyproject.toml</code> is missing or
 the section is absent.</p></div>
 </dd>
+<dt id="bitrab.mutation.load_serial_config"><code class="name flex">
+<span>def <span class="ident">load_serial_config</span></span>(<span>project_dir: Path) ‑> <a title="bitrab.mutation.SerialConfig" href="#bitrab.mutation.SerialConfig">SerialConfig</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_serial_config(project_dir: Path) -&gt; SerialConfig:
+    &#34;&#34;&#34;Read ``[tool.bitrab]`` from ``pyproject.toml`` and return serial config.&#34;&#34;&#34;
+    pyproject = project_dir / &#34;pyproject.toml&#34;
+    if not pyproject.exists():
+        return SerialConfig()
+
+    data = _load_toml(pyproject)
+    bitrab_section: dict[str, Any] = data.get(&#34;tool&#34;, {}).get(&#34;bitrab&#34;, {})
+    enabled = bool(bitrab_section.get(&#34;serial&#34;, False))
+    return SerialConfig(enabled=enabled)</code></pre>
+</details>
+<div class="desc"><p>Read <code>[tool.bitrab]</code> from <code>pyproject.toml</code> and return serial config.</p></div>
+</dd>
+<dt id="bitrab.mutation.load_worktree_config"><code class="name flex">
+<span>def <span class="ident">load_worktree_config</span></span>(<span>project_dir: Path) ‑> <a title="bitrab.mutation.WorktreeConfig" href="#bitrab.mutation.WorktreeConfig">WorktreeConfig</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_worktree_config(project_dir: Path) -&gt; WorktreeConfig:
+    &#34;&#34;&#34;Read ``[tool.bitrab]`` from ``pyproject.toml`` and return worktree config.
+
+    The default is *enabled* — the whole point of bitrab&#39;s parallel story is
+    speed, and worktrees are what keep parallel jobs from fighting.  Users can
+    opt out via ``use_git_worktrees = false`` and may relocate scratch
+    worktrees with ``worktree_root = &#34;...&#34;``.
+    &#34;&#34;&#34;
+    pyproject = project_dir / &#34;pyproject.toml&#34;
+    if not pyproject.exists():
+        return WorktreeConfig()
+
+    data = _load_toml(pyproject)
+    bitrab_section: dict[str, Any] = data.get(&#34;tool&#34;, {}).get(&#34;bitrab&#34;, {})
+    enabled = bool(bitrab_section.get(&#34;use_git_worktrees&#34;, True))
+    root_value = bitrab_section.get(&#34;worktree_root&#34;)
+    root: Path | None = None
+    if root_value is not None:
+        expanded = Path(os.path.expandvars(os.path.expanduser(str(root_value))))
+        root = expanded if expanded.is_absolute() else project_dir / expanded
+    return WorktreeConfig(enabled=enabled, root=root)</code></pre>
+</details>
+<div class="desc"><p>Read <code>[tool.bitrab]</code> from <code>pyproject.toml</code> and return worktree config.</p>
+<p>The default is <em>enabled</em> — the whole point of bitrab's parallel story is
+speed, and worktrees are what keep parallel jobs from fighting.
+Users can
+opt out via <code>use_git_worktrees = false</code> and may relocate scratch
+worktrees with <code>worktree_root = "..."</code>.</p></div>
+</dd>
 </dl>
 </section>
 <section>
@@ -320,6 +378,96 @@ but subject to the GIL for CPU-bound work).</dd>
 </dd>
 </dl>
 </dd>
+<dt id="bitrab.mutation.SerialConfig"><code class="flex name class">
+<span>class <span class="ident">SerialConfig</span></span>
+<span>(</span><span>enabled: bool = False)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class SerialConfig:
+    &#34;&#34;&#34;Force every job to run one-at-a-time in the project root.
+
+    For formatters / autofixers / codegen that *want* to mutate the real tree
+    (``ruff format``, ``isort .``, ``pre-commit run --all-files``), worktrees
+    are the wrong tool — the changes need to land in the actual working copy,
+    not in a throwaway checkout.  Setting ``enabled = True`` pins
+    ``maximum_degree_of_parallelism`` to 1 and disables worktrees for the run.
+    &#34;&#34;&#34;
+
+    enabled: bool = False</code></pre>
+</details>
+<div class="desc"><p>Force every job to run one-at-a-time in the project root.</p>
+<p>For formatters / autofixers / codegen that <em>want</em> to mutate the real tree
+(<code>ruff format</code>, <code>isort .</code>, <code>pre-commit run --all-files</code>), worktrees
+are the wrong tool — the changes need to land in the actual working copy,
+not in a throwaway checkout.
+Setting <code>enabled = True</code> pins
+<code>maximum_degree_of_parallelism</code> to 1 and disables worktrees for the run.</p></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.mutation.SerialConfig.enabled"><code class="name">var <span class="ident">enabled</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="bitrab.mutation.WorktreeConfig"><code class="flex name class">
+<span>class <span class="ident">WorktreeConfig</span></span>
+<span>(</span><span>enabled: bool = True, root: Path | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass
+class WorktreeConfig:
+    &#34;&#34;&#34;Configuration for per-job git-worktree isolation.
+
+    Attributes:
+        enabled: If True (default) and the project is a git repo, each
+            parallel job runs inside its own detached-HEAD worktree under
+            ``.bitrab/worktrees/&lt;job&gt;/`` by default. Serial execution never
+            creates worktrees — there is no parallel conflict to avoid.
+            Outside of a git repo the feature is a silent no-op.
+        root: Optional override for the directory that holds per-job
+            worktrees. ``~`` and environment variables are expanded, and
+            relative paths are resolved from the project root.
+    &#34;&#34;&#34;
+
+    enabled: bool = True
+    root: Path | None = None</code></pre>
+</details>
+<div class="desc"><p>Configuration for per-job git-worktree isolation.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>enabled</code></strong></dt>
+<dd>If True (default) and the project is a git repo, each
+parallel job runs inside its own detached-HEAD worktree under
+<code>.bitrab/worktrees/&lt;job&gt;/</code> by default. Serial execution never
+creates worktrees — there is no parallel conflict to avoid.
+Outside of a git repo the feature is a silent no-op.</dd>
+<dt><strong><code>root</code></strong></dt>
+<dd>Optional override for the directory that holds per-job
+worktrees. <code>~</code> and environment variables are expanded, and
+relative paths are resolved from the project root.</dd>
+</dl></div>
+<h3>Instance variables</h3>
+<dl>
+<dt id="bitrab.mutation.WorktreeConfig.enabled"><code class="name">var <span class="ident">enabled</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+<dt id="bitrab.mutation.WorktreeConfig.root"><code class="name">var <span class="ident">root</span> : pathlib.Path | None</code></dt>
+<dd>
+<div class="desc"><p>The type of the None singleton.</p></div>
+</dd>
+</dl>
+</dd>
 </dl>
 </section>
 </article>
@@ -337,6 +485,8 @@ but subject to the GIL for CPU-bound work).</dd>
 <ul class="">
 <li><code><a title="bitrab.mutation.load_mutation_config" href="#bitrab.mutation.load_mutation_config">load_mutation_config</a></code></li>
 <li><code><a title="bitrab.mutation.load_parallel_config" href="#bitrab.mutation.load_parallel_config">load_parallel_config</a></code></li>
+<li><code><a title="bitrab.mutation.load_serial_config" href="#bitrab.mutation.load_serial_config">load_serial_config</a></code></li>
+<li><code><a title="bitrab.mutation.load_worktree_config" href="#bitrab.mutation.load_worktree_config">load_worktree_config</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -362,6 +512,19 @@ but subject to the GIL for CPU-bound work).</dd>
 <h4><code><a title="bitrab.mutation.ParallelBackendConfig" href="#bitrab.mutation.ParallelBackendConfig">ParallelBackendConfig</a></code></h4>
 <ul class="">
 <li><code><a title="bitrab.mutation.ParallelBackendConfig.backend" href="#bitrab.mutation.ParallelBackendConfig.backend">backend</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.mutation.SerialConfig" href="#bitrab.mutation.SerialConfig">SerialConfig</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.mutation.SerialConfig.enabled" href="#bitrab.mutation.SerialConfig.enabled">enabled</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="bitrab.mutation.WorktreeConfig" href="#bitrab.mutation.WorktreeConfig">WorktreeConfig</a></code></h4>
+<ul class="">
+<li><code><a title="bitrab.mutation.WorktreeConfig.enabled" href="#bitrab.mutation.WorktreeConfig.enabled">enabled</a></code></li>
+<li><code><a title="bitrab.mutation.WorktreeConfig.root" href="#bitrab.mutation.WorktreeConfig.root">root</a></code></li>
 </ul>
 </li>
 </ul>

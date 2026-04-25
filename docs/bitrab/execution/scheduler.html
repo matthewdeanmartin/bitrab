@@ -50,7 +50,7 @@ el.replaceWith(d);
 <dl>
 <dt id="bitrab.execution.scheduler.StageOrchestrator"><code class="flex name class">
 <span>class <span class="ident">StageOrchestrator</span></span>
-<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None)</span>
+<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None,<br>worktree_config: WorktreeConfig | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -71,6 +71,7 @@ el.replaceWith(d);
         dry_run: bool = False,
         mutation_config: MutationConfig | None = None,
         parallel_backend: ParallelBackendConfig | None = None,
+        worktree_config: WorktreeConfig | None = None,
     ) -&gt; None:
         self.job_executor = job_executor
         self._event_collector = EventCollector(inner=_StreamingCallbacks(dry_run=dry_run))
@@ -80,6 +81,7 @@ el.replaceWith(d);
             maximum_degree_of_parallelism=maximum_degree_of_parallelism,
             mutation_config=mutation_config,
             parallel_backend=parallel_backend,
+            worktree_config=worktree_config,
         )
 
     @property

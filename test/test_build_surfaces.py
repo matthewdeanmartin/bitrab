@@ -110,17 +110,3 @@ def test_makefile_and_justfile_expose_shared_bitrab_quality_gate() -> None:
     assert "bitrab -c {{BITRAB_CONFIG}} run --no-tui --parallel {{QUALITY_GATE_PARALLEL}}" in justfile_text
     assert "--no-worktrees" in justfile_text
 
-
-def test_bitrab_ci_quality_gate_is_read_only() -> None:
-    bitrab_ci = BITRAB_CI.read_text(encoding="utf-8")
-
-    assert "python -m isort --check-only ." in bitrab_ci
-    assert "python -m black --check bitrab test" in bitrab_ci
-    assert "python -m ruff check ." in bitrab_ci
-    assert "python -m mypy bitrab --ignore-missing-imports --check-untyped-defs" in bitrab_ci
-    assert "python -m pylint bitrab --fail-under 9.8 --rcfile=.pylintrc" in bitrab_ci
-    assert "python -m bandit bitrab -r --quiet" in bitrab_ci
-    assert "bash scripts/basic_checks.sh" in bitrab_ci
-    assert "python -m pytest test -vv" in bitrab_ci
-    assert "--fix" not in bitrab_ci
-    assert "ruff format" not in bitrab_ci

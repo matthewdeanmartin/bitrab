@@ -106,7 +106,7 @@ Callers customise behaviour via a
 <dl>
 <dt id="bitrab.execution.stage_runner.DagPipelineRunner"><code class="flex name class">
 <span>class <span class="ident">DagPipelineRunner</span></span>
-<span>(</span><span>job_executor: JobExecutor,<br>callbacks: <a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a> | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None)</span>
+<span>(</span><span>job_executor: JobExecutor,<br>callbacks: <a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a> | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None,<br>worktree_config: WorktreeConfig | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -129,6 +129,7 @@ Callers customise behaviour via a
         mp_ctx: Any = None,
         mutation_config: MutationConfig | None = None,
         parallel_backend: ParallelBackendConfig | None = None,
+        worktree_config: WorktreeConfig | None = None,
     ) -&gt; None:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
@@ -139,7 +140,18 @@ Callers customise behaviour via a
         self._mp_ctx = mp_ctx
         self._mutation_config = mutation_config or MutationConfig()
         self._parallel_backend = parallel_backend or ParallelBackendConfig()
+        self._worktree_config = worktree_config or WorktreeConfig()
+        self._worktrees_available: bool | None = None
         self._completed_jobs: list[str] = []
+
+    def _use_worktrees(self) -&gt; bool:
+        if not self._worktree_config.enabled:
+            return False
+        if self.job_executor.dry_run:
+            return False
+        if self._worktrees_available is None:
+            self._worktrees_available = can_use_worktrees(self.job_executor.project_dir)
+        return self._worktrees_available
 
     def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
         &#34;&#34;&#34;Run all jobs respecting DAG dependencies.&#34;&#34;&#34;
@@ -314,14 +326,15 @@ Callers customise behaviour via a
         outcomes: list[JobOutcome] = []
 
         _wf = cb.get_worker_func()
-        worker_func: WorkerFunc = _wf if _wf is not None else _default_worker
+        inner_worker: WorkerFunc = _wf if _wf is not None else _default_worker
+        use_worktrees = self._use_worktrees()
 
         with self._make_pool(min(self.maximum_degree_of_parallelism, len(jobs))) as pool:
             futures = {}
             for job in jobs:
                 job_dir = self._make_job_dir(job)
                 cb.on_job_start(job)
-                if not self.job_executor.dry_run:
+                if not self.job_executor.dry_run and not use_worktrees:
                     inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
                     dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
                     if dotenv_vars:
@@ -330,22 +343,37 @@ Callers customise behaviour via a
                         merged = {**dotenv_vars, **job.variables}
                         job = dataclasses.replace(job, variables=merged)
                 extra = cb.make_worker_args(job, job_dir)
-                fut = pool.submit(worker_func, job, self.job_executor, job_dir, **extra)
+                if use_worktrees:
+                    fut = pool.submit(
+                        _worktree_worker,
+                        job,
+                        self.job_executor,
+                        job_dir,
+                        _inner_worker=inner_worker,
+                        _project_dir=str(self.job_executor.project_dir),
+                        _worktree_root=(str(self._worktree_config.root) if self._worktree_config.root is not None else None),
+                        _completed_jobs=list(self._completed_jobs),
+                        **extra,
+                    )
+                else:
+                    fut = pool.submit(inner_worker, job, self.job_executor, job_dir, **extra)
                 futures[fut] = job
 
             pending = set(futures.keys())
             while pending:
                 cb.poll_during_parallel(futures)
-                done = {f for f in pending if f.done()}
+                done, pending = wait(pending, timeout=0.05, return_when=FIRST_COMPLETED)
                 if not done:
-                    time.sleep(0.05)
                     continue
                 for fut in done:
-                    pending.discard(fut)
                     job = futures[fut]
                     succeeded = True
                     try:
-                        history = fut.result()
+                        result = fut.result()
+                        if use_worktrees:
+                            history, _wt_path = result  # type: ignore[misc]
+                        else:
+                            history = result
                         self.job_executor.job_history.extend(history)
                         outcome = JobOutcome(job=job, success=True, history=history)
                     except BaseException as exc:
@@ -357,7 +385,7 @@ Callers customise behaviour via a
                             error=exc,
                             allowed_failure=allowed,
                         )
-                    if not self.job_executor.dry_run:
+                    if not self.job_executor.dry_run and not use_worktrees:
                         collect_artifacts(job, self.job_executor.project_dir, succeeded)
                         collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
                     self._completed_jobs.append(job.name)
@@ -900,7 +928,7 @@ or use a very short timeout.</p></div>
 </dd>
 <dt id="bitrab.execution.stage_runner.StagePipelineRunner"><code class="flex name class">
 <span>class <span class="ident">StagePipelineRunner</span></span>
-<span>(</span><span>job_executor: JobExecutor,<br>callbacks: <a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a> | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None)</span>
+<span>(</span><span>job_executor: JobExecutor,<br>callbacks: <a title="bitrab.execution.stage_runner.PipelineCallbacks" href="#bitrab.execution.stage_runner.PipelineCallbacks">PipelineCallbacks</a> | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None,<br>worktree_config: WorktreeConfig | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -923,6 +951,7 @@ or use a very short timeout.</p></div>
         mp_ctx: Any = None,
         mutation_config: MutationConfig | None = None,
         parallel_backend: ParallelBackendConfig | None = None,
+        worktree_config: WorktreeConfig | None = None,
     ) -&gt; None:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
@@ -936,8 +965,22 @@ or use a very short timeout.</p></div>
         self._mp_ctx = mp_ctx
         self._mutation_config = mutation_config or MutationConfig()
         self._parallel_backend = parallel_backend or ParallelBackendConfig()
+        self._worktree_config = worktree_config or WorktreeConfig()
+        # Cache the one-time &#34;is this repo worktree-capable?&#34; check so we
+        # don&#39;t shell out to git per job.
+        self._worktrees_available: bool | None = None
         # Tracks names of all jobs that have completed (for artifact injection)
         self._completed_jobs: list[str] = []
+
+    def _use_worktrees(self) -&gt; bool:
+        &#34;&#34;&#34;Return True if we should create per-job worktrees for parallel jobs.&#34;&#34;&#34;
+        if not self._worktree_config.enabled:
+            return False
+        if self.job_executor.dry_run:
+            return False
+        if self._worktrees_available is None:
+            self._worktrees_available = can_use_worktrees(self.job_executor.project_dir)
+        return self._worktrees_available
 
     def execute_pipeline(self, pipeline: PipelineConfig) -&gt; None:
         &#34;&#34;&#34;Run all stages sequentially; jobs within a stage run in parallel.
@@ -953,6 +996,7 @@ or use a very short timeout.</p></div>
                 mp_ctx=self._mp_ctx,
                 mutation_config=self._mutation_config,
                 parallel_backend=self._parallel_backend,
+                worktree_config=self._worktree_config,
             )
             dag_runner.execute_pipeline(pipeline)
             return
@@ -1087,14 +1131,18 @@ or use a very short timeout.</p></div>
         outcomes: list[JobOutcome] = []
 
         _wf = cb.get_worker_func()
-        worker_func: WorkerFunc = _wf if _wf is not None else _default_worker
+        inner_worker: WorkerFunc = _wf if _wf is not None else _default_worker
+        use_worktrees = self._use_worktrees()
 
         with self._make_pool(self.maximum_degree_of_parallelism) as pool:
             futures = {}
             for job in stage_jobs:
                 job_dir = self._make_job_dir(job)
                 cb.on_job_start(job)
-                if not self.job_executor.dry_run:
+                if not self.job_executor.dry_run and not use_worktrees:
+                    # Outside worktree mode, inject/collect bracket the outer
+                    # pool.submit.  Under worktrees, _worktree_worker handles
+                    # both inside the isolated checkout.
                     inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
                     # Bake upstream dotenv-report variables into this job&#39;s variables
                     # so they survive the process boundary.  Job-level variables win
@@ -1106,25 +1154,39 @@ or use a very short timeout.</p></div>
                         merged = {**dotenv_vars, **job.variables}
                         job = dataclasses.replace(job, variables=merged)
                 extra = cb.make_worker_args(job, job_dir)
-                fut = pool.submit(worker_func, job, self.job_executor, job_dir, **extra)
+
+                if use_worktrees:
+                    fut = pool.submit(
+                        _worktree_worker,
+                        job,
+                        self.job_executor,
+                        job_dir,
+                        _inner_worker=inner_worker,
+                        _project_dir=str(self.job_executor.project_dir),
+                        _worktree_root=(str(self._worktree_config.root) if self._worktree_config.root is not None else None),
+                        _completed_jobs=list(self._completed_jobs),
+                        **extra,
+                    )
+                else:
+                    fut = pool.submit(inner_worker, job, self.job_executor, job_dir, **extra)
                 futures[fut] = job
 
             # Poll while futures are running (allows TUI queue draining etc.)
             pending = set(futures.keys())
             while pending:
                 cb.poll_during_parallel(futures)
-                done = {f for f in pending if f.done()}
+                done, pending = wait(pending, timeout=0.05, return_when=FIRST_COMPLETED)
                 if not done:
-                    # Brief sleep to avoid busy-waiting; poll_during_parallel
-                    # may also use a short timeout internally.
-                    time.sleep(0.05)
                     continue
                 for fut in done:
-                    pending.discard(fut)
                     job = futures[fut]
                     succeeded = True
                     try:
-                        history = fut.result()
+                        result = fut.result()
+                        if use_worktrees:
+                            history, _wt_path = result  # type: ignore[misc]
+                        else:
+                            history = result
                         self.job_executor.job_history.extend(history)
                         outcome = JobOutcome(job=job, success=True, history=history)
                     except BaseException as exc:
@@ -1136,7 +1198,9 @@ or use a very short timeout.</p></div>
                             error=exc,
                             allowed_failure=allowed,
                         )
-                    if not self.job_executor.dry_run:
+                    if not self.job_executor.dry_run and not use_worktrees:
+                        # Under worktrees the worker already collected before tearing
+                        # the worktree down, including the failure path.
                         collect_artifacts(job, self.job_executor.project_dir, succeeded)
                         collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
                     self._completed_jobs.append(job.name)
@@ -1181,6 +1245,7 @@ or use a very short timeout.</p></div>
             mp_ctx=self._mp_ctx,
             mutation_config=self._mutation_config,
             parallel_backend=self._parallel_backend,
+            worktree_config=self._worktree_config,
         )
         dag_runner.execute_pipeline(pipeline)
         return

@@ -137,7 +137,7 @@ class GitLabCIValidator:
 
     def get_schema(self) -> dict[str, Any]:
         """
-        Get the GitLab CI schema, trying URL first, then cache, then fallback.
+        Get the GitLab CI schema, trying file cache, then bundled package schema, then URL.
 
         Returns:
             Schema dictionary.
@@ -156,18 +156,18 @@ class GitLabCIValidator:
             _SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
-        # Try to fetch from URL first
+        # Use bundled package schema before hitting the network
+        schema = self._load_fallback_schema()
+        if schema:
+            logger.debug("Using gitlab schema from package")
+            _SCHEMA_CACHE[self.cache_file] = schema
+            return schema
+
+        # Fall back to fetching from URL
         schema = self._fetch_schema_from_url()
         if schema:
             logger.debug("Using schema from URL")
             self._save_schema_to_cache(schema)
-            _SCHEMA_CACHE[self.cache_file] = schema
-            return schema
-
-        # Fall back to package resource
-        schema = self._load_fallback_schema()
-        if schema:
-            logger.debug("Using gitlab schema from package")
             _SCHEMA_CACHE[self.cache_file] = schema
             return schema
 

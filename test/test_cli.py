@@ -249,8 +249,6 @@ def test_resolve_config_path_falls_back_to_gitlab_ci(tmp_path, monkeypatch):
 def test_ensure_config_dependencies_idempotent():
     import bitrab.cli as cli_module
 
-    original_loader = cli_module.ConfigurationLoader
-    original_processor = cli_module.PipelineProcessor
     _ensure_config_dependencies()
     assert cli_module.ConfigurationLoader is not None
     assert cli_module.PipelineProcessor is not None

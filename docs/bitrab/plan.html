@@ -201,6 +201,8 @@ Returns None if value is None or empty.</p></div>
         job_filter: list[str] | None = None,
         stage_filter: list[str] | None = None,
         parallel_backend: str | None = None,
+        serial: bool | None = None,
+        use_worktrees: bool | None = None,
     ) -&gt; None:
         &#34;&#34;&#34;
         Run the complete pipeline.
@@ -214,6 +216,8 @@ Returns None if value is None or empty.</p></div>
             job_filter: If given, only run jobs whose names are in this list.
             stage_filter: If given, only run jobs whose stages are in this list.
             parallel_backend: Backend name (e.g., &#39;multiprocessing&#39;, &#39;threading&#39;, &#39;sequential&#39;).
+            serial: Run jobs one at a time, safe for mutating jobs.
+            use_worktrees: Use git to run all jobs in parallel even if some of them mutate the file system
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
@@ -254,7 +258,13 @@ Returns None if value is None or empty.</p></div>
 
         self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-        from bitrab.mutation import load_mutation_config, load_parallel_config
+        from bitrab.mutation import (
+            WorktreeConfig,
+            load_mutation_config,
+            load_parallel_config,
+            load_serial_config,
+            load_worktree_config,
+        )
 
         mutation_config = load_mutation_config(self.base_path)
         parallel_config = load_parallel_config(self.base_path)
@@ -262,6 +272,27 @@ Returns None if value is None or empty.</p></div>
             from bitrab.mutation import ParallelBackendConfig
 
             parallel_config = ParallelBackendConfig(backend=parallel_backend)
+
+        worktree_config = load_worktree_config(self.base_path)
+        if use_worktrees is not None:
+            worktree_config = WorktreeConfig(enabled=use_worktrees, root=worktree_config.root)
+
+        serial_config = load_serial_config(self.base_path)
+        serial_active = serial_config.enabled if serial is None else bool(serial)
+        if dry_run and not serial_active and parallel_backend is None and parallel_config.backend == &#34;process&#34;:
+            from bitrab.mutation import ParallelBackendConfig
+
+            # Dry runs never execute user scripts, so process isolation adds spawn
+            # cost without providing any safety benefit.
+            parallel_config = ParallelBackendConfig(backend=&#34;thread&#34;)
+        if serial_active:
+            # Pin degree of parallelism to 1 — one job at a time, shared cwd.
+            # Formatters / autofixers that mutate the real tree must run like
+            # this so their changes land in the working copy, not a throwaway
+            # worktree.
+            maximum_degree_of_parallelism = 1
+            worktree_config = WorktreeConfig(enabled=False, root=worktree_config.root)
+            safe_print(&#34;🔒 Serial mode: running one job at a time in the project root (worktrees disabled).&#34;)
 
         event_collector = None
         started_at = __import__(&#34;time&#34;).time()
@@ -274,6 +305,7 @@ Returns None if value is None or empty.</p></div>
                 maximum_degree_of_parallelism=maximum_degree_of_parallelism,
                 mutation_config=mutation_config,
                 parallel_backend=parallel_config,
+                worktree_config=worktree_config,
             )
             if use_tui:
                 from bitrab.tui.app import PipelineApp
@@ -292,6 +324,7 @@ Returns None if value is None or empty.</p></div>
                 dry_run=dry_run,
                 mutation_config=mutation_config,
                 parallel_backend=parallel_config,
+                worktree_config=worktree_config,
             )
             self.orchestrator.execute_pipeline(pipeline)
             event_collector = getattr(self.orchestrator, &#34;event_collector&#34;, None)
@@ -312,7 +345,7 @@ Returns None if value is None or empty.</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="bitrab.plan.LocalGitLabRunner.run_pipeline"><code class="name flex">
-<span>def <span class="ident">run_pipeline</span></span>(<span>self,<br>config_path: Path | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>use_tui: bool = False,<br>ci_mode: bool = False,<br>job_filter: list[str] | None = None,<br>stage_filter: list[str] | None = None,<br>parallel_backend: str | None = None) ‑> None</span>
+<span>def <span class="ident">run_pipeline</span></span>(<span>self,<br>config_path: Path | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>use_tui: bool = False,<br>ci_mode: bool = False,<br>job_filter: list[str] | None = None,<br>stage_filter: list[str] | None = None,<br>parallel_backend: str | None = None,<br>serial: bool | None = None,<br>use_worktrees: bool | None = None) ‑> None</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -329,6 +362,8 @@ Returns None if value is None or empty.</p></div>
     job_filter: list[str] | None = None,
     stage_filter: list[str] | None = None,
     parallel_backend: str | None = None,
+    serial: bool | None = None,
+    use_worktrees: bool | None = None,
 ) -&gt; None:
     &#34;&#34;&#34;
     Run the complete pipeline.
@@ -342,6 +377,8 @@ Returns None if value is None or empty.</p></div>
         job_filter: If given, only run jobs whose names are in this list.
         stage_filter: If given, only run jobs whose stages are in this list.
         parallel_backend: Backend name (e.g., &#39;multiprocessing&#39;, &#39;threading&#39;, &#39;sequential&#39;).
+        serial: Run jobs one at a time, safe for mutating jobs.
+        use_worktrees: Use git to run all jobs in parallel even if some of them mutate the file system
 
     Raises:
         GitLabCIError: If there is an error in the pipeline configuration.
@@ -382,7 +419,13 @@ Returns None if value is None or empty.</p></div>
 
     self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
 
-    from bitrab.mutation import load_mutation_config, load_parallel_config
+    from bitrab.mutation import (
+        WorktreeConfig,
+        load_mutation_config,
+        load_parallel_config,
+        load_serial_config,
+        load_worktree_config,
+    )
 
     mutation_config = load_mutation_config(self.base_path)
     parallel_config = load_parallel_config(self.base_path)
@@ -390,6 +433,27 @@ Returns None if value is None or empty.</p></div>
         from bitrab.mutation import ParallelBackendConfig
 
         parallel_config = ParallelBackendConfig(backend=parallel_backend)
+
+    worktree_config = load_worktree_config(self.base_path)
+    if use_worktrees is not None:
+        worktree_config = WorktreeConfig(enabled=use_worktrees, root=worktree_config.root)
+
+    serial_config = load_serial_config(self.base_path)
+    serial_active = serial_config.enabled if serial is None else bool(serial)
+    if dry_run and not serial_active and parallel_backend is None and parallel_config.backend == &#34;process&#34;:
+        from bitrab.mutation import ParallelBackendConfig
+
+        # Dry runs never execute user scripts, so process isolation adds spawn
+        # cost without providing any safety benefit.
+        parallel_config = ParallelBackendConfig(backend=&#34;thread&#34;)
+    if serial_active:
+        # Pin degree of parallelism to 1 — one job at a time, shared cwd.
+        # Formatters / autofixers that mutate the real tree must run like
+        # this so their changes land in the working copy, not a throwaway
+        # worktree.
+        maximum_degree_of_parallelism = 1
+        worktree_config = WorktreeConfig(enabled=False, root=worktree_config.root)
+        safe_print(&#34;🔒 Serial mode: running one job at a time in the project root (worktrees disabled).&#34;)
 
     event_collector = None
     started_at = __import__(&#34;time&#34;).time()
@@ -402,6 +466,7 @@ Returns None if value is None or empty.</p></div>
             maximum_degree_of_parallelism=maximum_degree_of_parallelism,
             mutation_config=mutation_config,
             parallel_backend=parallel_config,
+            worktree_config=worktree_config,
         )
         if use_tui:
             from bitrab.tui.app import PipelineApp
@@ -420,6 +485,7 @@ Returns None if value is None or empty.</p></div>
             dry_run=dry_run,
             mutation_config=mutation_config,
             parallel_backend=parallel_config,
+            worktree_config=worktree_config,
         )
         self.orchestrator.execute_pipeline(pipeline)
         event_collector = getattr(self.orchestrator, &#34;event_collector&#34;, None)
@@ -446,6 +512,10 @@ Returns None if value is None or empty.</p></div>
 <dd>If given, only run jobs whose stages are in this list.</dd>
 <dt><strong><code>parallel_backend</code></strong></dt>
 <dd>Backend name (e.g., 'multiprocessing', 'threading', 'sequential').</dd>
+<dt><strong><code>serial</code></strong></dt>
+<dd>Run jobs one at a time, safe for mutating jobs.</dd>
+<dt><strong><code>use_worktrees</code></strong></dt>
+<dd>Use git to run all jobs in parallel even if some of them mutate the file system</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>

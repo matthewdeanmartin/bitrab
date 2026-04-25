@@ -57,7 +57,7 @@ A tool for running GitLab CI pipelines locally.</p>
 </summary>
 <pre><code class="python">def cmd_clean(args: argparse.Namespace) -&gt; None:
     &#34;&#34;&#34;Clean up artifacts and temporary files in .bitrab/.&#34;&#34;&#34;
-    from bitrab.folder import clean_artifacts, clean_job_dirs, scan_folder
+    from bitrab.folder import clean_artifacts, clean_job_dirs, clean_worktrees, scan_folder
 
     project_dir = Path(args.config).parent if getattr(args, &#34;config&#34;, None) else Path.cwd()
     dry_run = getattr(args, &#34;dry_run&#34;, False)
@@ -74,6 +74,8 @@ A tool for running GitLab CI pipelines locally.</p>
             safe_print(f&#34;   artifacts  {summary.artifacts_human}&#34;)
         if what in (&#34;all&#34;, &#34;jobs&#34;):
             safe_print(f&#34;   job dirs   {summary.job_dirs_human}&#34;)
+        if what in (&#34;all&#34;, &#34;worktrees&#34;):
+            safe_print(&#34;   worktrees  (git worktree prune + .bitrab/worktrees/)&#34;)
         if what == &#34;all&#34;:
             safe_print(f&#34;   logs       {summary.logs_human}  ({summary.run_count} run(s))&#34;)
         safe_print(f&#34;   total      {summary.total_human}&#34;)
@@ -84,6 +86,8 @@ A tool for running GitLab CI pipelines locally.</p>
         freed += clean_artifacts(project_dir)
     if what in (&#34;all&#34;, &#34;jobs&#34;):
         freed += clean_job_dirs(project_dir)
+    if what in (&#34;all&#34;, &#34;worktrees&#34;):
+        freed += clean_worktrees(project_dir)
     if what == &#34;all&#34;:
         from bitrab.folder import clean_logs
 
@@ -396,6 +400,26 @@ A tool for running GitLab CI pipelines locally.</p>
         if args.dry_run:
             safe_print(&#34;🔎 Dry-run mode enabled — jobs will only report what would run and will succeed.&#34;)
 
+        # --serial forces one-job-at-a-time + no worktrees (for autofixers).
+        # --no-worktrees disables worktrees without forcing serial execution.
+        serial = getattr(args, &#34;serial&#34;, False) or None
+        no_worktrees = getattr(args, &#34;no_worktrees&#34;, False)
+        use_worktrees = False if no_worktrees else None
+
+        if not ci_mode and not serial and not no_worktrees:
+            from bitrab.git_worktree import is_repo_dirty
+
+            if is_repo_dirty(config_path.parent):
+                safe_print(
+                    &#34;⚠️  Your working tree has uncommitted changes.  Worktrees check out HEAD,\n   so those changes will NOT be visible to jobs running in parallel.\n&#34;,
+                    file=sys.stderr,
+                )
+                answer = input(&#34;   Run anyway in parallel (p), switch to serial (s), or quit (q)? [p/s/q]: &#34;).strip().lower()
+                if answer == &#34;q&#34;:
+                    sys.exit(0)
+                elif answer == &#34;s&#34;:
+                    serial = True
+
         runner.run_pipeline(
             config_path=config_path,
             maximum_degree_of_parallelism=args.parallel,
@@ -405,6 +429,8 @@ A tool for running GitLab CI pipelines locally.</p>
             job_filter=job_filter,
             stage_filter=stage_filter,
             parallel_backend=getattr(args, &#34;parallel_backend&#34;, None),
+            serial=serial,
+            use_worktrees=use_worktrees,
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -574,6 +600,8 @@ A tool for running GitLab CI pipelines locally.</p>
         &#34;job_filter&#34;: args.jobs if args.jobs else None,
         &#34;stage_filter&#34;: args.stage if args.stage else None,
         &#34;parallel_backend&#34;: getattr(args, &#34;parallel_backend&#34;, None),
+        &#34;serial&#34;: True if getattr(args, &#34;serial&#34;, False) else None,
+        &#34;use_worktrees&#34;: False if getattr(args, &#34;no_worktrees&#34;, False) else None,
     }
 
     run_watch(config_path.resolve(), runner_kwargs)</code></pre>
@@ -659,6 +687,16 @@ Version: {__version__}
         metavar=&#34;BACKEND&#34;,
         help=&#34;Parallel execution backend: &#39;thread&#39; or &#39;process&#39; (overrides pyproject.toml)&#34;,
     )
+    run_parser.add_argument(
+        &#34;--serial&#34;,
+        action=&#34;store_true&#34;,
+        help=&#34;Run jobs one at a time in the project root (disables worktrees). Use for formatters/autofixers that need to mutate the real tree.&#34;,
+    )
+    run_parser.add_argument(
+        &#34;--no-worktrees&#34;,
+        action=&#34;store_true&#34;,
+        help=&#34;Disable per-job git worktree isolation. Parallel jobs will share the project root and may conflict on filesystem writes.&#34;,
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
@@ -676,6 +714,16 @@ Version: {__version__}
         choices=[&#34;thread&#34;, &#34;process&#34;],
         metavar=&#34;BACKEND&#34;,
         help=&#34;Parallel execution backend: &#39;thread&#39; or &#39;process&#39; (overrides pyproject.toml)&#34;,
+    )
+    watch_parser.add_argument(
+        &#34;--serial&#34;,
+        action=&#34;store_true&#34;,
+        help=&#34;Run jobs one at a time in the project root (disables worktrees).&#34;,
+    )
+    watch_parser.add_argument(
+        &#34;--no-worktrees&#34;,
+        action=&#34;store_true&#34;,
+        help=&#34;Disable per-job git worktree isolation.&#34;,
     )
     watch_parser.set_defaults(func=cmd_watch)
 
@@ -731,9 +779,9 @@ Version: {__version__}
     clean_parser.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Show what would be removed without deleting files&#34;)
     clean_parser.add_argument(
         &#34;--what&#34;,
-        choices=[&#34;all&#34;, &#34;artifacts&#34;, &#34;jobs&#34;],
+        choices=[&#34;all&#34;, &#34;artifacts&#34;, &#34;jobs&#34;, &#34;worktrees&#34;],
         default=&#34;all&#34;,
-        help=&#34;What to clean: all (default), artifacts only, or job dirs only&#34;,
+        help=&#34;What to clean: all (default), artifacts only, job dirs only, or worktrees only&#34;,
     )
     clean_parser.set_defaults(func=cmd_clean)
 
@@ -781,9 +829,9 @@ Version: {__version__}
     folder_clean.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Preview what would be removed&#34;)
     folder_clean.add_argument(
         &#34;--what&#34;,
-        choices=[&#34;all&#34;, &#34;artifacts&#34;, &#34;jobs&#34;],
+        choices=[&#34;all&#34;, &#34;artifacts&#34;, &#34;jobs&#34;, &#34;worktrees&#34;],
         default=&#34;all&#34;,
-        help=&#34;What to clean: all (default), artifacts only, or job dirs only&#34;,
+        help=&#34;What to clean: all (default), artifacts only, job dirs only, or worktrees only&#34;,
     )
     folder_clean.set_defaults(func=cmd_folder, folder_cmd=&#34;clean&#34;)
 
@@ -858,6 +906,8 @@ Version: {__version__}
         args.stage = None
         args.no_tui = False
         args.parallel_backend = None
+        args.serial = False
+        args.no_worktrees = False
 
     # Execute the command
     try:

@@ -115,7 +115,7 @@ to stdout after each stage completes.</p>
 </dd>
 <dt id="bitrab.tui.orchestrator.TUIOrchestrator"><code class="flex name class">
 <span>class <span class="ident">TUIOrchestrator</span></span>
-<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None)</span>
+<span>(</span><span>job_executor: JobExecutor,<br>maximum_degree_of_parallelism: int | None = None,<br>mp_ctx: Any = None,<br>mutation_config: MutationConfig | None = None,<br>parallel_backend: ParallelBackendConfig | None = None,<br>worktree_config: WorktreeConfig | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -137,6 +137,7 @@ to stdout after each stage completes.</p>
         mp_ctx: Any = None,
         mutation_config: MutationConfig | None = None,
         parallel_backend: ParallelBackendConfig | None = None,
+        worktree_config: WorktreeConfig | None = None,
     ) -&gt; None:
         self.job_executor = job_executor
         cpu_cnt = os.cpu_count() or 1
@@ -149,6 +150,7 @@ to stdout after each stage completes.</p>
         self._mp_ctx = mp_ctx
         self._mutation_config = mutation_config or MutationConfig()
         self._parallel_backend = parallel_backend or ParallelBackendConfig()
+        self._worktree_config = worktree_config or WorktreeConfig()
 
         # Cancel/control state
         self._cancel_event: threading.Event = threading.Event()
@@ -226,6 +228,7 @@ to stdout after each stage completes.</p>
                 mp_ctx=self._mp_ctx,
                 mutation_config=self._mutation_config,
                 parallel_backend=self._parallel_backend,
+                worktree_config=self._worktree_config,
             )
             runner.execute_pipeline(pipeline)
         finally:
@@ -242,6 +245,7 @@ to stdout after each stage completes.</p>
             mp_ctx=self._mp_ctx,
             mutation_config=self._mutation_config,
             parallel_backend=self._parallel_backend,
+            worktree_config=self._worktree_config,
         )
         runner.execute_pipeline(pipeline)
         summary = self._event_collector.summary()
@@ -339,6 +343,7 @@ def event_collector(self) -&gt; EventCollector | None:
         mp_ctx=self._mp_ctx,
         mutation_config=self._mutation_config,
         parallel_backend=self._parallel_backend,
+        worktree_config=self._worktree_config,
     )
     runner.execute_pipeline(pipeline)
     summary = self._event_collector.summary()
@@ -372,6 +377,7 @@ def event_collector(self) -&gt; EventCollector | None:
             mp_ctx=self._mp_ctx,
             mutation_config=self._mutation_config,
             parallel_backend=self._parallel_backend,
+            worktree_config=self._worktree_config,
         )
         runner.execute_pipeline(pipeline)
     finally:
