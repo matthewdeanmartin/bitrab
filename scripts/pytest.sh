@@ -4,6 +4,7 @@ if [[ "${CI:-}" == "" ]]; then
   . ./global_variables.sh
 fi
 
+export UV_NO_SYNC=true
 uv run --active pytest test -vv \
 --cov="$PACKAGE_DIR" --cov-branch \
 --cov-report=xml --cov-report=html \
