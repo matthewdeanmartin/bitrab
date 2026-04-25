@@ -4,4 +4,5 @@ if [[ "${CI:-}" == "" ]]; then
   . ./global_variables.sh
 fi
 
-uv run pdoc "$PACKAGE_DIR" --html -o docs --force
+export UV_NO_SYNC=true
+uv  run --active pdoc "$PACKAGE_DIR" --html -o docs --force

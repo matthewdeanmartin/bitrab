@@ -6,4 +6,5 @@ if [[ "${CI:-}" == "" ]]; then
   . ./global_variables.sh
 fi
 
-uv --active run bandit "$PACKAGE_DIR" -r --quiet
+export UV_NO_SYNC=true
+uv  run --active bandit "$PACKAGE_DIR" -r --quiet

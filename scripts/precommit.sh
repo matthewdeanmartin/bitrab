@@ -4,4 +4,5 @@ if [[ "${CI:-}" == "" ]]; then
   . ./global_variables.sh
 fi
 
-uv run pre-commit run --all-files
+export UV_NO_SYNC=true
+uv  run --active pre-commit run --all-files
