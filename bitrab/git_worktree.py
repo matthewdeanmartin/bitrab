@@ -83,6 +83,18 @@ def can_use_worktrees(project_dir: Path) -> bool:
     return is_git_available() and is_git_repo(project_dir)
 
 
+def is_repo_dirty(project_dir: Path) -> bool:
+    """Return True if the repo has uncommitted changes or untracked files.
+
+    Worktrees check out HEAD, so dirty working-tree changes are not present in
+    the worktree.  Callers should warn the user before running in parallel mode.
+    """
+    if not can_use_worktrees(project_dir):
+        return False
+    result = _run_git(["status", "--porcelain"], cwd=project_dir)
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
 def _sanitize_name(name: str) -> str:
     """Replace filesystem-hostile characters with underscores.
 

@@ -216,6 +216,21 @@ def cmd_run(args: argparse.Namespace) -> None:
         no_worktrees = getattr(args, "no_worktrees", False)
         use_worktrees = False if no_worktrees else None
 
+        if not ci_mode and not serial and not no_worktrees:
+            from bitrab.git_worktree import is_repo_dirty
+
+            if is_repo_dirty(config_path.parent):
+                safe_print(
+                    "⚠️  Your working tree has uncommitted changes.  Worktrees check out HEAD,\n"
+                    "   so those changes will NOT be visible to jobs running in parallel.\n",
+                    file=sys.stderr,
+                )
+                answer = input("   Run anyway in parallel (p), switch to serial (s), or quit (q)? [p/s/q]: ").strip().lower()
+                if answer == "q":
+                    sys.exit(0)
+                elif answer == "s":
+                    serial = True
+
         runner.run_pipeline(
             config_path=config_path,
             maximum_degree_of_parallelism=args.parallel,

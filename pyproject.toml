@@ -6,31 +6,31 @@ readme = "README.md"
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
 keywords = ["bash", "gitlab"]
 license = "MIT"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     # Core enables compile, decompile, validate, best effort runner
-    "ruamel.yaml", # required to read yaml
-    "jsonschema", # required to validate
-    "importlib_resources", # Used by validator to get schema document
+    "ruamel.yaml>=0.19.1", # required to read yaml
+    "jsonschema>=4.26.0", # required to validate
+    "importlib_resources>=7.1.0", # Used by validator to get schema document
     # networking
-    "urllib3",
-    "certifi",
+    "urllib3>=2.6.0",
+    "certifi>=2026.4.22",
     # "rapidyaml==0.9.0", # API too radically different to use yet.
     # Extensibility
     # "pluggy", # ... not yet.
     # Extras
     # CLI
-    "argcomplete", # could be optional
+    "argcomplete>=3.6.3", # could be optional
     # UI
-    "textual", # could be optional
-    "colorlog", # could be optional
-    "rich", # could be optional - interative/init/tui
+    "textual>=8.2.4", # could be optional
+    "colorlog>=6.10.1", # could be optional
+    "rich>=15.0.0", # could be optional - interative/init/tui
     "watchdog>=3.0.0",
     # update checker
-    "packaging", # could be optional
+    "packaging>=26.2", # could be optional
     # Config
-    "toml", # backwards compat,
-    "tomlkit", # right now only used by init
+    "toml>=0.10.2", # backwards compat,
+    "tomlkit>=0.14.0", # right now only used by init
     "tomli; python_version < '3.11'",
 ]
 classifiers = [
@@ -58,16 +58,20 @@ issues = "https://github.com/matthewdeanmartin/bitrab/issues/"
 
 [project.optional-dependencies]
 fast = [
-    "orjson",
+    "orjson>=3.11.6",
     "rtoml; python_version < '3.14'",
 ]
 all = [
-    "orjson",
+    "orjson>=3.11.6",
     "rtoml; python_version < '3.14'",
 ]
 
 [dependency-groups]
 dev = [
+    "black>25.11.0",
+    "aiohttp>3.13.2",
+    "pip-audit",
+    "pip",
     "git2md; python_version >= '3.10'",
     "pyclean; python_version >= '3.12'",
     "strip-docs>=1.0; python_version >= '3.12'",
@@ -91,7 +95,7 @@ dev = [
     "bandit",
     "pre-commit",
     # testing tools
-    "pytest",
+    "pytest>=9.0.3",
     "pytest-cov",
     "pytest-xdist>=3.5.0",
     "pytest-randomly>=3.15.0",

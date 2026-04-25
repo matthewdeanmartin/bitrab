@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from bitrab.models.pipeline import PipelineConfig
 from pathlib import Path
 
+from bitrab.models.pipeline import PipelineConfig
 from bitrab.mutation import ParallelBackendConfig, load_parallel_config, load_worktree_config
 from bitrab.plan import PipelineProcessor
 

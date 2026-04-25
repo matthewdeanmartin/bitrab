@@ -12,6 +12,7 @@ from bitrab.git_worktree import (
     create_worktree,
     is_git_available,
     is_git_repo,
+    is_repo_dirty,
     job_worktree,
     prune_worktrees,
     remove_worktree,
@@ -168,6 +169,33 @@ def test_prune_worktrees_removes_root(tmp_path: Path) -> None:
     (root / "orphan").mkdir()
     prune_worktrees(tmp_path)
     assert not root.exists()
+
+
+# ---------------------------------------------------------------------------
+# is_repo_dirty
+# ---------------------------------------------------------------------------
+
+
+def test_is_repo_dirty_clean(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    assert not is_repo_dirty(tmp_path)
+
+
+def test_is_repo_dirty_uncommitted_change(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    (tmp_path / "README.md").write_text("changed\n", encoding="utf-8")
+    assert is_repo_dirty(tmp_path)
+
+
+def test_is_repo_dirty_untracked_file(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    (tmp_path / "new_file.txt").write_text("untracked\n", encoding="utf-8")
+    assert is_repo_dirty(tmp_path)
+
+
+def test_is_repo_dirty_non_repo(tmp_path: Path) -> None:
+    # Returns False (not True) outside a git repo — no reason to block the run.
+    assert not is_repo_dirty(tmp_path)
 
 
 # ---------------------------------------------------------------------------
