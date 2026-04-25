@@ -5,6 +5,6 @@ if [[ "${CI:-}" == "" ]]; then
   . ./global_variables.sh
 fi
 
-uv --active run ruff format "$PACKAGE_DIR"
-uv --active run ruff check --fix .
-uv --active run pylint "$PACKAGE_DIR" --fail-under 9.8
+# uv --active run ruff format "$PACKAGE_DIR"
+uv run --active ruff check --fix .
+uv run --active pylint "$PACKAGE_DIR" --fail-under 9.8

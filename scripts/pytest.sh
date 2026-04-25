@@ -4,7 +4,7 @@ if [[ "${CI:-}" == "" ]]; then
   . ./global_variables.sh
 fi
 
-uv --active run pytest test -vv \
+uv run --active pytest test -vv \
 --cov="$PACKAGE_DIR" --cov-branch \
 --cov-report=xml --cov-report=html \
 --cov-fail-under=70 \
