@@ -101,7 +101,9 @@ el.replaceWith(d);
         Args:
             cache_dir: Directory to cache the schema file. If None, uses system temp directory.
         &#34;&#34;&#34;
-        self.schema_url = &#34;https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json&#34;
+        self.schema_url = (
+            &#34;https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json&#34;
+        )
         self.cache_dir = Path(cache_dir) if cache_dir else Path(tempfile.gettempdir())
         self.cache_file = self.cache_dir / &#34;gitlab_ci_schema.json&#34;
         self.fallback_schema_path = &#34;schemas/gitlab_ci_schema.json&#34;  # Package resource path

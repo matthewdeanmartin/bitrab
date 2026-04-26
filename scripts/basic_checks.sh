@@ -52,10 +52,10 @@ check "bitrab --license"                     run_bitrab --license
 echo ""
 echo "--- run ---"
 check "bitrab run --help"                    run_bitrab run --help
-check "bitrab run --dry-run --no-tui -j 1"  run_bitrab run --dry-run --no-tui -j 1
-check "bitrab run --dry-run --no-tui -j 2"  run_bitrab run --dry-run --no-tui -j 2
-check "bitrab run --dry-run --jobs build"    run_bitrab run --dry-run --no-tui -j 1 --jobs build
-check "bitrab run --dry-run --stage test"    run_bitrab run --dry-run --no-tui -j 1 --stage test
+check "bitrab run --dry-run --no-tui -j 1"  run_bitrab run --dry-run --no-tui -j 1 --yes --exit-on-completion
+check "bitrab run --dry-run --no-tui -j 2"  run_bitrab run --dry-run --no-tui -j 2 --yes --exit-on-completion
+check "bitrab run --dry-run --jobs build"    run_bitrab run --dry-run --no-tui -j 1 --yes --jobs build
+check "bitrab run --dry-run --stage test"    run_bitrab run --dry-run --no-tui -j 1 --yes --stage test
 
 echo ""
 echo "--- list ---"

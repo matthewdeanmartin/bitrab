@@ -109,4 +109,3 @@ def test_makefile_and_justfile_expose_shared_bitrab_quality_gate() -> None:
     assert "bitrab -c {{BITRAB_CONFIG}} validate" in justfile_text
     assert "bitrab -c {{BITRAB_CONFIG}} run --no-tui --parallel {{QUALITY_GATE_PARALLEL}}" in justfile_text
     assert "--no-worktrees" in justfile_text
-

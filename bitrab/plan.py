@@ -170,7 +170,11 @@ class PipelineProcessor:
             The same dict with all ``extends:`` chains resolved.
         """
         # Collect all job-like blocks (real jobs and hidden templates)
-        all_jobs: dict[str, dict[str, Any]] = {name: data for name, data in raw_config.items() if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS}
+        all_jobs: dict[str, dict[str, Any]] = {
+            name: data
+            for name, data in raw_config.items()
+            if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS
+        }
 
         resolved: dict[str, dict[str, Any]] = {}
 
@@ -622,6 +626,7 @@ class LocalGitLabRunner:
         parallel_backend: str | None = None,
         serial: bool | None = None,
         use_worktrees: bool | None = None,
+        exit_on_completion: bool = False,
     ) -> None:
         """
         Run the complete pipeline.
@@ -637,6 +642,7 @@ class LocalGitLabRunner:
             parallel_backend: Backend name (e.g., 'multiprocessing', 'threading', 'sequential').
             serial: Run jobs one at a time, safe for mutating jobs.
             use_worktrees: Use git to run all jobs in parallel even if some of them mutate the file system
+            exit_on_completion: Close TUI automatically when the pipeline finishes.
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
@@ -729,7 +735,7 @@ class LocalGitLabRunner:
             if use_tui:
                 from bitrab.tui.app import PipelineApp
 
-                app = PipelineApp(pipeline, tui_orchestrator)
+                app = PipelineApp(pipeline, tui_orchestrator, close_on_completion=exit_on_completion)
                 exit_code = app.run()
                 if exit_code:
                     raise RuntimeError("Pipeline failed — see TUI output for details")

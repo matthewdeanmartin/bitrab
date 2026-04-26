@@ -8,7 +8,7 @@ Keybindings:
   c       copy active tab's log to clipboard
   X       cancel pipeline (stops after current stage)
   r       restart entire pipeline
-  R       restart active job only
+  R       run/restart selected job (use for manual jobs)
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 import subprocess  # nosec
 import sys
+import threading
 from typing import TYPE_CHECKING
 
 from rich.text import Text
@@ -185,10 +186,12 @@ class PipelineApp(App[int]):
         Binding("c", "copy_log", "Copy log", show=True),
         Binding("X", "cancel_pipeline", "Cancel pipeline", show=True),
         Binding("r", "restart_pipeline", "Restart pipeline", show=True),
-        Binding("R", "restart_job", "Restart job", show=True),
+        Binding("R", "restart_job", "Run/restart selected job", show=True),
     ]
 
-    def __init__(self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False) -> None:
+    def __init__(
+        self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False
+    ) -> None:
         super().__init__()
         self._pipeline = pipeline
         self._orchestrator = orchestrator
@@ -212,7 +215,7 @@ class PipelineApp(App[int]):
         with Static(id="action-bar"):
             yield Button("🚫 Cancel  [X]", id="cancel-pipeline-btn", variant="warning")
             yield Button("↺ Restart pipeline  [r]", id="restart-pipeline-btn", variant="primary")
-            yield Button("↩ Restart job  [R]", id="restart-job-btn", variant="default")
+            yield Button("▶ Run/restart selected job  [R]", id="restart-job-btn", variant="default")
             yield Button("✕ Cancel job", id="cancel-job-btn", variant="error")
         with TabbedContent():
             for job in self._pipeline.jobs:
@@ -245,10 +248,11 @@ class PipelineApp(App[int]):
     # Thread-safe callbacks (called via call_from_thread)
     # ------------------------------------------------------------------
 
-    def update_stage_status(self, stage: str, job_count: int) -> None:
+    def update_stage_status(self, stage: str, job_count: int, backend: str = "") -> None:
         """Update summary bar with current stage info."""
         summary = self.query_one("#summary", Static)
-        summary.update(f"Stage: [{stage}]  Running {job_count} job(s)…")
+        backend_label = f"  [{backend}]" if backend else ""
+        summary.update(f"Stage: [{stage}]  Running {job_count} job(s){backend_label}…")
 
     def on_pipeline_awaiting_manual(self) -> None:
         """Called when all auto-runnable jobs finished but manual jobs remain."""
@@ -360,12 +364,20 @@ class PipelineApp(App[int]):
             if not text.strip():
                 status_widget.update("Nothing to copy")
                 return
-            if _copy_to_clipboard(text):
-                # Show which job was copied
-                job_name = next((name for name, tid in self._job_tab_ids.items() if tid == active_id), active_id)
-                status_widget.update(f"✅ Copied {len(text.splitlines())} lines from [{job_name}]")
-            else:
-                status_widget.update("⚠️  Clipboard unavailable — try selecting text with mouse")
+            job_name = next((name for name, tid in self._job_tab_ids.items() if tid == active_id), active_id)
+            line_count = len(text.splitlines())
+            status_widget.update("⏳ Copying…")
+
+            def _do_copy() -> None:
+                ok = _copy_to_clipboard(text)
+                if ok:
+                    self.call_from_thread(status_widget.update, f"✅ Copied {line_count} lines from [{job_name}]")
+                else:
+                    self.call_from_thread(
+                        status_widget.update, "⚠️  Clipboard unavailable — try selecting text with mouse"
+                    )
+
+            threading.Thread(target=_do_copy, daemon=True).start()
         except Exception as exc:
             status_widget.update(f"❌ Copy failed: {exc}")
 

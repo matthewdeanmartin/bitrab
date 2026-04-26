@@ -517,7 +517,9 @@ class FolderSummary:
             lines.append(f&#34;  Contents : {&#39;, &#39;.join(self.subdirs)}&#34;)
         if self.is_large:
             lines.append(&#34;&#34;)
-            lines.append(f&#34;  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean&#34;)
+            lines.append(
+                f&#34;  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean&#34;
+            )
         return &#34;\n&#34;.join(lines)</code></pre>
 </details>
 <div class="desc"><p>Snapshot of the <code>.bitrab/</code> directory state.</p></div>
@@ -647,7 +649,9 @@ def total_human(self) -&gt; str:
         lines.append(f&#34;  Contents : {&#39;, &#39;.join(self.subdirs)}&#34;)
     if self.is_large:
         lines.append(&#34;&#34;)
-        lines.append(f&#34;  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean&#34;)
+        lines.append(
+            f&#34;  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean&#34;
+        )
     return &#34;\n&#34;.join(lines)</code></pre>
 </details>
 <div class="desc"><p>Render a human-readable status report.</p></div>

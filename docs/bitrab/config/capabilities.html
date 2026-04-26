@@ -200,7 +200,9 @@ warnings = [d for d in diagnostics if d.level == DiagnosticLevel.WARNING]
                 CapabilityDiagnostic(
                     level=DiagnosticLevel.WARNING,
                     feature=&#34;resource_group&#34;,
-                    message=(f&#34;Job &#39;{job_name}&#39;: &#39;resource_group:&#39; is defined but mutual exclusion is not enforced locally.&#34;),
+                    message=(
+                        f&#34;Job &#39;{job_name}&#39;: &#39;resource_group:&#39; is defined but mutual exclusion is not enforced locally.&#34;
+                    ),
                 )
             )
 
@@ -226,7 +228,9 @@ warnings = [d for d in diagnostics if d.level == DiagnosticLevel.WARNING]
                         CapabilityDiagnostic(
                             level=DiagnosticLevel.WARNING,
                             feature=&#34;rules:changes&#34;,
-                            message=(f&#34;Job &#39;{job_name}&#39;, rule {i + 1}: &#39;changes:&#39; conditions are not yet evaluated locally and will be skipped.&#34;),
+                            message=(
+                                f&#34;Job &#39;{job_name}&#39;, rule {i + 1}: &#39;changes:&#39; conditions are not yet evaluated locally and will be skipped.&#34;
+                            ),
                         )
                     )
 

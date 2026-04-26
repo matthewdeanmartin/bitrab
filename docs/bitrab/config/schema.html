@@ -183,7 +183,9 @@ el.replaceWith(d);
             results = []
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
                 # Submit all validation tasks
-                future_to_file = {executor.submit(validate_single_file, yaml_file): yaml_file for yaml_file in yaml_files}
+                future_to_file = {
+                    executor.submit(validate_single_file, yaml_file): yaml_file for yaml_file in yaml_files
+                }
 
                 # Collect results as they complete
                 for future in as_completed(future_to_file):
@@ -191,11 +193,17 @@ el.replaceWith(d);
                     try:
                         result = future.result()
                         results.append(result)
-                        status = f&#34;{Colors.OKGREEN}✓{Colors.ENDC}&#34; if result.is_valid else f&#34;{Colors.FAIL}✗{Colors.ENDC}&#34;
+                        status = (
+                            f&#34;{Colors.OKGREEN}✓{Colors.ENDC}&#34; if result.is_valid else f&#34;{Colors.FAIL}✗{Colors.ENDC}&#34;
+                        )
                         print(f&#34;{status} {yaml_file}&#34;)
                     except Exception as e:
                         print(f&#34;{Colors.FAIL}✗ {yaml_file} - Exception: {e}{Colors.ENDC}&#34;)
-                        results.append(ValidationResult(file_path=yaml_file, is_valid=False, errors=[f&#34;Processing exception: {str(e)}&#34;]))
+                        results.append(
+                            ValidationResult(
+                                file_path=yaml_file, is_valid=False, errors=[f&#34;Processing exception: {str(e)}&#34;]
+                            )
+                        )
 
         # Sort results by file path for consistent output
         results.sort(key=lambda r: r.file_path)
@@ -291,7 +299,9 @@ el.replaceWith(d);
             &#34;valid_files&#34;: sum(1 for r in results if r.is_valid),
             &#34;invalid_files&#34;: sum(1 for r in results if not r.is_valid),
         },
-        &#34;results&#34;: [{&#34;file&#34;: str(result.file_path), &#34;is_valid&#34;: result.is_valid, &#34;errors&#34;: result.errors} for result in results],
+        &#34;results&#34;: [
+            {&#34;file&#34;: str(result.file_path), &#34;is_valid&#34;: result.is_valid, &#34;errors&#34;: result.errors} for result in results
+        ],
     }
 
     # Ensure output directory exists

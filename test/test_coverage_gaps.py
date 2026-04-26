@@ -425,9 +425,7 @@ class TestPipelineCancellation:
     def test_cancel_before_second_stage(self, tmp_path):
         """Cancelling mid-pipeline stops after first stage."""
         ci = tmp_path / ".gitlab-ci.yml"
-        ci.write_text(
-            textwrap.dedent(
-                """\
+        ci.write_text(textwrap.dedent("""\
             stages: [a, b]
             job_a:
               stage: a
@@ -435,9 +433,7 @@ class TestPipelineCancellation:
             job_b:
               stage: b
               script: [echo b]
-        """
-            )
-        )
+        """))
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(ci)
         pipeline = PipelineProcessor().process_config(raw)
@@ -728,9 +724,7 @@ class TestFilterPipeline:
 class TestLocalGitLabRunnerFilters:
     def _write_ci(self, tmp_path: Path) -> Path:
         ci = tmp_path / ".gitlab-ci.yml"
-        ci.write_text(
-            textwrap.dedent(
-                """\
+        ci.write_text(textwrap.dedent("""\
             stages: [build, test]
             build_job:
               stage: build
@@ -738,9 +732,7 @@ class TestLocalGitLabRunnerFilters:
             test_job:
               stage: test
               script: [echo test]
-        """
-            )
-        )
+        """))
         return ci
 
     def test_unknown_job_filter_warns(self, tmp_path, capsys):
@@ -780,9 +772,7 @@ class TestLocalGitLabRunnerFilters:
         marker = tmp_path / "test_ran.txt"
         ci = tmp_path / ".gitlab-ci.yml"
         # Use echo redirect which works cross-platform via bash
-        ci.write_text(
-            textwrap.dedent(
-                f"""\
+        ci.write_text(textwrap.dedent(f"""\
             stages: [build, test]
             build_job:
               stage: build
@@ -790,9 +780,7 @@ class TestLocalGitLabRunnerFilters:
             test_job:
               stage: test
               script: [echo ran > '{marker}']
-        """
-            )
-        )
+        """))
         runner = LocalGitLabRunner(base_path=tmp_path)
         runner.run_pipeline(
             config_path=ci,

@@ -114,17 +114,19 @@ class _TUICallbacks(PipelineCallbacks):
         output_queue: Any,
         worker_pids: Any,
         cancel_event: threading.Event,
+        backend_label: str = "",
     ) -> None:
         self._app = app
         self._output_queue = output_queue
         self._worker_pids = worker_pids
         self._cancel_event = cancel_event
+        self._backend_label = backend_label
         self._active_jobs: set[str] = set()
         self._serial_drain_stop: threading.Event | None = None
         self._serial_drain_thread: threading.Thread | None = None
 
     def on_stage_start(self, stage: str, jobs: list[JobConfig]) -> None:
-        self._app.call_from_thread(self._app.update_stage_status, stage, len(jobs))
+        self._app.call_from_thread(self._app.update_stage_status, stage, len(jobs), self._backend_label)
 
     def on_job_start(self, job: JobConfig) -> None:
         from bitrab.tui.app import JobStatusChanged
@@ -320,7 +322,9 @@ class TUIOrchestrator:
     ) -> None:
         self.job_executor = job_executor
         cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        self.maximum_degree_of_parallelism = (
+            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
+        )
         if mp_ctx is None:
             if sys.platform == "win32":
                 mp_ctx = mp.get_context("spawn")
@@ -422,7 +426,15 @@ class TUIOrchestrator:
 
         self._worker_pids = worker_pids
 
-        tui_callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event)
+        mdop = self.maximum_degree_of_parallelism
+        if mdop == 1:
+            backend_label = "serial"
+        elif use_threads:
+            backend_label = f"threads × {mdop}"
+        else:
+            backend_label = f"processes × {mdop}"
+
+        tui_callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event, backend_label)
         self._event_collector = EventCollector(inner=tui_callbacks)
 
         try:

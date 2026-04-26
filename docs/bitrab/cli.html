@@ -324,7 +324,9 @@ A tool for running GitLab CI pipelines locally.</p>
         safe_print(&#34;-&#34; * 78)
         for r in runs:
             status = &#34;ok&#34; if r.success else &#34;FAIL&#34;
-            safe_print(f&#34;{r.run_id:&lt;26}  {r.started_at_iso:&lt;19}  {status:&lt;7}  {r.total_duration_s:&gt;7.1f}s  {r.human_size:&gt;8}&#34;)
+            safe_print(
+                f&#34;{r.run_id:&lt;26}  {r.started_at_iso:&lt;19}  {status:&lt;7}  {r.total_duration_s:&gt;7.1f}s  {r.human_size:&gt;8}&#34;
+            )
         safe_print(f&#34;\n  {len(runs)} run(s) total&#34;)
 
     elif subcommand == &#34;show&#34;:
@@ -406,7 +408,8 @@ A tool for running GitLab CI pipelines locally.</p>
         no_worktrees = getattr(args, &#34;no_worktrees&#34;, False)
         use_worktrees = False if no_worktrees else None
 
-        if not ci_mode and not serial and not no_worktrees:
+        yes = getattr(args, &#34;yes&#34;, False)
+        if not ci_mode and not serial and not no_worktrees and not yes:
             from bitrab.git_worktree import is_repo_dirty
 
             if is_repo_dirty(config_path.parent):
@@ -414,11 +417,21 @@ A tool for running GitLab CI pipelines locally.</p>
                     &#34;⚠️  Your working tree has uncommitted changes.  Worktrees check out HEAD,\n   so those changes will NOT be visible to jobs running in parallel.\n&#34;,
                     file=sys.stderr,
                 )
-                answer = input(&#34;   Run anyway in parallel (p), switch to serial (s), or quit (q)? [p/s/q]: &#34;).strip().lower()
-                if answer == &#34;q&#34;:
-                    sys.exit(0)
-                elif answer == &#34;s&#34;:
-                    serial = True
+                if not sys.stdin.isatty():
+                    safe_print(
+                        &#34;   Non-interactive mode: running in parallel (pass --yes to suppress this warning, --serial to run serially).&#34;,
+                        file=sys.stderr,
+                    )
+                else:
+                    answer = (
+                        input(&#34;   Run anyway in parallel (p), switch to serial (s), or quit (q)? [p/s/q]: &#34;)
+                        .strip()
+                        .lower()
+                    )
+                    if answer == &#34;q&#34;:
+                        sys.exit(0)
+                    elif answer == &#34;s&#34;:
+                        serial = True
 
         runner.run_pipeline(
             config_path=config_path,
@@ -431,6 +444,7 @@ A tool for running GitLab CI pipelines locally.</p>
             parallel_backend=getattr(args, &#34;parallel_backend&#34;, None),
             serial=serial,
             use_worktrees=use_worktrees,
+            exit_on_completion=getattr(args, &#34;exit_on_completion&#34;, False),
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -652,7 +666,9 @@ Version: {__version__}
     # Global options
     parser.add_argument(&#34;--version&#34;, action=&#34;version&#34;, version=f&#34;%(prog)s {__version__}&#34;)
     parser.add_argument(&#34;--license&#34;, action=&#34;store_true&#34;, help=&#34;Show license information&#34;)
-    parser.add_argument(&#34;-c&#34;, &#34;--config&#34;, metavar=&#34;PATH&#34;, help=&#34;Path to GitLab CI configuration file (default: .gitlab-ci.yml)&#34;)
+    parser.add_argument(
+        &#34;-c&#34;, &#34;--config&#34;, metavar=&#34;PATH&#34;, help=&#34;Path to GitLab CI configuration file (default: .gitlab-ci.yml)&#34;
+    )
     parser.add_argument(&#34;-q&#34;, &#34;--quiet&#34;, action=&#34;store_true&#34;, help=&#34;Suppress non-error output&#34;)
     parser.add_argument(&#34;-v&#34;, &#34;--verbose&#34;, action=&#34;store_true&#34;, help=&#34;Enable verbose output&#34;)
 
@@ -660,7 +676,9 @@ Version: {__version__}
     subparsers = parser.add_subparsers(dest=&#34;command&#34;, help=&#34;Available commands&#34;, metavar=&#34;COMMAND&#34;)
 
     # Run command
-    run_parser = subparsers.add_parser(&#34;run&#34;, help=&#34;Execute the pipeline&#34;, description=&#34;Execute GitLab CI pipeline locally&#34;)
+    run_parser = subparsers.add_parser(
+        &#34;run&#34;, help=&#34;Execute the pipeline&#34;, description=&#34;Execute GitLab CI pipeline locally&#34;
+    )
     run_parser.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Show what would be executed without running&#34;)
     run_parser.add_argument(
         &#34;--parallel&#34;,
@@ -669,7 +687,9 @@ Version: {__version__}
         metavar=&#34;N&#34;,
         help=&#34;Number of parallel jobs per stage (default: number of CPU cores)&#34;,
     )
-    run_parser.add_argument(&#34;--jobs&#34;, nargs=&#34;*&#34;, metavar=&#34;JOB&#34;, help=&#34;Run only specified jobs (if not specified, run all jobs)&#34;)
+    run_parser.add_argument(
+        &#34;--jobs&#34;, nargs=&#34;*&#34;, metavar=&#34;JOB&#34;, help=&#34;Run only specified jobs (if not specified, run all jobs)&#34;
+    )
     run_parser.add_argument(
         &#34;--stage&#34;,
         nargs=&#34;*&#34;,
@@ -697,13 +717,26 @@ Version: {__version__}
         action=&#34;store_true&#34;,
         help=&#34;Disable per-job git worktree isolation. Parallel jobs will share the project root and may conflict on filesystem writes.&#34;,
     )
+    run_parser.add_argument(
+        &#34;--exit-on-completion&#34;,
+        action=&#34;store_true&#34;,
+        help=&#34;Close the TUI automatically when the pipeline finishes (useful for scripting).&#34;,
+    )
+    run_parser.add_argument(
+        &#34;--yes&#34;,
+        &#34;-y&#34;,
+        action=&#34;store_true&#34;,
+        help=&#34;Skip interactive prompts (e.g. dirty-worktree warning) and continue with parallel execution.&#34;,
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
     watch_parser = subparsers.add_parser(
         &#34;watch&#34;,
         help=&#34;Re-run pipeline on file changes&#34;,
-        description=(&#34;Watch .gitlab-ci.yml and local include files for changes, re-running the pipeline automatically on each save.&#34;),
+        description=(
+            &#34;Watch .gitlab-ci.yml and local include files for changes, re-running the pipeline automatically on each save.&#34;
+        ),
     )
     watch_parser.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Use dry-run mode on each triggered run&#34;)
     watch_parser.add_argument(&#34;--parallel&#34;, &#34;-j&#34;, type=int, metavar=&#34;N&#34;, help=&#34;Number of parallel jobs per stage&#34;)
@@ -728,7 +761,9 @@ Version: {__version__}
     watch_parser.set_defaults(func=cmd_watch)
 
     # List command
-    list_parser = subparsers.add_parser(&#34;list&#34;, help=&#34;List all jobs in the pipeline&#34;, description=&#34;Display all jobs organized by stages&#34;)
+    list_parser = subparsers.add_parser(
+        &#34;list&#34;, help=&#34;List all jobs in the pipeline&#34;, description=&#34;Display all jobs organized by stages&#34;
+    )
     list_parser.set_defaults(func=cmd_list)
 
     # Validate command
@@ -737,7 +772,9 @@ Version: {__version__}
         help=&#34;Validate pipeline configuration&#34;,
         description=&#34;Check pipeline configuration for errors and warnings&#34;,
     )
-    validate_parser.add_argument(&#34;--json&#34;, dest=&#34;output_json&#34;, action=&#34;store_true&#34;, help=&#34;Output validated pipeline configuration as JSON&#34;)
+    validate_parser.add_argument(
+        &#34;--json&#34;, dest=&#34;output_json&#34;, action=&#34;store_true&#34;, help=&#34;Output validated pipeline configuration as JSON&#34;
+    )
     validate_parser.set_defaults(func=cmd_validate)
 
     # Lint command
@@ -776,7 +813,9 @@ Version: {__version__}
         help=&#34;Clean up .bitrab/ artifacts and job dirs&#34;,
         description=&#34;Remove build artifacts, job directories, and optionally logs from .bitrab/&#34;,
     )
-    clean_parser.add_argument(&#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Show what would be removed without deleting files&#34;)
+    clean_parser.add_argument(
+        &#34;--dry-run&#34;, action=&#34;store_true&#34;, help=&#34;Show what would be removed without deleting files&#34;
+    )
     clean_parser.add_argument(
         &#34;--what&#34;,
         choices=[&#34;all&#34;, &#34;artifacts&#34;, &#34;jobs&#34;, &#34;worktrees&#34;],
@@ -908,6 +947,8 @@ Version: {__version__}
         args.parallel_backend = None
         args.serial = False
         args.no_worktrees = False
+        args.exit_on_completion = False
+        args.yes = False
 
     # Execute the command
     try:
@@ -946,7 +987,9 @@ Version: {__version__}
 
     if bitrab_ci.exists():
         if gitlab_ci.exists():
-            safe_print(&#34;⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one.&#34;)
+            safe_print(
+                &#34;⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one.&#34;
+            )
         return bitrab_ci
 
     return gitlab_ci</code></pre>

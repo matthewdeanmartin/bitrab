@@ -203,6 +203,7 @@ Returns None if value is None or empty.</p></div>
         parallel_backend: str | None = None,
         serial: bool | None = None,
         use_worktrees: bool | None = None,
+        exit_on_completion: bool = False,
     ) -&gt; None:
         &#34;&#34;&#34;
         Run the complete pipeline.
@@ -218,6 +219,7 @@ Returns None if value is None or empty.</p></div>
             parallel_backend: Backend name (e.g., &#39;multiprocessing&#39;, &#39;threading&#39;, &#39;sequential&#39;).
             serial: Run jobs one at a time, safe for mutating jobs.
             use_worktrees: Use git to run all jobs in parallel even if some of them mutate the file system
+            exit_on_completion: Close TUI automatically when the pipeline finishes.
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
@@ -310,7 +312,7 @@ Returns None if value is None or empty.</p></div>
             if use_tui:
                 from bitrab.tui.app import PipelineApp
 
-                app = PipelineApp(pipeline, tui_orchestrator)
+                app = PipelineApp(pipeline, tui_orchestrator, close_on_completion=exit_on_completion)
                 exit_code = app.run()
                 if exit_code:
                     raise RuntimeError(&#34;Pipeline failed — see TUI output for details&#34;)
@@ -345,7 +347,7 @@ Returns None if value is None or empty.</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="bitrab.plan.LocalGitLabRunner.run_pipeline"><code class="name flex">
-<span>def <span class="ident">run_pipeline</span></span>(<span>self,<br>config_path: Path | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>use_tui: bool = False,<br>ci_mode: bool = False,<br>job_filter: list[str] | None = None,<br>stage_filter: list[str] | None = None,<br>parallel_backend: str | None = None,<br>serial: bool | None = None,<br>use_worktrees: bool | None = None) ‑> None</span>
+<span>def <span class="ident">run_pipeline</span></span>(<span>self,<br>config_path: Path | None = None,<br>maximum_degree_of_parallelism: int | None = None,<br>dry_run: bool = False,<br>use_tui: bool = False,<br>ci_mode: bool = False,<br>job_filter: list[str] | None = None,<br>stage_filter: list[str] | None = None,<br>parallel_backend: str | None = None,<br>serial: bool | None = None,<br>use_worktrees: bool | None = None,<br>exit_on_completion: bool = False) ‑> None</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -364,6 +366,7 @@ Returns None if value is None or empty.</p></div>
     parallel_backend: str | None = None,
     serial: bool | None = None,
     use_worktrees: bool | None = None,
+    exit_on_completion: bool = False,
 ) -&gt; None:
     &#34;&#34;&#34;
     Run the complete pipeline.
@@ -379,6 +382,7 @@ Returns None if value is None or empty.</p></div>
         parallel_backend: Backend name (e.g., &#39;multiprocessing&#39;, &#39;threading&#39;, &#39;sequential&#39;).
         serial: Run jobs one at a time, safe for mutating jobs.
         use_worktrees: Use git to run all jobs in parallel even if some of them mutate the file system
+        exit_on_completion: Close TUI automatically when the pipeline finishes.
 
     Raises:
         GitLabCIError: If there is an error in the pipeline configuration.
@@ -471,7 +475,7 @@ Returns None if value is None or empty.</p></div>
         if use_tui:
             from bitrab.tui.app import PipelineApp
 
-            app = PipelineApp(pipeline, tui_orchestrator)
+            app = PipelineApp(pipeline, tui_orchestrator, close_on_completion=exit_on_completion)
             exit_code = app.run()
             if exit_code:
                 raise RuntimeError(&#34;Pipeline failed — see TUI output for details&#34;)
@@ -516,6 +520,8 @@ Returns None if value is None or empty.</p></div>
 <dd>Run jobs one at a time, safe for mutating jobs.</dd>
 <dt><strong><code>use_worktrees</code></strong></dt>
 <dd>Use git to run all jobs in parallel even if some of them mutate the file system</dd>
+<dt><strong><code>exit_on_completion</code></strong></dt>
+<dd>Close TUI automatically when the pipeline finishes.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>
@@ -611,7 +617,11 @@ Returns None if value is None or empty.</p></div>
             The same dict with all ``extends:`` chains resolved.
         &#34;&#34;&#34;
         # Collect all job-like blocks (real jobs and hidden templates)
-        all_jobs: dict[str, dict[str, Any]] = {name: data for name, data in raw_config.items() if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS}
+        all_jobs: dict[str, dict[str, Any]] = {
+            name: data
+            for name, data in raw_config.items()
+            if isinstance(data, dict) and name not in self.RESERVED_KEYWORDS
+        }
 
         resolved: dict[str, dict[str, Any]] = {}
 

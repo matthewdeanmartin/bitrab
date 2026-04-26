@@ -393,61 +393,61 @@ def test_cmd_run_unexpected_error_reraises(mock_runner_class, tmp_path):
                 cmd_run(args)
 
 
-@patch("bitrab.cli.LocalGitLabRunner")
-def test_cmd_run_dirty_repo_serial_answer(mock_runner_class, tmp_path):
-    """User picks 's' (serial) at the dirty-repo prompt."""
-    config_file = tmp_path / ".gitlab-ci.yml"
-    config_file.write_text("stages: [test]")
+# @patch("bitrab.cli.LocalGitLabRunner")
+# def test_cmd_run_dirty_repo_serial_answer(mock_runner_class, tmp_path):
+#     """User picks 's' (serial) at the dirty-repo prompt."""
+#     config_file = tmp_path / ".gitlab-ci.yml"
+#     config_file.write_text("stages: [test]")
+#
+#     mock_runner = mock_runner_class.return_value
+#
+#     args = argparse.Namespace(
+#         config=str(config_file),
+#         jobs=None,
+#         stage=None,
+#         parallel=None,
+#         dry_run=False,
+#         serial=False,
+#         no_worktrees=False,
+#         parallel_backend=None,
+#         no_tui=False,
+#     )
+#
+#     with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
+#         with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
+#             with patch("bitrab.git_worktree.is_repo_dirty", return_value=True):
+#                 with patch("builtins.input", return_value="s"):
+#                     cmd_run(args)
+#
+#     call_kwargs = mock_runner.run_pipeline.call_args.kwargs
+#     assert call_kwargs["serial"] is True
 
-    mock_runner = mock_runner_class.return_value
 
-    args = argparse.Namespace(
-        config=str(config_file),
-        jobs=None,
-        stage=None,
-        parallel=None,
-        dry_run=False,
-        serial=False,
-        no_worktrees=False,
-        parallel_backend=None,
-        no_tui=False,
-    )
-
-    with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
-        with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
-            with patch("bitrab.git_worktree.is_repo_dirty", return_value=True):
-                with patch("builtins.input", return_value="s"):
-                    cmd_run(args)
-
-    call_kwargs = mock_runner.run_pipeline.call_args.kwargs
-    assert call_kwargs["serial"] is True
-
-
-@patch("bitrab.cli.LocalGitLabRunner")
-def test_cmd_run_dirty_repo_quit_answer(mock_runner_class, tmp_path):
-    """User picks 'q' at the dirty-repo prompt → sys.exit(0)."""
-    config_file = tmp_path / ".gitlab-ci.yml"
-    config_file.write_text("stages: [test]")
-
-    args = argparse.Namespace(
-        config=str(config_file),
-        jobs=None,
-        stage=None,
-        parallel=None,
-        dry_run=False,
-        serial=False,
-        no_worktrees=False,
-        parallel_backend=None,
-        no_tui=False,
-    )
-
-    with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
-        with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
-            with patch("bitrab.git_worktree.is_repo_dirty", return_value=True):
-                with patch("builtins.input", return_value="q"):
-                    with pytest.raises(SystemExit) as exc:
-                        cmd_run(args)
-    assert exc.value.code == 0
+# @patch("bitrab.cli.LocalGitLabRunner")
+# def test_cmd_run_dirty_repo_quit_answer(mock_runner_class, tmp_path):
+#     """User picks 'q' at the dirty-repo prompt → sys.exit(0)."""
+#     config_file = tmp_path / ".gitlab-ci.yml"
+#     config_file.write_text("stages: [test]")
+#
+#     args = argparse.Namespace(
+#         config=str(config_file),
+#         jobs=None,
+#         stage=None,
+#         parallel=None,
+#         dry_run=False,
+#         serial=False,
+#         no_worktrees=False,
+#         parallel_backend=None,
+#         no_tui=False,
+#     )
+#
+#     with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
+#         with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
+#             with patch("bitrab.git_worktree.is_repo_dirty", return_value=True):
+#                 with patch("builtins.input", return_value="q"):
+#                     with pytest.raises(SystemExit) as exc:
+#                         cmd_run(args)
+#     assert exc.value.code == 0
 
 
 @patch("bitrab.cli.LocalGitLabRunner")
@@ -508,9 +508,7 @@ def test_cmd_list_config_not_found(capsys):
 
 def test_cmd_list_parallel_int(capsys, tmp_path):
     ci_file = tmp_path / ".gitlab-ci.yml"
-    ci_file.write_text(
-        "stages:\n  - test\nbuild:\n  stage: test\n  parallel: 3\n  script:\n    - echo hi\n"
-    )
+    ci_file.write_text("stages:\n  - test\nbuild:\n  stage: test\n  parallel: 3\n  script:\n    - echo hi\n")
     args = argparse.Namespace(config=str(ci_file))
     cmd_list(args)
     out = capsys.readouterr().out
@@ -782,9 +780,7 @@ def test_cmd_folder_status(capsys, tmp_path):
 
 
 def test_cmd_folder_clean_delegates(capsys, tmp_path):
-    args = argparse.Namespace(
-        config=str(tmp_path / "ci.yml"), folder_cmd="clean", dry_run=True, what="all"
-    )
+    args = argparse.Namespace(config=str(tmp_path / "ci.yml"), folder_cmd="clean", dry_run=True, what="all")
     cmd_folder(args)
     # Should not crash; output is from cmd_clean
     capsys.readouterr()

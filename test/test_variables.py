@@ -6,14 +6,13 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-
 from bitrab.execution.variables import (
+    VariableManager,
     _derive_git_variables,
     _git_head_metadata,
     _project_identity_from_remote,
     load_dotenv_files,
     parse_dotenv,
-    VariableManager,
 )
 from bitrab.models.pipeline import JobConfig
 
@@ -91,7 +90,7 @@ class TestParseDotenv:
 
     def test_no_escape_processing(self):
         # GitLab doesn't process escapes — backslash-n stays literal
-        result = parse_dotenv(r'FOO=hello\nworld')
+        result = parse_dotenv(r"FOO=hello\nworld")
         assert result == {"FOO": r"hello\nworld"}
 
 

@@ -160,7 +160,9 @@ el.replaceWith(d);
         except Exception as e:
             raise GitlabRunnerError(f&#34;Failed to load YAML file {file_path}: {e}&#34;) from e
 
-    def _process_includes(self, config: dict[str, Any], base_dir: Path, seen_files: set[Path] | None = None) -&gt; dict[str, Any]:
+    def _process_includes(
+        self, config: dict[str, Any], base_dir: Path, seen_files: set[Path] | None = None
+    ) -&gt; dict[str, Any]:
         &#34;&#34;&#34;
         Recursively process &#39;include&#39; directives from a GitLab-style YAML config.
 
@@ -199,7 +201,9 @@ el.replaceWith(d);
                 # components that bitrab has no way to resolve locally.  Silently
                 # skipping would leave the pipeline in an undefined state (jobs
                 # from the component simply vanish), so we raise immediately.
-                raise GitlabRunnerError(&#34;include: component is not supported locally. Remove it or replace it with a local include. (bitrab cannot fetch GitLab CI components from a registry.)&#34;)
+                raise GitlabRunnerError(
+                    &#34;include: component is not supported locally. Remove it or replace it with a local include. (bitrab cannot fetch GitLab CI components from a registry.)&#34;
+                )
             else:
                 # WARNING-level unsupported types (template, project): skip with no
                 # crash.  These are informational-only features on GitLab that add

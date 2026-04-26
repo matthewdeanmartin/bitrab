@@ -156,7 +156,9 @@ def resolve_config_path(explicit_config: str | None) -> Path:
 
     if bitrab_ci.exists():
         if gitlab_ci.exists():
-            safe_print("⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one.")
+            safe_print(
+                "⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one."
+            )
         return bitrab_ci
 
     return gitlab_ci
@@ -214,7 +216,8 @@ def cmd_run(args: argparse.Namespace) -> None:
         no_worktrees = getattr(args, "no_worktrees", False)
         use_worktrees = False if no_worktrees else None
 
-        if not ci_mode and not serial and not no_worktrees:
+        yes = getattr(args, "yes", False)
+        if not ci_mode and not serial and not no_worktrees and not yes:
             from bitrab.git_worktree import is_repo_dirty
 
             if is_repo_dirty(config_path.parent):
@@ -222,11 +225,21 @@ def cmd_run(args: argparse.Namespace) -> None:
                     "⚠️  Your working tree has uncommitted changes.  Worktrees check out HEAD,\n   so those changes will NOT be visible to jobs running in parallel.\n",
                     file=sys.stderr,
                 )
-                answer = input("   Run anyway in parallel (p), switch to serial (s), or quit (q)? [p/s/q]: ").strip().lower()
-                if answer == "q":
-                    sys.exit(0)
-                elif answer == "s":
-                    serial = True
+                if not sys.stdin.isatty():
+                    safe_print(
+                        "   Non-interactive mode: running in parallel (pass --yes to suppress this warning, --serial to run serially).",
+                        file=sys.stderr,
+                    )
+                else:
+                    answer = (
+                        input("   Run anyway in parallel (p), switch to serial (s), or quit (q)? [p/s/q]: ")
+                        .strip()
+                        .lower()
+                    )
+                    if answer == "q":
+                        sys.exit(0)
+                    elif answer == "s":
+                        serial = True
 
         runner.run_pipeline(
             config_path=config_path,
@@ -239,6 +252,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             parallel_backend=getattr(args, "parallel_backend", None),
             serial=serial,
             use_worktrees=use_worktrees,
+            exit_on_completion=getattr(args, "exit_on_completion", False),
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -592,7 +606,9 @@ def cmd_logs(args: argparse.Namespace) -> None:
         safe_print("-" * 78)
         for r in runs:
             status = "ok" if r.success else "FAIL"
-            safe_print(f"{r.run_id:<26}  {r.started_at_iso:<19}  {status:<7}  {r.total_duration_s:>7.1f}s  {r.human_size:>8}")
+            safe_print(
+                f"{r.run_id:<26}  {r.started_at_iso:<19}  {status:<7}  {r.total_duration_s:>7.1f}s  {r.human_size:>8}"
+            )
         safe_print(f"\n  {len(runs)} run(s) total")
 
     elif subcommand == "show":
@@ -693,7 +709,9 @@ Version: {__version__}
     # Global options
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--license", action="store_true", help="Show license information")
-    parser.add_argument("-c", "--config", metavar="PATH", help="Path to GitLab CI configuration file (default: .gitlab-ci.yml)")
+    parser.add_argument(
+        "-c", "--config", metavar="PATH", help="Path to GitLab CI configuration file (default: .gitlab-ci.yml)"
+    )
     parser.add_argument("-q", "--quiet", action="store_true", help="Suppress non-error output")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
@@ -701,7 +719,9 @@ Version: {__version__}
     subparsers = parser.add_subparsers(dest="command", help="Available commands", metavar="COMMAND")
 
     # Run command
-    run_parser = subparsers.add_parser("run", help="Execute the pipeline", description="Execute GitLab CI pipeline locally")
+    run_parser = subparsers.add_parser(
+        "run", help="Execute the pipeline", description="Execute GitLab CI pipeline locally"
+    )
     run_parser.add_argument("--dry-run", action="store_true", help="Show what would be executed without running")
     run_parser.add_argument(
         "--parallel",
@@ -710,7 +730,9 @@ Version: {__version__}
         metavar="N",
         help="Number of parallel jobs per stage (default: number of CPU cores)",
     )
-    run_parser.add_argument("--jobs", nargs="*", metavar="JOB", help="Run only specified jobs (if not specified, run all jobs)")
+    run_parser.add_argument(
+        "--jobs", nargs="*", metavar="JOB", help="Run only specified jobs (if not specified, run all jobs)"
+    )
     run_parser.add_argument(
         "--stage",
         nargs="*",
@@ -738,13 +760,26 @@ Version: {__version__}
         action="store_true",
         help="Disable per-job git worktree isolation. Parallel jobs will share the project root and may conflict on filesystem writes.",
     )
+    run_parser.add_argument(
+        "--exit-on-completion",
+        action="store_true",
+        help="Close the TUI automatically when the pipeline finishes (useful for scripting).",
+    )
+    run_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip interactive prompts (e.g. dirty-worktree warning) and continue with parallel execution.",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
     watch_parser = subparsers.add_parser(
         "watch",
         help="Re-run pipeline on file changes",
-        description=("Watch .gitlab-ci.yml and local include files for changes, re-running the pipeline automatically on each save."),
+        description=(
+            "Watch .gitlab-ci.yml and local include files for changes, re-running the pipeline automatically on each save."
+        ),
     )
     watch_parser.add_argument("--dry-run", action="store_true", help="Use dry-run mode on each triggered run")
     watch_parser.add_argument("--parallel", "-j", type=int, metavar="N", help="Number of parallel jobs per stage")
@@ -769,7 +804,9 @@ Version: {__version__}
     watch_parser.set_defaults(func=cmd_watch)
 
     # List command
-    list_parser = subparsers.add_parser("list", help="List all jobs in the pipeline", description="Display all jobs organized by stages")
+    list_parser = subparsers.add_parser(
+        "list", help="List all jobs in the pipeline", description="Display all jobs organized by stages"
+    )
     list_parser.set_defaults(func=cmd_list)
 
     # Validate command
@@ -778,7 +815,9 @@ Version: {__version__}
         help="Validate pipeline configuration",
         description="Check pipeline configuration for errors and warnings",
     )
-    validate_parser.add_argument("--json", dest="output_json", action="store_true", help="Output validated pipeline configuration as JSON")
+    validate_parser.add_argument(
+        "--json", dest="output_json", action="store_true", help="Output validated pipeline configuration as JSON"
+    )
     validate_parser.set_defaults(func=cmd_validate)
 
     # Lint command
@@ -817,7 +856,9 @@ Version: {__version__}
         help="Clean up .bitrab/ artifacts and job dirs",
         description="Remove build artifacts, job directories, and optionally logs from .bitrab/",
     )
-    clean_parser.add_argument("--dry-run", action="store_true", help="Show what would be removed without deleting files")
+    clean_parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be removed without deleting files"
+    )
     clean_parser.add_argument(
         "--what",
         choices=["all", "artifacts", "jobs", "worktrees"],
@@ -907,6 +948,8 @@ def main() -> None:
         args.parallel_backend = None
         args.serial = False
         args.no_worktrees = False
+        args.exit_on_completion = False
+        args.yes = False
 
     # Execute the command
     try:

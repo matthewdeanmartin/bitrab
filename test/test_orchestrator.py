@@ -21,7 +21,6 @@ from bitrab.tui.orchestrator import (
     _run_single_job_queued,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -114,6 +113,7 @@ class TestRunSingleJobQueued:
         _run_single_job_queued(job, executor, job_dir, output_queue=q, worker_pids=worker_pids)
 
         import os
+
         assert worker_pids["my-job"] == os.getpid()
 
     def test_sentinel_sent_even_on_execute_error(self, tmp_path):
@@ -365,6 +365,7 @@ class TestTUIOrchestratorControl:
 
     def test_maximum_parallelism_defaults_to_cpu_count(self, tmp_path):
         import os as _os
+
         executor = _make_executor(tmp_path)
         orch = TUIOrchestrator(job_executor=executor)  # no parallelism kwarg
         assert orch.maximum_degree_of_parallelism == (_os.cpu_count() or 1)
@@ -396,6 +397,7 @@ class TestTUIOrchestratorControl:
     @pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific kill path")
     def test_cancel_job_sends_sigterm_on_unix(self, tmp_path):
         import signal as _signal
+
         orch = _make_orchestrator(tmp_path)
         orch._worker_pids = {"j1": 99999}
         with patch("os.kill") as mock_kill:

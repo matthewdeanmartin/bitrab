@@ -196,8 +196,7 @@ class TestRulesExists:
     def test_exists_integration(self, tmp_path):
         """End-to-end: job only runs if Dockerfile exists."""
         (tmp_path / "Dockerfile").write_text("FROM alpine")
-        ci = textwrap.dedent(
-            """
+        ci = textwrap.dedent("""
             stages: [build]
             docker_job:
               stage: build
@@ -205,16 +204,14 @@ class TestRulesExists:
                 - exists: [Dockerfile]
               script:
                 - echo ran > ran.txt
-        """
-        )
+        """)
         (tmp_path / ".gitlab-ci.yml").write_text(ci)
         runner = LocalGitLabRunner(base_path=tmp_path)
         runner.run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "ran.txt").exists()
 
     def test_exists_integration_skips_when_absent(self, tmp_path):
-        ci = textwrap.dedent(
-            """
+        ci = textwrap.dedent("""
             stages: [build]
             docker_job:
               stage: build
@@ -223,8 +220,7 @@ class TestRulesExists:
                 - when: never
               script:
                 - echo ran > ran.txt
-        """
-        )
+        """)
         (tmp_path / ".gitlab-ci.yml").write_text(ci)
         runner = LocalGitLabRunner(base_path=tmp_path)
         runner.run_pipeline(maximum_degree_of_parallelism=1)
