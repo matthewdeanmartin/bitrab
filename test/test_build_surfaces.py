@@ -34,7 +34,7 @@ CORE_TARGETS = {
 BITRAB_CI = ROOT / ".bitrab-ci.yml"
 
 
-def _make_targets(path: Path) -> set[str]:
+def make_targets(path: Path) -> set[str]:
     targets: set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line or line.startswith(("\t", " ", "#", ".")):
@@ -47,7 +47,7 @@ def _make_targets(path: Path) -> set[str]:
     return targets
 
 
-def _just_targets(path: Path) -> set[str]:
+def just_targets(path: Path) -> set[str]:
     targets: set[str] = set()
     pattern = re.compile(r"^([A-Za-z0-9_-]+):")
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -58,11 +58,11 @@ def _just_targets(path: Path) -> set[str]:
 
 
 def test_makefile_and_justfile_share_core_build_targets() -> None:
-    make_targets = _make_targets(MAKEFILE)
-    just_targets = _just_targets(JUSTFILE)
+    m_targets = make_targets(MAKEFILE)
+    j_targets = just_targets(JUSTFILE)
 
-    assert CORE_TARGETS.issubset(make_targets)
-    assert CORE_TARGETS.issubset(just_targets)
+    assert CORE_TARGETS.issubset(m_targets)
+    assert CORE_TARGETS.issubset(j_targets)
 
 
 def test_makefile_check_no_longer_pulls_networked_schema_refresh() -> None:
@@ -81,9 +81,9 @@ def test_makefile_and_justfile_use_read_only_markdown_checks() -> None:
 
 
 def test_makefile_exposes_job_listing_target() -> None:
-    make_targets = _make_targets(MAKEFILE)
+    targets = make_targets(MAKEFILE)
 
-    assert "list-jobs" in make_targets
+    assert "list-jobs" in targets
 
 
 def test_human_targets_do_not_force_no_color() -> None:

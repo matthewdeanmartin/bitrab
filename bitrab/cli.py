@@ -6,6 +6,7 @@ A tool for running GitLab CI pipelines locally.
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
@@ -13,6 +14,8 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 from bitrab.__about__ import __version__
 from bitrab.console import configure_stdio, safe_print
 from bitrab.exceptions import BitrabError, GitlabRunnerError
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from bitrab.config.loader import ConfigurationLoader as ConfigurationLoaderType
@@ -64,13 +67,13 @@ def _ensure_config_dependencies() -> None:
     global ConfigurationLoader, PipelineProcessor
 
     if ConfigurationLoader is None:
-        from bitrab.config.loader import ConfigurationLoader as _ConfigurationLoader
+        from bitrab.config.loader import ConfigurationLoader as ConfigurationLoaderImpl
 
-        ConfigurationLoader = _ConfigurationLoader
+        ConfigurationLoader = ConfigurationLoaderImpl
     if PipelineProcessor is None:
-        from bitrab.plan import PipelineProcessor as _PipelineProcessor
+        from bitrab.plan import PipelineProcessor as PipelineProcessorImpl
 
-        PipelineProcessor = _PipelineProcessor
+        PipelineProcessor = PipelineProcessorImpl
 
 
 def _ensure_runner_dependency() -> None:
@@ -78,9 +81,9 @@ def _ensure_runner_dependency() -> None:
     global LocalGitLabRunner
 
     if LocalGitLabRunner is None:
-        from bitrab.plan import LocalGitLabRunner as _LocalGitLabRunner
+        from bitrab.plan import LocalGitLabRunner as LocalGitLabRunnerImpl
 
-        LocalGitLabRunner = _LocalGitLabRunner
+        LocalGitLabRunner = LocalGitLabRunnerImpl
 
 
 def _ensure_validation_dependencies() -> None:
@@ -88,13 +91,13 @@ def _ensure_validation_dependencies() -> None:
     global GitLabCIValidator, check_capabilities
 
     if GitLabCIValidator is None:
-        from bitrab.config.validate_pipeline import GitLabCIValidator as _GitLabCIValidator
+        from bitrab.config.validate_pipeline import GitLabCIValidator as GitLabCIValidatorImpl
 
-        GitLabCIValidator = _GitLabCIValidator
+        GitLabCIValidator = GitLabCIValidatorImpl
     if check_capabilities is None:
-        from bitrab.config.capabilities import check_capabilities as _check_capabilities
+        from bitrab.config.capabilities import check_capabilities as check_capabilities_impl
 
-        check_capabilities = _check_capabilities
+        check_capabilities = check_capabilities_impl
 
 
 def _get_configuration_loader() -> type[ConfigurationLoaderType]:
@@ -156,8 +159,8 @@ def resolve_config_path(explicit_config: str | None) -> Path:
 
     if bitrab_ci.exists():
         if gitlab_ci.exists():
-            safe_print(
-                "⚠️  Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one."
+            logger.warning(
+                "Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one."
             )
         return bitrab_ci
 
@@ -336,9 +339,9 @@ def cmd_list(args: argparse.Namespace) -> None:
             seen_originals.add(orig)
 
             # Create a display-only proxy with the original name
-            import copy as _copy
+            import copy as copy_mod
 
-            display_job = _copy.copy(job)
+            display_job = copy_mod.copy(job)
             display_job.name = orig
         else:
             display_job = job

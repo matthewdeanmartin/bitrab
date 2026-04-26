@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
-import queue as _queue
+import queue
 import signal
 import subprocess  # nosec
 import sys
@@ -45,13 +45,13 @@ class QueueWriter:
     """
 
     def __init__(self, queue: Any, job_name: str) -> None:
-        self._queue = queue
-        self._job_name = job_name
+        self.queue = queue
+        self.job_name = job_name
 
     def write(self, s: str) -> None:
         """Write text to the queue."""
         if s:
-            self._queue.put((self._job_name, s))
+            self.queue.put((self.job_name, s))
 
     def flush(self) -> None:
         """No-op flush to satisfy IO protocol."""
@@ -62,7 +62,7 @@ class QueueWriter:
 # ---------------------------------------------------------------------------
 
 
-def _run_single_job_queued(
+def run_single_job_queued(
     job: JobConfig,
     executor: JobExecutor,
     job_dir: Path,
@@ -84,7 +84,7 @@ def _run_single_job_queued(
     return executor.job_history
 
 
-def _run_single_job_file(
+def run_single_job_file(
     job: JobConfig,
     executor: JobExecutor,
     job_dir: Path,
@@ -105,7 +105,7 @@ def _run_single_job_file(
 # ---------------------------------------------------------------------------
 
 
-class _TUICallbacks(PipelineCallbacks):
+class TUICallbacks(PipelineCallbacks):
     """Callbacks that route status updates to the Textual app."""
 
     def __init__(
@@ -116,98 +116,98 @@ class _TUICallbacks(PipelineCallbacks):
         cancel_event: threading.Event,
         backend_label: str = "",
     ) -> None:
-        self._app = app
-        self._output_queue = output_queue
-        self._worker_pids = worker_pids
-        self._cancel_event = cancel_event
-        self._backend_label = backend_label
-        self._active_jobs: set[str] = set()
-        self._serial_drain_stop: threading.Event | None = None
-        self._serial_drain_thread: threading.Thread | None = None
+        self.app = app
+        self.output_queue = output_queue
+        self.worker_pids = worker_pids
+        self.cancel_event = cancel_event
+        self.backend_label = backend_label
+        self.active_jobs: set[str] = set()
+        self.serial_drain_stop: threading.Event | None = None
+        self.serial_drain_thread: threading.Thread | None = None
 
     def on_stage_start(self, stage: str, jobs: list[JobConfig]) -> None:
-        self._app.call_from_thread(self._app.update_stage_status, stage, len(jobs), self._backend_label)
+        self.app.call_from_thread(self.app.update_stage_status, stage, len(jobs), self.backend_label)
 
     def on_job_start(self, job: JobConfig) -> None:
         from bitrab.tui.app import JobStatusChanged
 
-        self._app.call_from_thread(self._app.post_message, JobStatusChanged(job.name, "running"))
-        self._active_jobs.add(job.name)
-        self._start_serial_drain()
+        self.app.call_from_thread(self.app.post_message, JobStatusChanged(job.name, "running"))
+        self.active_jobs.add(job.name)
+        self.start_serial_drain()
 
-    def _start_serial_drain(self) -> None:
+    def start_serial_drain(self) -> None:
         """Start a background thread that continuously drains the output queue.
 
         Only one drain thread runs at a time; starting a second is a no-op.
         Used during serial job execution where poll_during_parallel is never called.
         """
-        if self._serial_drain_thread is not None and self._serial_drain_thread.is_alive():
+        if self.serial_drain_thread is not None and self.serial_drain_thread.is_alive():
             return
-        self._serial_drain_stop = threading.Event()
-        stop = self._serial_drain_stop
+        self.serial_drain_stop = threading.Event()
+        stop = self.serial_drain_stop
 
-        def _drain_loop() -> None:
+        def drain_loop() -> None:
             from bitrab.tui.app import JobOutput
 
             while not stop.is_set():
                 try:
                     while True:
-                        job_name, text = self._output_queue.get(timeout=0.02)
+                        job_name, text = self.output_queue.get(timeout=0.02)
                         if text is not None:
-                            self._app.call_from_thread(self._app.post_message, JobOutput(job_name, text))
+                            self.app.call_from_thread(self.app.post_message, JobOutput(job_name, text))
                 except Empty:
                     pass
 
-        self._serial_drain_thread = threading.Thread(target=_drain_loop, daemon=True)
-        self._serial_drain_thread.start()
+        self.serial_drain_thread = threading.Thread(target=drain_loop, daemon=True)
+        self.serial_drain_thread.start()
 
-    def _stop_serial_drain(self) -> None:
-        if self._serial_drain_stop is not None:
-            self._serial_drain_stop.set()
-        if self._serial_drain_thread is not None:
-            self._serial_drain_thread.join(timeout=0.5)
-        self._serial_drain_stop = None
-        self._serial_drain_thread = None
+    def stop_serial_drain(self) -> None:
+        if self.serial_drain_stop is not None:
+            self.serial_drain_stop.set()
+        if self.serial_drain_thread is not None:
+            self.serial_drain_thread.join(timeout=0.5)
+        self.serial_drain_stop = None
+        self.serial_drain_thread = None
 
     def on_job_complete(self, outcome: JobOutcome) -> None:
         from bitrab.tui.app import JobStatusChanged
 
-        self._stop_serial_drain()
+        self.stop_serial_drain()
         if outcome.allowed_failure:
             status = "warned"
         elif outcome.success:
             status = "success"
         else:
             status = "failed"
-        self._app.call_from_thread(self._app.post_message, JobStatusChanged(outcome.job.name, status))
+        self.app.call_from_thread(self.app.post_message, JobStatusChanged(outcome.job.name, status))
 
     def on_pipeline_awaiting_manual(self) -> None:
-        self._app.call_from_thread(self._app.on_pipeline_awaiting_manual)
+        self.app.call_from_thread(self.app.on_pipeline_awaiting_manual)
 
     def on_pipeline_complete(self, success: bool) -> None:
-        if self._cancel_event.is_set():
-            self._app.call_from_thread(self._app.on_pipeline_cancelled)
+        if self.cancel_event.is_set():
+            self.app.call_from_thread(self.app.on_pipeline_cancelled)
         else:
-            self._app.call_from_thread(self._app.on_pipeline_complete, success)
+            self.app.call_from_thread(self.app.on_pipeline_complete, success)
 
     def on_cancelled(self) -> None:
-        self._app.call_from_thread(self._app.on_pipeline_cancelled)
+        self.app.call_from_thread(self.app.on_pipeline_cancelled)
 
     def is_cancelled(self) -> bool:
-        return self._cancel_event.is_set()
+        return self.cancel_event.is_set()
 
-    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -> TextWriter | None:
-        return QueueWriter(self._output_queue, _job.name)
+    def make_output_writer(self, job: JobConfig, job_dir: Path) -> TextWriter | None:
+        return QueueWriter(self.output_queue, job.name)
 
     def get_worker_func(self):
-        return _run_single_job_queued
+        return run_single_job_queued
 
-    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -> dict[str, Any]:
-        return {"output_queue": self._output_queue, "worker_pids": self._worker_pids}
+    def make_worker_args(self, job: JobConfig, job_dir: Path) -> dict[str, Any]:
+        return {"output_queue": self.output_queue, "worker_pids": self.worker_pids}
 
     def on_stage_complete(self, stage: str, outcomes: list[JobOutcome]) -> None:
         # Drain any remaining queue items after serial execution
-        self._drain_remaining()
+        self.drain_remaining()
 
     def poll_during_parallel(self, futures: dict) -> None:
         """Drain the output queue while parallel futures are running."""
@@ -215,23 +215,23 @@ class _TUICallbacks(PipelineCallbacks):
 
         try:
             while True:
-                job_name, text = self._output_queue.get(timeout=0.02)
+                job_name, text = self.output_queue.get(timeout=0.02)
                 if text is None:
-                    self._active_jobs.discard(job_name)
+                    self.active_jobs.discard(job_name)
                 else:
-                    self._app.call_from_thread(self._app.post_message, JobOutput(job_name, text))
+                    self.app.call_from_thread(self.app.post_message, JobOutput(job_name, text))
         except Empty:
             pass
 
-    def _drain_remaining(self) -> None:
+    def drain_remaining(self) -> None:
         """Drain any remaining items from the output queue."""
         from bitrab.tui.app import JobOutput
 
         while True:
             try:
-                job_name, text = self._output_queue.get_nowait()
+                job_name, text = self.output_queue.get_nowait()
                 if text is not None:
-                    self._app.call_from_thread(self._app.post_message, JobOutput(job_name, text))
+                    self.app.call_from_thread(self.app.post_message, JobOutput(job_name, text))
             except Empty:
                 break
 
@@ -241,12 +241,13 @@ class _TUICallbacks(PipelineCallbacks):
 # ---------------------------------------------------------------------------
 
 
-class _CIFileCallbacks(PipelineCallbacks):
+class CIFileCallbacks(PipelineCallbacks):
     """Callbacks that write job output to files and print after each stage."""
 
     def __init__(self) -> None:
-        self._log_paths: dict[str, Path] = {}
-        self._current_stage_jobs: list[JobConfig] = []
+        self.log_paths: dict[str, Path] = {}
+        self.open_writers: dict[str, Any] = {}
+        self.current_stage_jobs: list[JobConfig] = []
 
     def on_pipeline_start(self, pipeline: PipelineConfig, max_workers: int) -> None:
         print("🚀 Starting pipeline (CI mode - parallel jobs, sequential stages)")
@@ -257,8 +258,8 @@ class _CIFileCallbacks(PipelineCallbacks):
             print("\n🎉 Pipeline completed successfully!")
 
     def on_stage_start(self, stage: str, jobs: list[JobConfig]) -> None:
-        self._current_stage_jobs = jobs
-        self._log_paths = {}
+        self.current_stage_jobs = jobs
+        self.log_paths = {}
         print(f"\n🎯 Stage: {stage} ({len(jobs)} job(s) running in parallel)")
 
     def on_stage_skip(self, stage: str) -> None:
@@ -267,10 +268,26 @@ class _CIFileCallbacks(PipelineCallbacks):
     def on_job_start(self, job: JobConfig) -> None:
         print(f"  ▶ {job.name}")
 
+    def on_job_complete(self, outcome: JobOutcome) -> None:
+        writer = self.open_writers.pop(outcome.job.name, None)
+        if writer is not None:
+            try:
+                writer.close()
+            except OSError:
+                pass
+
     def on_stage_complete(self, stage: str, outcomes: list[JobOutcome]) -> None:
+        # Belt-and-braces: close anything still open after the stage finishes.
+        for name in list(self.open_writers):
+            writer = self.open_writers.pop(name)
+            try:
+                writer.close()
+            except OSError:
+                pass
+
         failures = {o.job.name for o in outcomes if not o.success}
-        for job in self._current_stage_jobs:
-            log_path = self._log_paths.get(job.name)
+        for job in self.current_stage_jobs:
+            log_path = self.log_paths.get(job.name)
             status = "❌" if job.name in failures else "✅"
             print(f"\n{'=' * 60}")
             print(f"{status} Job: {job.name} (stage: {stage})")
@@ -283,18 +300,20 @@ class _CIFileCallbacks(PipelineCallbacks):
         if failures:
             print(f"\n🛑 Stage {stage} failed. Stopping pipeline.")
 
-    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -> Any:
-        log_path = _job_dir / "output.log"
+    def make_output_writer(self, job: JobConfig, job_dir: Path) -> Any:
+        log_path = job_dir / "output.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        self._log_paths[_job.name] = log_path
-        return open(log_path, "w", encoding="utf-8")  # noqa: SIM115
+        self.log_paths[job.name] = log_path
+        writer = open(log_path, "w", encoding="utf-8")  # noqa: SIM115
+        self.open_writers[job.name] = writer
+        return writer
 
     def get_worker_func(self):
-        return _run_single_job_file
+        return run_single_job_file
 
-    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -> dict[str, Any]:
-        log_path = _job_dir / "output.log"
-        self._log_paths[_job.name] = log_path
+    def make_worker_args(self, job: JobConfig, job_dir: Path) -> dict[str, Any]:
+        log_path = job_dir / "output.log"
+        self.log_paths[job.name] = log_path
         return {"log_path": str(log_path)}
 
 
@@ -326,43 +345,40 @@ class TUIOrchestrator:
             cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
         )
         if mp_ctx is None:
-            if sys.platform == "win32":
-                mp_ctx = mp.get_context("spawn")
-            else:
-                mp_ctx = mp.get_context("spawn")
-        self._mp_ctx = mp_ctx
-        self._mutation_config = mutation_config or MutationConfig()
-        self._parallel_backend = parallel_backend or ParallelBackendConfig()
-        self._worktree_config = worktree_config or WorktreeConfig()
+            mp_ctx = mp.get_context("spawn")
+        self.mp_ctx = mp_ctx
+        self.mutation_config = mutation_config or MutationConfig()
+        self.parallel_backend = parallel_backend or ParallelBackendConfig()
+        self.worktree_config = worktree_config or WorktreeConfig()
 
         # Cancel/control state
-        self._cancel_event: threading.Event = threading.Event()
+        self.cancel_event: threading.Event = threading.Event()
         # job_name -> worker OS PID (populated via Manager().dict() in parallel path)
-        self._worker_pids: dict[str, int] = {}
+        self.worker_pids: dict[str, int] = {}
         # Structured event collector (populated per execution)
-        self._event_collector: EventCollector | None = None
+        self.event_collector_instance: EventCollector | None = None
 
     @property
     def event_collector(self) -> EventCollector | None:
         """Access the structured event collector from the last execution."""
-        return self._event_collector
+        return self.event_collector_instance
 
     def is_running(self) -> bool:
         """Return True if the pipeline is actively running (not cancelled, not done)."""
-        return not self._cancel_event.is_set()
+        return not self.cancel_event.is_set()
 
     def reset(self) -> None:
         """Reset orchestrator state for a fresh pipeline run."""
-        self._cancel_event.clear()
-        self._worker_pids = {}
+        self.cancel_event.clear()
+        self.worker_pids = {}
 
     def cancel_pipeline(self) -> None:
         """Signal the pipeline to stop after the current stage completes."""
-        self._cancel_event.set()
+        self.cancel_event.set()
 
     def cancel_job(self, job_name: str) -> None:
         """Best-effort: send SIGTERM/taskkill to the worker process running job_name."""
-        pid = self._worker_pids.get(job_name)
+        pid = self.worker_pids.get(job_name)
         if pid is None:
             return
         try:
@@ -377,7 +393,7 @@ class TUIOrchestrator:
         """Run a single job inline in the calling thread (for restart-job)."""
         from bitrab.tui.app import JobOutput, JobStatusChanged
 
-        output_queue: Any = _queue.Queue()
+        output_queue: Any = queue.Queue()
         job_dir = self.job_executor.project_dir / ".bitrab" / sanitize_job_name(job.name)
         job_dir.mkdir(parents=True, exist_ok=True)
         app.call_from_thread(app.post_message, JobStatusChanged(job.name, "running"))
@@ -385,7 +401,7 @@ class TUIOrchestrator:
 
         stop_drain = threading.Event()
 
-        def _drain_loop() -> None:
+        def drain_loop() -> None:
             while not stop_drain.is_set():
                 try:
                     while True:
@@ -395,7 +411,7 @@ class TUIOrchestrator:
                 except Empty:
                     pass
 
-        drain_thread = threading.Thread(target=_drain_loop, daemon=True)
+        drain_thread = threading.Thread(target=drain_loop, daemon=True)
         drain_thread.start()
 
         try:
@@ -407,24 +423,24 @@ class TUIOrchestrator:
         finally:
             stop_drain.set()
             drain_thread.join(timeout=0.5)
-            self._drain_queue_sync(output_queue, app, JobOutput)
+            self.drain_queue_sync(output_queue, app, JobOutput)
 
     def execute_pipeline_tui(self, pipeline: PipelineConfig, app: PipelineApp) -> None:
         """Execute pipeline with live output routed to Textual TUI."""
-        use_threads = self._parallel_backend.backend == "thread"
+        use_threads = self.parallel_backend.backend == "thread"
 
         if use_threads:
             # Threads share memory — a plain queue.Queue avoids the Manager
             # process hop and gives lower-latency streaming to the TUI.
-            output_queue: Any = _queue.Queue()
+            output_queue: Any = queue.Queue()
             worker_pids: Any = {}
             mgr = None
         else:
-            mgr = self._mp_ctx.Manager()
+            mgr = self.mp_ctx.Manager()
             output_queue = mgr.Queue()
             worker_pids = mgr.dict()
 
-        self._worker_pids = worker_pids
+        self.worker_pids = worker_pids
 
         mdop = self.maximum_degree_of_parallelism
         if mdop == 1:
@@ -434,18 +450,18 @@ class TUIOrchestrator:
         else:
             backend_label = f"processes × {mdop}"
 
-        tui_callbacks = _TUICallbacks(app, output_queue, worker_pids, self._cancel_event, backend_label)
-        self._event_collector = EventCollector(inner=tui_callbacks)
+        tui_callbacks = TUICallbacks(app, output_queue, worker_pids, self.cancel_event, backend_label)
+        self.event_collector_instance = EventCollector(inner=tui_callbacks)
 
         try:
             runner = StagePipelineRunner(
                 job_executor=self.job_executor,
-                callbacks=self._event_collector,
+                callbacks=self.event_collector_instance,
                 maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
-                mp_ctx=self._mp_ctx,
-                mutation_config=self._mutation_config,
-                parallel_backend=self._parallel_backend,
-                worktree_config=self._worktree_config,
+                mp_ctx=self.mp_ctx,
+                mutation_config=self.mutation_config,
+                parallel_backend=self.parallel_backend,
+                worktree_config=self.worktree_config,
             )
             runner.execute_pipeline(pipeline)
         finally:
@@ -454,22 +470,22 @@ class TUIOrchestrator:
 
     def execute_pipeline_ci(self, pipeline: PipelineConfig) -> None:
         """Execute pipeline in CI mode: jobs write to files, printed when done."""
-        ci_callbacks = _CIFileCallbacks()
-        self._event_collector = EventCollector(inner=ci_callbacks)
+        ci_callbacks = CIFileCallbacks()
+        self.event_collector_instance = EventCollector(inner=ci_callbacks)
         runner = StagePipelineRunner(
             job_executor=self.job_executor,
-            callbacks=self._event_collector,
+            callbacks=self.event_collector_instance,
             maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
-            mp_ctx=self._mp_ctx,
-            mutation_config=self._mutation_config,
-            parallel_backend=self._parallel_backend,
-            worktree_config=self._worktree_config,
+            mp_ctx=self.mp_ctx,
+            mutation_config=self.mutation_config,
+            parallel_backend=self.parallel_backend,
+            worktree_config=self.worktree_config,
         )
         runner.execute_pipeline(pipeline)
-        summary = self._event_collector.summary()
+        summary = self.event_collector_instance.summary()
         print(summary.format_text())
 
-    def _drain_queue_sync(self, queue: Any, app: PipelineApp, job_output_cls: Any) -> None:
+    def drain_queue_sync(self, queue: Any, app: PipelineApp, job_output_cls: Any) -> None:
         """Drain remaining items from queue after single-job inline execution."""
         while True:
             try:

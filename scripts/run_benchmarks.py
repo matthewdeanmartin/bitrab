@@ -11,16 +11,16 @@ import pytest
 DEFAULT_REGRESSION_LIMIT = "mean:15%"
 
 
-def _benchmark_search_roots(root: Path) -> list[Path]:
+def benchmark_search_roots(root: Path) -> list[Path]:
     impl = platform.python_implementation()
     version = f"{sys.version_info.major}.{sys.version_info.minor}"
     matching = sorted(root.glob(f"*{impl}*{version}*"))
     return matching or [root]
 
 
-def _latest_saved_benchmark_id(root: Path) -> str | None:
+def latest_saved_benchmark_id(root: Path) -> str | None:
     benchmark_files: list[Path] = []
-    for search_root in _benchmark_search_roots(root):
+    for search_root in benchmark_search_roots(root):
         benchmark_files.extend(search_root.rglob("*.json"))
     if not benchmark_files:
         return None
@@ -32,7 +32,7 @@ def _latest_saved_benchmark_id(root: Path) -> str | None:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    baseline = _latest_saved_benchmark_id(Path(".benchmarks"))
+    baseline = latest_saved_benchmark_id(Path(".benchmarks"))
     benchmark_args = ["--benchmark-autosave"]
 
     if not any("randomly" in arg for arg in args):

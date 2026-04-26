@@ -29,13 +29,13 @@ def test_fetch_schema_from_url_success(validator, mock_schema):
     mock_response.__enter__.return_value = mock_response
 
     with patch("urllib.request.urlopen", return_value=mock_response):
-        schema = validator._fetch_schema_from_url()
+        schema = validator.fetch_schema_from_url()
         assert schema == mock_schema
 
 
 def test_fetch_schema_from_url_failure(validator):
     with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("test error")):
-        schema = validator._fetch_schema_from_url()
+        schema = validator.fetch_schema_from_url()
         assert schema is None
 
 
@@ -44,7 +44,7 @@ def test_load_schema_from_cache_fresh(validator, mock_schema):
 
     # Mock mtime to be now
     with patch("time.time", return_value=time.time()):
-        schema = validator._load_schema_from_cache()
+        schema = validator.load_schema_from_cache()
         assert schema == mock_schema
 
 
@@ -55,42 +55,42 @@ def test_load_schema_from_cache_stale(validator, mock_schema):
     stale_time = time.time() - (8 * 24 * 60 * 60)
     os.utime(validator.cache_file, (stale_time, stale_time))
 
-    schema = validator._load_schema_from_cache()
+    schema = validator.load_schema_from_cache()
     assert schema is None
 
 
 def test_save_schema_to_cache(validator, mock_schema):
-    validator._save_schema_to_cache(mock_schema)
+    validator.save_schema_to_cache(mock_schema)
     assert validator.cache_file.exists()
     assert json.loads(validator.cache_file.read_text()) == mock_schema
 
 
 def test_get_schema_order(validator, mock_schema):
     # 1. Test cache hit
-    with patch.object(validator, "_load_schema_from_cache", return_value=mock_schema):
+    with patch.object(validator, "load_schema_from_cache", return_value=mock_schema):
         assert validator.get_schema() == mock_schema
 
     # 2. Test bundled package schema hit (cache miss)
-    with patch.object(validator, "_load_schema_from_cache", return_value=None):
-        with patch.object(validator, "_load_fallback_schema", return_value=mock_schema):
-            with patch.object(validator, "_fetch_schema_from_url") as mock_fetch:
+    with patch.object(validator, "load_schema_from_cache", return_value=None):
+        with patch.object(validator, "load_fallback_schema", return_value=mock_schema):
+            with patch.object(validator, "fetch_schema_from_url") as mock_fetch:
                 validator.get_schema.cache_clear()
                 assert validator.get_schema() == mock_schema
                 mock_fetch.assert_not_called()
     # 3. Test URL fetch hit (cache and package schema miss)
-    with patch.object(validator, "_load_schema_from_cache", return_value=None):
-        with patch.object(validator, "_load_fallback_schema", return_value=None):
-            with patch.object(validator, "_fetch_schema_from_url", return_value=mock_schema):
-                with patch.object(validator, "_save_schema_to_cache") as mock_save:
+    with patch.object(validator, "load_schema_from_cache", return_value=None):
+        with patch.object(validator, "load_fallback_schema", return_value=None):
+            with patch.object(validator, "fetch_schema_from_url", return_value=mock_schema):
+                with patch.object(validator, "save_schema_to_cache") as mock_save:
                     validator.get_schema.cache_clear()
                     assert validator.get_schema() == mock_schema
                     mock_save.assert_called_once_with(mock_schema)
 
 
 def test_get_schema_all_fail(validator):
-    with patch.object(validator, "_load_schema_from_cache", return_value=None):
-        with patch.object(validator, "_fetch_schema_from_url", return_value=None):
-            with patch.object(validator, "_load_fallback_schema", return_value=None):
+    with patch.object(validator, "load_schema_from_cache", return_value=None):
+        with patch.object(validator, "fetch_schema_from_url", return_value=None):
+            with patch.object(validator, "load_fallback_schema", return_value=None):
                 validator.get_schema.cache_clear()
                 with pytest.raises(RuntimeError, match="Could not load schema"):
                     validator.get_schema()
@@ -136,6 +136,6 @@ def test_validate_gitlab_ci_yaml_convenience(tmp_path, mock_schema):
 
 
 def test_load_fallback_schema(validator, mock_schema):
-    # Verify _load_fallback_schema doesn't crash and returns None when file is absent
-    result = validator._load_fallback_schema()
+    # Verify load_fallback_schema doesn't crash and returns None when file is absent
+    result = validator.load_fallback_schema()
     assert result is None or isinstance(result, dict)

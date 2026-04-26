@@ -31,7 +31,7 @@ we recover.
 
 from __future__ import annotations
 
-import re
+import hashlib
 import shutil
 import subprocess  # nosec
 from collections.abc import Iterator
@@ -39,8 +39,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-_WORKTREES_SUBDIR = ".bitrab/worktrees"
-_INVALID_NAME_CHARS_RE = re.compile(r'[\\/:*?"<>|\s]+')
+from bitrab.utils import sanitize_job_name
+
+WORKTREES_SUBDIR = ".bitrab/worktrees"
+# Cap sanitized worktree directory names. A long matrix job name combined
+# with a deep project path can blow past Windows' MAX_PATH (260) inside git's
+# own internal allocations even when the OS itself is configured for long
+# paths. 50 leaves comfortable headroom for the appended hash + nested files.
+MAX_WORKTREE_NAME_LEN = 50
 
 
 @dataclass(frozen=True)
@@ -51,7 +57,7 @@ class WorktreeContext:
     project_dir: Path
 
 
-def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+def run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     """Run ``git`` with *args* in *cwd*, capturing output as text."""
     return subprocess.run(  # nosec
         ["git", *args],
@@ -72,7 +78,7 @@ def is_git_repo(project_dir: Path) -> bool:
     if not is_git_available():
         return False
     try:
-        result = _run_git(["rev-parse", "--is-inside-work-tree"], cwd=project_dir)
+        result = run_git(["rev-parse", "--is-inside-work-tree"], cwd=project_dir)
     except (OSError, FileNotFoundError):
         return False
     return result.returncode == 0 and result.stdout.strip() == "true"
@@ -91,28 +97,34 @@ def is_repo_dirty(project_dir: Path) -> bool:
     """
     if not can_use_worktrees(project_dir):
         return False
-    result = _run_git(["status", "--porcelain"], cwd=project_dir)
+    result = run_git(["status", "--porcelain"], cwd=project_dir)
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
-def _sanitize_name(name: str) -> str:
+def sanitize_name(name: str) -> str:
     """Replace filesystem-hostile characters with underscores.
 
     Worktree directories are named after job names, which can contain matrix
     labels like ``build: [OS=linux, PY=3.11]`` or slashes like ``test 1/3``.
+    Long matrix labels are truncated and given a stable hash suffix so two
+    distinct combos can't collide on the filesystem.
     """
-    cleaned = _INVALID_NAME_CHARS_RE.sub("_", name).strip("_")
-    return cleaned or "job"
+    cleaned = sanitize_job_name(name, for_worktree=True)
+    if len(cleaned) <= MAX_WORKTREE_NAME_LEN:
+        return cleaned
+    digest = hashlib.sha1(name.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
+    head_len = MAX_WORKTREE_NAME_LEN - len(digest) - 1  # -1 for the underscore separator
+    return f"{cleaned[:head_len]}_{digest}"
 
 
 def worktree_root(project_dir: Path, root: Path | None = None) -> Path:
     """Directory that holds all per-job worktrees."""
-    return root if root is not None else project_dir / _WORKTREES_SUBDIR
+    return root if root is not None else project_dir / WORKTREES_SUBDIR
 
 
 def worktree_path_for(project_dir: Path, name: str, root: Path | None = None) -> Path:
     """Compute the worktree directory for a job name (without creating it)."""
-    return worktree_root(project_dir, root=root) / _sanitize_name(name)
+    return worktree_root(project_dir, root=root) / sanitize_name(name)
 
 
 def create_worktree(project_dir: Path, name: str, root: Path | None = None) -> WorktreeContext:
@@ -129,13 +141,13 @@ def create_worktree(project_dir: Path, name: str, root: Path | None = None) -> W
     # `git worktree add` fail.  We try git first (so the metadata is cleaned),
     # then fall back to a plain directory removal.
     if target.exists():
-        _run_git(["worktree", "remove", "--force", str(target)], cwd=project_dir)
+        run_git(["worktree", "remove", "--force", str(target)], cwd=project_dir)
         if target.exists():
             shutil.rmtree(target, ignore_errors=True)
     # Prune dangling metadata in case a previous run left orphans behind.
-    _run_git(["worktree", "prune"], cwd=project_dir)
+    run_git(["worktree", "prune"], cwd=project_dir)
 
-    result = _run_git(
+    result = run_git(
         ["worktree", "add", "--detach", str(target)],
         cwd=project_dir,
     )
@@ -152,7 +164,7 @@ def remove_worktree(ctx: WorktreeContext) -> None:
     braces step in case git left artifacts behind (happens occasionally on
     Windows when a subprocess still holds a handle).
     """
-    _run_git(
+    run_git(
         ["worktree", "remove", "--force", str(ctx.worktree_path)],
         cwd=ctx.project_dir,
     )
@@ -176,7 +188,7 @@ def prune_worktrees(project_dir: Path, root: Path | None = None) -> None:
     Called by ``bitrab folder clean``.  Safe to run when no worktrees exist.
     """
     if is_git_repo(project_dir):
-        _run_git(["worktree", "prune"], cwd=project_dir)
+        run_git(["worktree", "prune"], cwd=project_dir)
     resolved_root = worktree_root(project_dir, root=root)
     if resolved_root.exists():
         shutil.rmtree(resolved_root, ignore_errors=True)

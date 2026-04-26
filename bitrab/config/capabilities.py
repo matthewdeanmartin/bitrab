@@ -27,14 +27,16 @@ class DiagnosticLevel(str, Enum):
     # validate / run both call the loader, so ERROR-level issues surface before
     # any job runs regardless of which command the user invoked.
     #
-    # WARNING: the feature is ignored locally but its absence is either cosmetic
-    # (image:, services:) or only affects GitLab-side behaviour (pages deployment,
-    # resource_group, environment tracking).  These are reported as informational
-    # notes by `bitrab validate` — they do NOT fail validation.  This is
-    # intentional: we want a single .gitlab-ci.yml that works both locally and
-    # in GitLab without requiring two separate files.
+    # WARNING: the feature is ignored locally and its absence may surprise the
+    # user — e.g. cache: skipped, services: not started, resource_group not
+    # enforced.  Reported as informational notes; validation still passes.
+    #
+    # INFO: the feature is ignored locally but the divergence is well-known and
+    # almost always intentional (image: — bitrab is by design container-free).
+    # Reported quietly so the noise floor of `bitrab validate` stays low.
     ERROR = "error"
     WARNING = "warning"
+    INFO = "info"
 
 
 @dataclass(frozen=True)
@@ -44,7 +46,12 @@ class CapabilityDiagnostic:
     message: str
 
     def __str__(self) -> str:
-        icon = "❌" if self.level == DiagnosticLevel.ERROR else "⚠️ "
+        if self.level == DiagnosticLevel.ERROR:
+            icon = "❌"
+        elif self.level == DiagnosticLevel.WARNING:
+            icon = "⚠️ "
+        else:
+            icon = "ℹ️ "
         return f"{icon} [{self.feature}] {self.message}"
 
 
@@ -75,7 +82,7 @@ _UNIMPLEMENTED_RULES_KEYS: set[str] = set()
 _UNSUPPORTED_RULES_KEYS = {"changes"}
 
 
-def _iter_jobs(raw_config: dict[str, Any]):
+def iter_jobs(raw_config: dict[str, Any]):
     """Yield (name, job_dict) for every job definition in *raw_config*.
 
     Hidden templates (keys starting with ``.'``) are skipped — they are not
@@ -152,11 +159,13 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
             )
         )
 
-    # Top-level image/services — warn (ignored)
+    # Top-level image/services — image: is INFO (bitrab is intentionally
+    # container-free), services: is WARNING (a missing DB/Redis can silently
+    # change job behaviour).
     if "image" in raw_config:
         diags.append(
             CapabilityDiagnostic(
-                level=DiagnosticLevel.WARNING,
+                level=DiagnosticLevel.INFO,
                 feature="image",
                 message="Top-level 'image:' is defined but will be ignored (no container execution).",
             )
@@ -167,6 +176,16 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                 level=DiagnosticLevel.WARNING,
                 feature="services",
                 message="Top-level 'services:' is defined but will be ignored (no container execution).",
+            )
+        )
+
+    # Top-level cache: — bitrab does not implement save/restore between jobs.
+    if "cache" in raw_config:
+        diags.append(
+            CapabilityDiagnostic(
+                level=DiagnosticLevel.WARNING,
+                feature="cache",
+                message="Top-level 'cache:' is defined but bitrab does not implement save/restore between jobs.",
             )
         )
 
@@ -184,7 +203,7 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
     # 2. Per-job checks
     # ------------------------------------------------------------------
 
-    for job_name, job_data in _iter_jobs(raw_config):
+    for job_name, job_data in iter_jobs(raw_config):
         # trigger: — cannot run child/multi-project pipelines locally
         if "trigger" in job_data:
             diags.append(
@@ -205,11 +224,13 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                 )
             )
 
-        # image / services — warn (ignored)
+        # image / services / cache — image: is INFO (intentional), the others
+        # are WARNING because a missing service or skipped cache changes runtime
+        # behaviour in non-obvious ways.
         if "image" in job_data:
             diags.append(
                 CapabilityDiagnostic(
-                    level=DiagnosticLevel.WARNING,
+                    level=DiagnosticLevel.INFO,
                     feature="image",
                     message=f"Job '{job_name}': 'image:' will be ignored (no container execution).",
                 )
@@ -220,6 +241,16 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                     level=DiagnosticLevel.WARNING,
                     feature="services",
                     message=f"Job '{job_name}': 'services:' will be ignored (no container execution).",
+                )
+            )
+        if "cache" in job_data:
+            diags.append(
+                CapabilityDiagnostic(
+                    level=DiagnosticLevel.WARNING,
+                    feature="cache",
+                    message=(
+                        f"Job '{job_name}': 'cache:' is defined but bitrab does not implement save/restore between jobs."
+                    ),
                 )
             )
 

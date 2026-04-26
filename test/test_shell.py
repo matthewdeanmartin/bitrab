@@ -12,11 +12,11 @@ import pytest
 from bitrab.execution.shell import run_bash, run_colored
 
 
-def _bash_available() -> bool:
+def bash_available() -> bool:
     """
     Rough availability check for bash used by the runner.
     - On POSIX: look for 'bash' on PATH.
-    - On Windows: mirrors the search order of shell._find_bash_windows().
+    - On Windows: mirrors the search order of shell.find_bash_windows().
     """
     if os.name != "nt":
         return shutil.which("bash") is not None
@@ -34,7 +34,7 @@ def _bash_available() -> bool:
     return any(os.path.isfile(c) for c in candidates)
 
 
-pytestmark = pytest.mark.skipif(not _bash_available(), reason="Bash not available for subprocess tests")
+pytestmark = pytest.mark.skipif(not bash_available(), reason="Bash not available for subprocess tests")
 
 
 # ---------------- run_bash tests ----------------
@@ -152,19 +152,19 @@ def test_streaming_not_delayed():
 
     class TimedPipe:
         def __init__(self, chunks):
-            self._chunks = list(chunks)
-            self._current = ""
+            self.chunks = list(chunks)
+            self.current = ""
 
         def read(self, _size=1):
-            while not self._current and self._chunks:
-                delay, chunk = self._chunks.pop(0)
+            while not self.current and self.chunks:
+                delay, chunk = self.chunks.pop(0)
                 if delay:
                     time.sleep(delay)
-                self._current = chunk
-            if not self._current:
+                self.current = chunk
+            if not self.current:
                 return ""
-            ch = self._current[0]
-            self._current = self._current[1:]
+            ch = self.current[0]
+            self.current = self.current[1:]
             return ch
 
         def close(self):

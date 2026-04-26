@@ -4,40 +4,40 @@ from __future__ import annotations
 
 import time
 
-from bitrab.mutation import _BUILTIN_WHITELIST, MutationConfig, MutationSnapshot, _is_whitelisted, load_mutation_config
+from bitrab.mutation import BUILTIN_WHITELIST, MutationConfig, MutationSnapshot, is_whitelisted, load_mutation_config
 
 # ---------------------------------------------------------------------------
-# _is_whitelisted
+# is_whitelisted
 # ---------------------------------------------------------------------------
 
 
 class TestIsWhitelisted:
     def test_exact_match(self):
-        assert _is_whitelisted(".coverage", [".coverage"])
+        assert is_whitelisted(".coverage", [".coverage"])
 
     def test_glob_star(self):
-        assert _is_whitelisted("foo.pyc", ["*.pyc"])
+        assert is_whitelisted("foo.pyc", ["*.pyc"])
 
     def test_glob_double_star_prefix(self):
-        assert _is_whitelisted(".mypy_cache/sub/file.py", [".mypy_cache/**"])
+        assert is_whitelisted(".mypy_cache/sub/file.py", [".mypy_cache/**"])
 
     def test_glob_double_star_middle(self):
-        assert _is_whitelisted("pkg/__pycache__/mod.cpython-311.pyc", ["**/__pycache__/**"])
+        assert is_whitelisted("pkg/__pycache__/mod.cpython-311.pyc", ["**/__pycache__/**"])
 
     def test_no_match(self):
-        assert not _is_whitelisted("src/main.py", [".mypy_cache/**", "*.pyc"])
+        assert not is_whitelisted("src/main.py", [".mypy_cache/**", "*.pyc"])
 
     def test_builtin_pytest_cache(self):
-        assert _is_whitelisted(".pytest_cache/v/cache/lastfailed", _BUILTIN_WHITELIST)
+        assert is_whitelisted(".pytest_cache/v/cache/lastfailed", BUILTIN_WHITELIST)
 
     def test_builtin_pycache(self):
-        assert _is_whitelisted("bitrab/__pycache__/cli.cpython-311.pyc", _BUILTIN_WHITELIST)
+        assert is_whitelisted("bitrab/__pycache__/cli.cpython-311.pyc", BUILTIN_WHITELIST)
 
     def test_builtin_bitrab_dir(self):
-        assert _is_whitelisted(".bitrab/some_job/output.log", _BUILTIN_WHITELIST)
+        assert is_whitelisted(".bitrab/some_job/output.log", BUILTIN_WHITELIST)
 
     def test_not_whitelisted_source_file(self):
-        assert not _is_whitelisted("bitrab/cli.py", _BUILTIN_WHITELIST)
+        assert not is_whitelisted("bitrab/cli.py", BUILTIN_WHITELIST)
 
 
 # ---------------------------------------------------------------------------

@@ -40,17 +40,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from bitrab._json import dumps as json_dumps
-from bitrab._json import loads as json_loads
+from bitrab.json_backend import dumps as json_dumps
+from bitrab.json_backend import loads as json_loads
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-_LOGS_DIR = "logs"
-_ARTIFACTS_DIR = "artifacts"
-_WORKTREES_DIR = "worktrees"
-_SIZE_WARN_BYTES_DEFAULT = 500 * 1024 * 1024  # 500 MB
+LOGS_DIR = "logs"
+ARTIFACTS_DIR = "artifacts"
+WORKTREES_DIR = "worktrees"
+SIZE_WARN_BYTES_DEFAULT = 500 * 1024 * 1024  # 500 MB
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -62,7 +62,7 @@ def bitrab_dir(project_dir: Path) -> Path:
     return project_dir / ".bitrab"
 
 
-def _dir_size_bytes(path: Path) -> int:
+def dir_size_bytes(path: Path) -> int:
     """Return total byte size of all files under *path* (fast os.walk version)."""
     total = 0
     try:
@@ -87,18 +87,18 @@ def _human_size(num_bytes: int) -> str:
     return f"{value:.1f} PB"
 
 
-def _make_run_id() -> str:
+def make_run_id() -> str:
     """Return a sortable, unique run identifier: ``YYYYMMDD_HHMMSS_<8hex>``."""
     ts = time.strftime("%Y%m%d_%H%M%S")
     short = uuid.uuid4().hex[:8]
     return f"{ts}_{short}"
 
 
-_RUN_ID_RE = re.compile(r"^\d{8}_\d{6}_[0-9a-f]{8}$")
+RUN_ID_RE = re.compile(r"^\d{8}_\d{6}_[0-9a-f]{8}$")
 
 
-def _is_run_id(name: str) -> bool:
-    return bool(_RUN_ID_RE.match(name))
+def is_run_id(name: str) -> bool:
+    return bool(RUN_ID_RE.match(name))
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +142,7 @@ class FolderSummary:
     artifacts_size_bytes: int
     job_dirs_size_bytes: int
     run_count: int
-    warn_threshold_bytes: int = _SIZE_WARN_BYTES_DEFAULT
+    warn_threshold_bytes: int = SIZE_WARN_BYTES_DEFAULT
     subdirs: list[str] = field(default_factory=list)
 
     @property
@@ -195,7 +195,7 @@ class FolderSummary:
 
 def scan_folder(
     project_dir: Path,
-    warn_threshold_bytes: int = _SIZE_WARN_BYTES_DEFAULT,
+    warn_threshold_bytes: int = SIZE_WARN_BYTES_DEFAULT,
 ) -> FolderSummary:
     """Walk ``.bitrab/`` and return a :class:`FolderSummary`.
 
@@ -215,11 +215,11 @@ def scan_folder(
             warn_threshold_bytes=warn_threshold_bytes,
         )
 
-    logs_path = bd / _LOGS_DIR
-    artifacts_path = bd / _ARTIFACTS_DIR
+    logs_path = bd / LOGS_DIR
+    artifacts_path = bd / ARTIFACTS_DIR
 
-    logs_bytes = _dir_size_bytes(logs_path) if logs_path.exists() else 0
-    artifact_bytes = _dir_size_bytes(artifacts_path) if artifacts_path.exists() else 0
+    logs_bytes = dir_size_bytes(logs_path) if logs_path.exists() else 0
+    artifact_bytes = dir_size_bytes(artifacts_path) if artifacts_path.exists() else 0
 
     # Job dirs = everything that isn't logs/, artifacts/, or worktrees/.
     # Worktrees are transient and tracked by git metadata, so they don't count
@@ -228,8 +228,8 @@ def scan_folder(
     subdirs: list[str] = []
     try:
         for entry in os.scandir(bd):
-            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR, _WORKTREES_DIR):
-                job_bytes += _dir_size_bytes(Path(entry.path))
+            if entry.is_dir() and entry.name not in (LOGS_DIR, ARTIFACTS_DIR, WORKTREES_DIR):
+                job_bytes += dir_size_bytes(Path(entry.path))
                 subdirs.append(entry.name)
     except OSError:
         pass
@@ -240,7 +240,7 @@ def scan_folder(
     run_count = 0
     if logs_path.exists():
         try:
-            run_count = sum(1 for e in os.scandir(logs_path) if e.is_dir() and _is_run_id(e.name))
+            run_count = sum(1 for e in os.scandir(logs_path) if e.is_dir() and is_run_id(e.name))
         except OSError:
             pass
 
@@ -262,14 +262,14 @@ def list_runs(project_dir: Path) -> list[RunRecord]:
 
     Size data comes from the pre-recorded ``meta.json`` — no directory walk needed.
     """
-    logs_path = bitrab_dir(project_dir) / _LOGS_DIR
+    logs_path = bitrab_dir(project_dir) / LOGS_DIR
     if not logs_path.exists():
         return []
 
     records: list[RunRecord] = []
     try:
         for entry in os.scandir(logs_path):
-            if not (entry.is_dir() and _is_run_id(entry.name)):
+            if not (entry.is_dir() and is_run_id(entry.name)):
                 continue
             run_dir = Path(entry.path)
             meta_file = run_dir / "meta.json"
@@ -315,10 +315,10 @@ def prune_runs(project_dir: Path, keep: int) -> list[str]:
 
 def clean_artifacts(project_dir: Path) -> int:
     """Delete ``.bitrab/artifacts/``. Returns bytes freed."""
-    artifacts_path = bitrab_dir(project_dir) / _ARTIFACTS_DIR
+    artifacts_path = bitrab_dir(project_dir) / ARTIFACTS_DIR
     if not artifacts_path.exists():
         return 0
-    freed = _dir_size_bytes(artifacts_path)
+    freed = dir_size_bytes(artifacts_path)
     shutil.rmtree(artifacts_path)
     return freed
 
@@ -336,8 +336,8 @@ def clean_job_dirs(project_dir: Path) -> int:
     freed = 0
     try:
         for entry in os.scandir(bd):
-            if entry.is_dir() and entry.name not in (_LOGS_DIR, _ARTIFACTS_DIR, _WORKTREES_DIR):
-                freed += _dir_size_bytes(Path(entry.path))
+            if entry.is_dir() and entry.name not in (LOGS_DIR, ARTIFACTS_DIR, WORKTREES_DIR):
+                freed += dir_size_bytes(Path(entry.path))
                 shutil.rmtree(entry.path)
     except OSError:
         pass
@@ -355,17 +355,17 @@ def clean_worktrees(project_dir: Path) -> int:
     from bitrab.mutation import load_worktree_config
 
     wt_root = worktree_root(project_dir, root=load_worktree_config(project_dir).root)
-    freed = _dir_size_bytes(wt_root) if wt_root.exists() else 0
+    freed = dir_size_bytes(wt_root) if wt_root.exists() else 0
     prune_worktrees(project_dir, root=wt_root)
     return freed
 
 
 def clean_logs(project_dir: Path) -> int:
     """Delete ``.bitrab/logs/``. Returns bytes freed."""
-    logs_path = bitrab_dir(project_dir) / _LOGS_DIR
+    logs_path = bitrab_dir(project_dir) / LOGS_DIR
     if not logs_path.exists():
         return 0
-    freed = _dir_size_bytes(logs_path)
+    freed = dir_size_bytes(logs_path)
     shutil.rmtree(logs_path)
     return freed
 
@@ -379,7 +379,7 @@ def clean_all(project_dir: Path) -> int:
     bd = bitrab_dir(project_dir)
     if not bd.exists():
         return 0
-    freed = _dir_size_bytes(bd)
+    freed = dir_size_bytes(bd)
     # Prune git metadata first so it doesn't complain about missing dirs.
     try:
         from bitrab.git_worktree import prune_worktrees
@@ -415,8 +415,8 @@ def write_run_log(
 
     Returns the run directory path.
     """
-    run_id = _make_run_id()
-    run_dir = bitrab_dir(project_dir) / _LOGS_DIR / run_id
+    run_id = make_run_id()
+    run_dir = bitrab_dir(project_dir) / LOGS_DIR / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # Write events log (JSONL)
@@ -430,7 +430,7 @@ def write_run_log(
     summary_path.write_text(summary_text, encoding="utf-8")
 
     # Compute size and write meta (size_bytes includes events + summary)
-    size_bytes = _dir_size_bytes(run_dir)
+    size_bytes = dir_size_bytes(run_dir)
     meta["size_bytes"] = size_bytes
     meta["run_id"] = run_id
     meta_path = run_dir / "meta.json"
@@ -441,7 +441,7 @@ def write_run_log(
 
 def maybe_warn_size(
     project_dir: Path,
-    warn_threshold_bytes: int = _SIZE_WARN_BYTES_DEFAULT,
+    warn_threshold_bytes: int = SIZE_WARN_BYTES_DEFAULT,
 ) -> str | None:
     """Return a warning string if ``.bitrab/`` exceeds *warn_threshold_bytes*, else None."""
     summary = scan_folder(project_dir, warn_threshold_bytes=warn_threshold_bytes)

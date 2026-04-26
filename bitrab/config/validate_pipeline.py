@@ -13,16 +13,16 @@ from typing import Any
 import jsonschema
 import ruamel.yaml
 
-from bitrab._json import dumps as json_dumps
-from bitrab._json import loads as json_loads
+from bitrab.json_backend import dumps as json_dumps
+from bitrab.json_backend import loads as json_loads
 
 logger = logging.getLogger(__name__)
 # Keyed on cache_file path (stable, hashable) so the cache survives across
 # transient GitLabCIValidator instances that share the same schema location.
 # WeakKeyDictionary keyed on `self` was wrong: the validator instance is often
 # short-lived, causing immediate GC and cache eviction.
-_SCHEMA_CACHE: dict[Path, dict[str, Any]] = {}
-_VALIDATOR_CACHE: dict[Path, jsonschema.Draft7Validator] = {}
+SCHEMA_CACHE: dict[Path, dict[str, Any]] = {}
+VALIDATOR_CACHE: dict[Path, jsonschema.Draft7Validator] = {}
 
 # Import compatibility for Python 3.8+
 if sys.version_info >= (3, 9):  # noqa: UP036
@@ -52,7 +52,7 @@ class GitLabCIValidator:
         self.fallback_schema_path = "schemas/gitlab_ci_schema.json"  # Package resource path
         self.yaml = ruamel.yaml.YAML(typ="rt")
 
-    def _fetch_schema_from_url(self) -> dict[str, Any] | None:
+    def fetch_schema_from_url(self) -> dict[str, Any] | None:
         """
         Fetch the schema from GitLab's repository.
 
@@ -67,7 +67,7 @@ class GitLabCIValidator:
             logger.warning(f"Failed to fetch schema from URL: {e}")
             return None
 
-    def _load_schema_from_cache(self) -> dict[str, Any] | None:
+    def load_schema_from_cache(self) -> dict[str, Any] | None:
         """
         Load the schema from cache file if it is 7 days old or newer.
 
@@ -89,7 +89,7 @@ class GitLabCIValidator:
             logger.debug(f"Failed to load schema from cache: {e}")
         return None
 
-    def _save_schema_to_cache(self, schema: dict[str, Any]) -> None:
+    def save_schema_to_cache(self, schema: dict[str, Any]) -> None:
         """
         Save the schema to cache file.
 
@@ -103,7 +103,7 @@ class GitLabCIValidator:
         except OSError as e:
             logger.warning(f"Failed to save schema to cache: {e}")
 
-    def _load_fallback_schema(self) -> dict[str, Any] | None:
+    def load_fallback_schema(self) -> dict[str, Any] | None:
         """
         Load the fallback schema from package resources.
 
@@ -147,30 +147,30 @@ class GitLabCIValidator:
         Raises:
             RuntimeError: If no schema could be loaded from any source.
         """
-        cached_schema = _SCHEMA_CACHE.get(self.cache_file)
+        cached_schema = SCHEMA_CACHE.get(self.cache_file)
         if cached_schema is not None:
             return cached_schema
 
         # Check cache
-        schema = self._load_schema_from_cache()
+        schema = self.load_schema_from_cache()
         if schema:
             logger.debug("Using cached gitlab schema")
-            _SCHEMA_CACHE[self.cache_file] = schema
+            SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
         # Use bundled package schema before hitting the network
-        schema = self._load_fallback_schema()
+        schema = self.load_fallback_schema()
         if schema:
             logger.debug("Using gitlab schema from package")
-            _SCHEMA_CACHE[self.cache_file] = schema
+            SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
         # Fall back to fetching from URL
-        schema = self._fetch_schema_from_url()
+        schema = self.fetch_schema_from_url()
         if schema:
             logger.debug("Using schema from URL")
-            self._save_schema_to_cache(schema)
-            _SCHEMA_CACHE[self.cache_file] = schema
+            self.save_schema_to_cache(schema)
+            SCHEMA_CACHE[self.cache_file] = schema
             return schema
 
         raise RuntimeError("Could not load schema from URL, cache, or fallback resource")
@@ -212,10 +212,10 @@ class GitLabCIValidator:
             schema = self.get_schema()
 
             # Reuse a cached validator — building Draft7Validator is expensive
-            validator = _VALIDATOR_CACHE.get(self.cache_file)
+            validator = VALIDATOR_CACHE.get(self.cache_file)
             if validator is None:
                 validator = jsonschema.Draft7Validator(schema)
-                _VALIDATOR_CACHE[self.cache_file] = validator
+                VALIDATOR_CACHE[self.cache_file] = validator
             errors = []
 
             for error in validator.iter_errors(config_dict):
@@ -261,11 +261,11 @@ def validate_gitlab_ci_yaml(yaml_content: str, cache_dir: str | None = None) -> 
     return validator.validate_ci_config(yaml_content)
 
 
-def _clear_get_schema_cache() -> None:
+def clear_get_schema_cache() -> None:
     """Clear cached schemas and validators for all validator instances."""
-    _SCHEMA_CACHE.clear()
-    _VALIDATOR_CACHE.clear()
+    SCHEMA_CACHE.clear()
+    VALIDATOR_CACHE.clear()
 
 
 # Restore cache_clear for tests (setattr to hide from ty)
-setattr(GitLabCIValidator.get_schema, "cache_clear", _clear_get_schema_cache)  # noqa: B010
+setattr(GitLabCIValidator.get_schema, "cache_clear", clear_get_schema_cache)  # noqa: B010

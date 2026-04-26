@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import io
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,8 @@ import urllib3
 from ruamel.yaml import YAML
 
 from bitrab.exceptions import GitlabRunnerError
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigurationLoader:
@@ -46,8 +49,6 @@ class ConfigurationLoader:
         Raises:
             GitLabCIError: If the configuration file is not found or fails to load.
         """
-        import warnings
-
         default_gitlab = self.base_path / ".gitlab-ci.yml"
         default_bitrab = self.base_path / ".bitrab-ci.yml"
 
@@ -55,9 +56,8 @@ class ConfigurationLoader:
             # Auto-detect: prefer .bitrab-ci.yml when available
             if default_bitrab.exists():
                 if default_gitlab.exists():
-                    warnings.warn(
-                        "Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — remove .gitlab-ci.yml or pass -c .gitlab-ci.yml explicitly to suppress this warning.",
-                        stacklevel=2,
+                    logger.warning(
+                        "Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — remove .gitlab-ci.yml or pass -c .gitlab-ci.yml explicitly to suppress this warning."
                     )
                 config_path = default_bitrab
             else:

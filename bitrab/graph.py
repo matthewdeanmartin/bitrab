@@ -28,8 +28,8 @@ def render_pipeline_graph(pipeline: PipelineConfig, fmt: str = "text") -> str:
         A string representation of the pipeline graph.
     """
     if fmt == "dot":
-        return _render_dot(pipeline)
-    return _render_text(pipeline)
+        return render_dot(pipeline)
+    return render_text(pipeline)
 
 
 # ---------------------------------------------------------------------------
@@ -37,7 +37,7 @@ def render_pipeline_graph(pipeline: PipelineConfig, fmt: str = "text") -> str:
 # ---------------------------------------------------------------------------
 
 
-def _render_text(pipeline: PipelineConfig) -> str:
+def render_text(pipeline: PipelineConfig) -> str:
     """Render a human-readable stage/job tree with DAG dependency arrows."""
     lines: list[str] = []
     jobs_by_stage = organize_jobs_by_stage(pipeline)
@@ -63,7 +63,7 @@ def _render_text(pipeline: PipelineConfig) -> str:
             lines.append("    (empty — no jobs)")
         else:
             for job in jobs:
-                attrs = _job_attrs(job)
+                attrs = job_attrs(job)
                 attr_str = f"  [{', '.join(attrs)}]" if attrs else ""
                 lines.append(f"    • {job.name}{attr_str}")
                 if job.needs:
@@ -76,11 +76,11 @@ def _render_text(pipeline: PipelineConfig) -> str:
             lines.append("        ↓")
         lines.append("")
 
-    _append_legend(lines, is_dag, pipeline)
+    append_legend(lines, is_dag, pipeline)
     return "\n".join(lines)
 
 
-def _job_attrs(job: JobConfig) -> list[str]:
+def job_attrs(job: JobConfig) -> list[str]:
     """Return a list of notable attribute labels for a job."""
     attrs: list[str] = []
     if getattr(job, "when", None) and job.when not in ("on_success", None):  # type: ignore[union-attr]
@@ -90,7 +90,7 @@ def _job_attrs(job: JobConfig) -> list[str]:
     return attrs
 
 
-def _append_legend(lines: list[str], is_dag: bool, pipeline: PipelineConfig) -> None:
+def append_legend(lines: list[str], is_dag: bool, pipeline: PipelineConfig) -> None:
     """Append a summary line with job/stage counts."""
     total_jobs = len(pipeline.jobs)
     total_stages = len(pipeline.stages)
@@ -109,7 +109,7 @@ def _append_legend(lines: list[str], is_dag: bool, pipeline: PipelineConfig) -> 
 # ---------------------------------------------------------------------------
 
 
-def _render_dot(pipeline: PipelineConfig) -> str:
+def render_dot(pipeline: PipelineConfig) -> str:
     """Render a Graphviz DOT representation of the pipeline."""
     lines: list[str] = []
     jobs_by_stage = organize_jobs_by_stage(pipeline)
@@ -122,14 +122,14 @@ def _render_dot(pipeline: PipelineConfig) -> str:
     # Render stages as subgraphs (clusters)
     for _i, stage in enumerate(pipeline.stages):
         jobs = jobs_by_stage.get(stage, [])
-        safe_stage = _dot_id(stage)
+        safe_stage = dot_id(stage)
         lines.append(f"  subgraph cluster_{safe_stage} {{")
         lines.append(f'    label="{stage}";')
         lines.append("    style=rounded;")
         lines.append("    color=gray;")
         for job in jobs:
-            job_id = _dot_id(job.name)
-            attrs = _dot_job_attrs(job)
+            job_id = dot_id(job.name)
+            attrs = dot_job_attrs(job)
             lines.append(f'    {job_id} [label="{job.name}"{attrs}];')
         lines.append("  }")
         lines.append("")
@@ -140,9 +140,9 @@ def _render_dot(pipeline: PipelineConfig) -> str:
         # Explicit needs: edges
         for job in pipeline.jobs:
             if job.needs:
-                job_id = _dot_id(job.name)
+                job_id = dot_id(job.name)
                 for dep in job.needs:
-                    dep_id = _dot_id(dep)
+                    dep_id = dot_id(dep)
                     lines.append(f"  {dep_id} -> {job_id};")
     else:
         # Stage ordering edges: each job in stage N → each job in stage N+1
@@ -152,18 +152,18 @@ def _render_dot(pipeline: PipelineConfig) -> str:
             nxt_jobs = jobs_by_stage.get(stage_list[i + 1], [])
             for cur in cur_jobs:
                 for nxt in nxt_jobs:
-                    lines.append(f"  {_dot_id(cur.name)} -> {_dot_id(nxt.name)};")
+                    lines.append(f"  {dot_id(cur.name)} -> {dot_id(nxt.name)};")
 
     lines.append("}")
     return "\n".join(lines)
 
 
-def _dot_id(name: str) -> str:
+def dot_id(name: str) -> str:
     """Convert a job/stage name to a valid DOT identifier."""
     return '"' + name.replace('"', '\\"') + '"'
 
 
-def _dot_job_attrs(job: JobConfig) -> str:
+def dot_job_attrs(job: JobConfig) -> str:
     """Return extra DOT attributes for a job node."""
     parts: list[str] = []
     if getattr(job, "when", None) == "manual":

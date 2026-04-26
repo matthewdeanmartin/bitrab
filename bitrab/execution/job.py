@@ -13,8 +13,6 @@ from bitrab.execution.shell import RunResult, TextWriter, run_bash
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
 
-FAIL_FAST = False
-
 
 @dataclass(frozen=True)
 class JobRuntimeContext:
@@ -57,19 +55,19 @@ class JobExecutor:
     # ---- retry helpers ----
 
     @staticmethod
-    def _env_delay_seconds() -> int:
+    def env_delay_seconds() -> int:
         try:
             return max(0, int(os.getenv("BITRAB_RETRY_DELAY_SECONDS", "0")))
         except Exception:
             return 0
 
     @staticmethod
-    def _env_strategy() -> str:
+    def env_strategy() -> str:
         val = os.getenv("BITRAB_RETRY_STRATEGY", "exponential").lower().strip()
         return val if val in {"exponential", "constant"} else "exponential"
 
     @staticmethod
-    def _should_retry_when(when: list[str] | None, exc: BaseException) -> bool:
+    def should_retry_when(when: list[str] | None, exc: BaseException) -> bool:
         normalized = [str(w).strip().lower() for w in (when or []) if isinstance(w, (str, int))]
         if not normalized:
             return True  # default to retry on any failure if max>0 was requested
@@ -80,13 +78,13 @@ class JobExecutor:
         return False
 
     @staticmethod
-    def _should_retry_exit_codes(exit_codes: list[int], exc: BaseException) -> bool:
+    def should_retry_exit_codes(exit_codes: list[int], exc: BaseException) -> bool:
         if not exit_codes:
             return True  # no restriction by codes
         return isinstance(exc, subprocess.CalledProcessError) and exc.returncode in exit_codes
 
     @staticmethod
-    def _compute_delay_seconds(strategy: str, base: int, attempt_index: int) -> float:
+    def compute_delay_seconds(strategy: str, base: int, attempt_index: int) -> float:
         if base <= 0:
             return 0.0
         if strategy == "constant":
@@ -175,9 +173,9 @@ class JobExecutor:
                 raise ValueError("Either 'job' or 'ctx' must be provided")
             ctx = self.build_context(job, job_dir=job_dir, output_writer=output_writer, timeout=timeout)
 
-        self._execute_with_context(ctx)
+        self.execute_with_context(ctx)
 
-    def _execute_with_context(self, ctx: JobRuntimeContext) -> None:
+    def execute_with_context(self, ctx: JobRuntimeContext) -> None:
         """Core execution loop driven by a :class:`JobRuntimeContext`."""
         job = ctx.job
         output_writer = ctx.output_writer
@@ -187,8 +185,8 @@ class JobExecutor:
         execution_dir = ctx.project_dir
         env = dict(ctx.env)  # mutable copy (frozen dataclass stores the original)
 
-        _print = (lambda msg: safe_print(msg, file=output_writer)) if output_writer else safe_print
-        _print(f"🔧 Running job: {job.name} (stage: {job.stage})")
+        job_print = (lambda msg: safe_print(msg, file=output_writer)) if output_writer else safe_print
+        job_print(f"🔧 Running job: {job.name} (stage: {job.stage})")
 
         job_timeout = ctx.timeout
         deadline: float | None = (time.monotonic() + job_timeout) if job_timeout is not None else None
@@ -198,71 +196,69 @@ class JobExecutor:
         last_exc: BaseException | None = None
 
         # env-configured timing controls
-        base_delay = self._env_delay_seconds()
-        strategy = self._env_strategy()
+        base_delay = self.env_delay_seconds()
+        strategy = self.env_strategy()
         skip_sleep = os.getenv("BITRAB_RETRY_NO_SLEEP") == "1"
 
         while attempt < max_attempts:
             attempt += 1
             if max_attempts > 1:
-                _print(f"  🔁 Attempt {attempt}/{max_attempts}")
+                job_print(f"  🔁 Attempt {attempt}/{max_attempts}")
 
             try:
                 if job.before_script:
-                    _print("  📋 Running before_script...")
-                    self._execute_scripts(
+                    job_print("  📋 Running before_script...")
+                    self.execute_scripts(
                         job.before_script, env, execution_dir, output_writer=output_writer, deadline=deadline
                     )
 
                 if job.script:
-                    _print("  🚀 Running script...")
-                    self._execute_scripts(
+                    job_print("  🚀 Running script...")
+                    self.execute_scripts(
                         job.script, env, execution_dir, output_writer=output_writer, deadline=deadline
                     )
 
-                _print(f"✅ Job {job.name} completed successfully")
+                job_print(f"✅ Job {job.name} completed successfully")
                 return
 
             except JobTimeoutError:
-                _print(f"  ⏱️ Job {job.name} timed out after {job_timeout}s")
+                job_print(f"  ⏱️ Job {job.name} timed out after {job_timeout}s")
                 raise
             except subprocess.CalledProcessError as e:
                 last_exc = e
-                _print(f"  ❗ Job step failed with exit code {e.returncode}")
-                if FAIL_FAST:
-                    raise
+                job_print(f"  ❗ Job step failed with exit code {e.returncode}")
             except BaseException as e:
                 last_exc = e
-                _print(f"  ❗ Job step raised an exception: {e!r}")
+                job_print(f"  ❗ Job step raised an exception: {e!r}")
             finally:
                 if job.after_script:
-                    _print("  📋 Running after_script...")
+                    job_print("  📋 Running after_script...")
                     try:
-                        self._execute_scripts(
+                        self.execute_scripts(
                             job.after_script, env, execution_dir, output_writer=output_writer, deadline=deadline
                         )
                     except subprocess.CalledProcessError as e2:
                         last_exc = last_exc or e2
-                        _print(f"  ❗ after_script failed with exit code {e2.returncode}")
+                        job_print(f"  ❗ after_script failed with exit code {e2.returncode}")
 
             # failed attempt
             if attempt >= max_attempts:
                 break
 
             # honor exit_codes restriction first; then when
-            if not self._should_retry_exit_codes(job.retry_exit_codes, last_exc or Exception("unknown failure")):
-                _print("  ↩️  Retry blocked by exit_codes; will not retry.")
+            if not self.should_retry_exit_codes(job.retry_exit_codes, last_exc or Exception("unknown failure")):
+                job_print("  ↩️  Retry blocked by exit_codes; will not retry.")
                 break
-            if not self._should_retry_when(job.retry_when, last_exc or Exception("unknown failure")):
-                _print("  ↩️  Retry conditions not met (when); will not retry.")
+            if not self.should_retry_when(job.retry_when, last_exc or Exception("unknown failure")):
+                job_print("  ↩️  Retry conditions not met (when); will not retry.")
                 break
 
-            delay = self._compute_delay_seconds(strategy, base_delay, attempt)
+            delay = self.compute_delay_seconds(strategy, base_delay, attempt)
             if delay > 0 and not skip_sleep:
-                _print(f"  ⏳ Waiting {delay:.2f}s before retry...")
+                job_print(f"  ⏳ Waiting {delay:.2f}s before retry...")
                 time.sleep(delay)
 
-            _print("  🔄 Retrying job...")
+            job_print("  🔄 Retrying job...")
 
         # out of attempts
         if isinstance(last_exc, subprocess.CalledProcessError):
@@ -271,7 +267,7 @@ class JobExecutor:
             ) from last_exc
         raise JobExecutionError(f"Job {job.name} failed after {attempt} attempt(s).") from last_exc
 
-    def _execute_scripts(
+    def execute_scripts(
         self,
         scripts: list[str],
         env: dict[str, str],
@@ -294,7 +290,7 @@ class JobExecutor:
             subprocess.CalledProcessError: If a script exits with a non-zero code.
             JobTimeoutError: If the deadline is reached before the script finishes.
         """
-        _print = (lambda msg: safe_print(msg, file=output_writer)) if output_writer else safe_print
+        job_print = (lambda msg: safe_print(msg, file=output_writer)) if output_writer else safe_print
 
         lines = []
         for script in scripts:
@@ -307,19 +303,19 @@ class JobExecutor:
 
         full_script = "\n".join(lines)
         for line in lines:
-            _print(f"    $ {line}")
+            job_print(f"    $ {line}")
 
         target_cwd = cwd or self.project_dir
 
         if self.dry_run:
-            _print("    ↪ dry-run preview only")
+            job_print("    ↪ dry-run preview only")
             result = RunResult(0, "", "")
         else:
             remaining: float | None = None
             if deadline is not None:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    raise JobTimeoutError("Job timed out before script could start")
+                    raise JobTimeoutError("Job timeout before script start")
 
             result = run_bash(
                 full_script,

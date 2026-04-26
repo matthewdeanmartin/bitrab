@@ -9,7 +9,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from bitrab._json import dumps as json_dumps
+from bitrab.json_backend import dumps as json_dumps
 from bitrab.config.validate_pipeline import GitLabCIValidator, ValidationResult, validate_gitlab_ci_yaml
 from bitrab.utils.terminal_colors import Colors
 

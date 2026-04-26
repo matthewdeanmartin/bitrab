@@ -65,7 +65,7 @@ RESET = "\033[0m"
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
-def _colors_enabled(force: bool | None) -> bool:
+def colors_enabled(force: bool | None) -> bool:
     if force is True:
         return True
     if force is False:
@@ -106,37 +106,62 @@ def merge_env(env: dict[str, str] | None = None) -> dict[str, str]:
 
 
 # ---------- Core runner ----------
-class _Buffer:
+class Buffer:
     """A very small helper to collect text while also acting like a file-like object."""
 
     def __init__(self, target: Any = None) -> None:
-        self._buf: list[str] = []
-        self._target = target
+        self.buf: list[str] = []
+        self.target = target
 
     def write(self, s: str) -> None:  # type: ignore[override]
-        self._buf.append(s)
-        if self._target is not None:
-            self._target.write(s)
+        self.buf.append(s)
+        if self.target is not None:
+            self.target.write(s)
 
     def flush(self) -> None:  # type: ignore[override]
-        if self._target is not None:
-            self._target.flush()
+        if self.target is not None:
+            self.target.flush()
 
     def getvalue(self) -> str:
-        return "".join(self._buf)
+        return "".join(self.buf)
 
 
-_BASH_WINDOWS_CANDIDATES = [
+BASH_WINDOWS_CANDIDATES = [
     r"C:\Program Files\Git\bin\bash.exe",
     r"C:\Program Files (x86)\Git\bin\bash.exe",
     r"C:\msys64\usr\bin\bash.exe",
     r"C:\msys\usr\bin\bash.exe",
 ]
 
-_CACHED_BASH_PATH: str | None = None
+
+def windows_bash_candidates() -> list[str]:
+    """Return Windows bash candidate paths, including %PROGRAMFILES% expansions.
+
+    Hardcoded ``C:\\Program Files\\...`` paths miss installations on other
+    drives (e.g. Git for Windows installed to D:).  We probe the environment
+    so the actual ProgramFiles location is honoured first.
+    """
+    candidates: list[str] = []
+    for env_key in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"):
+        base = os.environ.get(env_key)
+        if base:
+            candidates.append(os.path.join(base, "Git", "bin", "bash.exe"))
+    candidates.extend(BASH_WINDOWS_CANDIDATES)
+    # de-duplicate while preserving order
+    seen: set[str] = set()
+    unique: list[str] = []
+    for c in candidates:
+        norm = os.path.normcase(c)
+        if norm not in seen:
+            seen.add(norm)
+            unique.append(c)
+    return unique
 
 
-def _is_wsl_bash(path: str) -> bool:
+CACHED_BASH_PATH: str | None = None
+
+
+def is_wsl_bash(path: str) -> bool:
     # System32\bash.exe and the Store alias (WindowsApps\bash.exe) are WSL shims.
     # They can't see Windows-style paths like C:\Users\...\tmp\pytest-of-...
     # so jobs driven by bitrab (which pass Windows cwd/env) break inside WSL.
@@ -144,27 +169,27 @@ def _is_wsl_bash(path: str) -> bool:
     return "\\system32\\bash.exe" in norm or "\\windowsapps\\bash.exe" in norm
 
 
-def _find_bash_windows() -> str:
+def find_bash_windows() -> str:
     """Find bash on Windows: env override → PATH → common locations.
 
     Skips WSL's bash.exe shim and raises if nothing usable exists, so callers
     get a clear error instead of a cryptic Popen failure later.
     """
-    global _CACHED_BASH_PATH
-    if _CACHED_BASH_PATH:
-        return _CACHED_BASH_PATH
+    global CACHED_BASH_PATH
+    if CACHED_BASH_PATH:
+        return CACHED_BASH_PATH
 
     override = os.environ.get("BITRAB_BASH_PATH")
     if override:
-        _CACHED_BASH_PATH = override
+        CACHED_BASH_PATH = override
         return override
     on_path = shutil.which("bash")
-    if on_path and not _is_wsl_bash(on_path):
-        _CACHED_BASH_PATH = on_path
+    if on_path and not is_wsl_bash(on_path):
+        CACHED_BASH_PATH = on_path
         return on_path
-    for candidate in _BASH_WINDOWS_CANDIDATES:
+    for candidate in windows_bash_candidates():
         if os.path.isfile(candidate):
-            _CACHED_BASH_PATH = candidate
+            CACHED_BASH_PATH = candidate
             return candidate
 
     raise BitrabError(
@@ -172,9 +197,9 @@ def _find_bash_windows() -> str:
     )
 
 
-def _pick_bash(login_shell: bool) -> list[str]:
+def pick_bash(login_shell: bool) -> list[str]:
     if os.name == "nt":
-        cmd = [_find_bash_windows()]
+        cmd = [find_bash_windows()]
     else:
         cmd = ["bash"]
     if login_shell:
@@ -201,10 +226,10 @@ def run_bash(
     if os.name == "nt":
         script = script.replace("\r\n", "\n")
 
-    colors = _colors_enabled(force_color)
+    colors = colors_enabled(force_color)
     g, r, reset = (GREEN, RED, RESET) if colors else ("", "", "")
 
-    bash = _pick_bash(login_shell or bool(os.environ.get("bitrab_RUN_LOAD_BASHRC")))
+    bash = pick_bash(login_shell or bool(os.environ.get("BITRAB_RUN_LOAD_BASHRC")))
     robust_script_content = f"set -eo pipefail\n{script}"
 
     if mode not in {"stream", "capture"}:
@@ -232,10 +257,10 @@ def run_bash(
             result.check_returncode()
         return result
 
-    out_buf = _Buffer(stdout_target or sys.stdout)
-    err_buf = _Buffer(stderr_target or sys.stderr)
+    out_buf = Buffer(stdout_target or sys.stdout)
+    err_buf = Buffer(stderr_target or sys.stderr)
 
-    def _stream(pipe: IO[str], color: str, buf: _Buffer) -> None:
+    def stream(pipe: IO[str], color: str, buf: Buffer) -> None:
         # Read in blocks for efficiency while still streaming lines.
         # Downstream consumers (e.g. QueueWriter → TUI) receive coherent lines.
         try:
@@ -254,7 +279,7 @@ def run_bash(
                 if not lines:
                     continue
 
-                for _i, line in enumerate(lines):
+                for i, line in enumerate(lines):
                     pending.append(line)
                     if line.endswith(("\n", "\r")):
                         buf.write(f"{color}{''.join(pending)}{reset}")
@@ -266,7 +291,7 @@ def run_bash(
             except Exception:  # nosec B110
                 pass
 
-    _process_killed_by_timeout = False
+    process_killed_by_timeout = False
 
     with subprocess.Popen(  # nosec
         bash,
@@ -281,8 +306,8 @@ def run_bash(
         if not (proc.stdout is not None and proc.stderr is not None and proc.stdin is not None):
             raise BitrabError("proc properties are None")
 
-        t_out = threading.Thread(target=_stream, args=(proc.stdout, g, out_buf), daemon=True)
-        t_err = threading.Thread(target=_stream, args=(proc.stderr, r, err_buf), daemon=True)
+        t_out = threading.Thread(target=stream, args=(proc.stdout, g, out_buf), daemon=True)
+        t_err = threading.Thread(target=stream, args=(proc.stderr, r, err_buf), daemon=True)
         t_out.start()
         t_err.start()
 
@@ -290,18 +315,19 @@ def run_bash(
         proc.stdin.close()
 
         cancel_timer = threading.Event()
+        t_kill: threading.Thread | None = None
         if timeout is not None:
 
-            def _kill_on_timeout() -> None:
-                nonlocal _process_killed_by_timeout
+            def kill_on_timeout() -> None:
+                nonlocal process_killed_by_timeout
                 if not cancel_timer.wait(timeout):
-                    _process_killed_by_timeout = True
+                    process_killed_by_timeout = True
                     try:
                         proc.kill()
                     except OSError:
                         pass
 
-            t_kill = threading.Thread(target=_kill_on_timeout, daemon=True)
+            t_kill = threading.Thread(target=kill_on_timeout, daemon=True)
             t_kill.start()
 
         t_out.join()
@@ -310,8 +336,12 @@ def run_bash(
 
         if timeout is not None:
             cancel_timer.set()
+            if t_kill is not None:
+                # Bound the join so a stuck killer thread can't hang the run;
+                # daemon=True still lets the process exit if this overruns.
+                t_kill.join(timeout=0.1)
 
-    if _process_killed_by_timeout:
+    if process_killed_by_timeout:
         raise JobTimeoutError(f"Job timed out after {timeout}s")
 
     result = RunResult(rc, out_buf.getvalue(), err_buf.getvalue())
@@ -320,11 +350,11 @@ def run_bash(
     return result
 
 
-_ENV_MODE = "BITRAB_SUBPROC_MODE"
+ENV_MODE = "BITRAB_SUBPROC_MODE"
 
 
-def _auto_mode() -> str:
-    mode = os.getenv(_ENV_MODE)
+def auto_mode() -> str:
+    mode = os.getenv(ENV_MODE)
     if mode in {"stream", "capture"}:
         return mode
     if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("CI"):
@@ -338,7 +368,7 @@ def run_colored(script: str, env=None, cwd=None, mode: str | None = None) -> Run
     but auto-switches to capture in pytest/CI, unless overridden via BITRAB_SUBPROC_MODE.
     """
     if mode is None:
-        mode = _auto_mode()
+        mode = auto_mode()
     return run_bash(
         script,
         env=env,
@@ -354,12 +384,12 @@ def force_subproc_mode(mode: str):
     """Temporarily force 'stream' or 'capture' without changing call sites."""
     if mode not in {"stream", "capture"}:
         raise ValueError("mode must be 'stream' or 'capture'")
-    prev = os.getenv(_ENV_MODE)
-    os.environ[_ENV_MODE] = mode
+    prev = os.getenv(ENV_MODE)
+    os.environ[ENV_MODE] = mode
     try:
         yield
     finally:
         if prev is None:
-            os.environ.pop(_ENV_MODE, None)
+            os.environ.pop(ENV_MODE, None)
         else:
-            os.environ[_ENV_MODE] = prev
+            os.environ[ENV_MODE] = prev

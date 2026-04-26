@@ -19,7 +19,7 @@ from bitrab.plan import PipelineProcessor, parse_duration
 # ---------------------------------------------------------------------------
 
 
-def _bash_available() -> bool:
+def bash_available() -> bool:
     if os.name != "nt":
         return shutil.which("bash") is not None
     override = os.environ.get("BITRAB_BASH_PATH")
@@ -36,14 +36,14 @@ def _bash_available() -> bool:
     return any(os.path.isfile(c) for c in candidates)
 
 
-bash_required = pytest.mark.skipif(not _bash_available(), reason="Bash not available")
+bash_required = pytest.mark.skipif(not bash_available(), reason="Bash not available")
 
 
 class _FakeCapturePopen:
     def __init__(self, *args, **kwargs):
         self.returncode = None
         self.killed = False
-        self._communicate_calls = 0
+        self.communicate_calls = 0
 
     def __enter__(self):
         return self
@@ -52,8 +52,8 @@ class _FakeCapturePopen:
         return False
 
     def communicate(self, *_args, timeout=None):
-        self._communicate_calls += 1
-        if self._communicate_calls == 1:
+        self.communicate_calls += 1
+        if self.communicate_calls == 1:
             raise subprocess.TimeoutExpired(cmd="bash", timeout=timeout)
         self.returncode = -9
         return ("", "")
@@ -69,7 +69,7 @@ class _FakeStreamPopen:
         self.stderr = io.StringIO("")
         self.stdin = io.StringIO()
         self.returncode = None
-        self._killed = threading.Event()
+        self.killed = threading.Event()
 
     def __enter__(self):
         return self
@@ -78,13 +78,13 @@ class _FakeStreamPopen:
         return False
 
     def wait(self):
-        self._killed.wait(timeout=1)
+        self.killed.wait(timeout=1)
         self.returncode = -9
         return self.returncode
 
     def kill(self):
         self.returncode = -9
-        self._killed.set()
+        self.killed.set()
 
 
 # ---------------------------------------------------------------------------
@@ -128,12 +128,12 @@ def test_parse_duration_invalid_returns_none():
 # ---------------------------------------------------------------------------
 
 
-def _make_processor():
+def make_processor():
     return PipelineProcessor()
 
 
 def test_timeout_parsed_as_seconds():
-    proc = _make_processor()
+    proc = make_processor()
     raw = {
         "stages": ["test"],
         "myjob": {
@@ -147,7 +147,7 @@ def test_timeout_parsed_as_seconds():
 
 
 def test_timeout_parsed_as_integer_string():
-    proc = _make_processor()
+    proc = make_processor()
     raw = {
         "stages": ["test"],
         "myjob": {
@@ -161,7 +161,7 @@ def test_timeout_parsed_as_integer_string():
 
 
 def test_timeout_defaults_to_none():
-    proc = _make_processor()
+    proc = make_processor()
     raw = {
         "stages": ["test"],
         "myjob": {"stage": "test", "script": ["echo hi"]},

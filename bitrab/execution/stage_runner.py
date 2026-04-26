@@ -13,9 +13,10 @@ propagation, and job-history merging.  Callers customise behaviour via a
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 import multiprocessing as mp
 import os
-import re
 import subprocess  # nosec
 import sys
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, wait
@@ -35,6 +36,7 @@ from bitrab.execution.shell import TextWriter
 from bitrab.git_worktree import can_use_worktrees, job_worktree
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 from bitrab.mutation import MutationConfig, MutationSnapshot, ParallelBackendConfig, WorktreeConfig
+from bitrab.utils import sanitize_job_name
 
 WorkerFunc = Callable[[JobConfig, JobExecutor, Path], list[RunResult]]
 
@@ -95,11 +97,11 @@ class PipelineCallbacks:
         """Return True to abort the pipeline before the next stage."""
         return False
 
-    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -> TextWriter | None:
+    def make_output_writer(self, job: JobConfig, job_dir: Path) -> TextWriter | None:
         """Return an output writer for this job, or None for default (sys.stdout)."""
         return None
 
-    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -> dict[str, Any]:
+    def make_worker_args(self, job: JobConfig, job_dir: Path) -> dict[str, Any]:
         """Return extra kwargs passed to the parallel worker function.
 
         The returned dict is merged into the arguments of the module-level
@@ -152,7 +154,7 @@ class PipelineCallbacks:
 # ---------------------------------------------------------------------------
 
 
-def _is_failure_allowed(job: JobConfig, exc: BaseException) -> bool:
+def is_failure_allowed(job: JobConfig, exc: BaseException) -> bool:
     """Check if the job's failure should be treated as a warning (not a hard failure)."""
     if not job.allow_failure:
         return False
@@ -168,7 +170,7 @@ def _is_failure_allowed(job: JobConfig, exc: BaseException) -> bool:
     return False
 
 
-def _filter_jobs_by_when(jobs: list[JobConfig], prior_had_failure: bool) -> list[JobConfig]:
+def filter_jobs_by_when(jobs: list[JobConfig], prior_had_failure: bool) -> list[JobConfig]:
     """Filter jobs based on their ``when`` condition and prior pipeline state.
 
     - ``on_success`` (default): run if no prior hard failure
@@ -193,7 +195,7 @@ def _filter_jobs_by_when(jobs: list[JobConfig], prior_had_failure: bool) -> list
     return result
 
 
-def _default_worker(
+def default_worker(
     job: JobConfig,
     executor: JobExecutor,
     job_dir: Path,
@@ -204,7 +206,7 @@ def _default_worker(
     return executor.job_history
 
 
-def _scope_executor_to_worktree(executor: JobExecutor, worktree_path: Path) -> JobExecutor:
+def scope_executor_to_worktree(executor: JobExecutor, worktree_path: Path) -> JobExecutor:
     """Return a shallow copy of *executor* whose ``project_dir`` is the worktree.
 
     ``JobExecutor`` is not a dataclass, but it's a plain container object — a
@@ -214,23 +216,21 @@ def _scope_executor_to_worktree(executor: JobExecutor, worktree_path: Path) -> J
     should still be read from the canonical project root (the worktree shares
     the same commit anyway).
     """
-    import copy
-
     scoped = copy.copy(executor)
     scoped.project_dir = worktree_path
     scoped.job_history = []  # fresh per-worker history
     return scoped
 
 
-def _worktree_worker(
+def worktree_worker(
     job: JobConfig,
     executor: JobExecutor,
     job_dir: Path,
     *,
-    _inner_worker: Callable[..., list[RunResult]],
-    _project_dir: str,
-    _worktree_root: str | None = None,
-    _completed_jobs: list[str],
+    inner_worker: Callable[..., list[RunResult]],
+    project_dir: str,
+    worktree_root: str | None = None,
+    completed_jobs: list[str],
     **extra: Any,
 ) -> tuple[list[RunResult], str]:
     """Parallel worker that isolates execution inside a git worktree.
@@ -249,24 +249,22 @@ def _worktree_worker(
     Returns ``(history, worktree_path_str)``.  The path is returned purely for
     diagnostics; artifacts are already copied out by the time the caller sees it.
     """
-    project_dir = Path(_project_dir)
-    root = Path(_worktree_root) if _worktree_root is not None else None
-    with job_worktree(project_dir, job.name, root=root) as wt_path:
-        scoped_executor = _scope_executor_to_worktree(executor, wt_path)
+    pdir = Path(project_dir)
+    root = Path(worktree_root) if worktree_root is not None else None
+    with job_worktree(pdir, job.name, root=root) as wt_path:
+        scoped_executor = scope_executor_to_worktree(executor, wt_path)
 
         # Upstream artifacts land in the worktree so the job can consume them.
-        inject_dependencies(job, project_dir, _completed_jobs, effective_dir=wt_path)
-        dotenv_vars = load_dotenv_reports(job, project_dir, _completed_jobs)
+        inject_dependencies(job, pdir, completed_jobs, effective_dir=wt_path)
+        dotenv_vars = load_dotenv_reports(job, pdir, completed_jobs)
         if dotenv_vars:
-            import dataclasses as _dc
-
             merged = {**dotenv_vars, **job.variables}
-            job = _dc.replace(job, variables=merged)
+            job = dataclasses.replace(job, variables=merged)
 
         succeeded = True
         history: list[RunResult] = []
         try:
-            history = _inner_worker(job, scoped_executor, job_dir, **extra)
+            history = inner_worker(job, scoped_executor, job_dir, **extra)
         except BaseException:
             succeeded = False
             raise
@@ -274,8 +272,8 @@ def _worktree_worker(
             # Best-effort collection even on failure so ``artifacts: when: always``
             # and ``on_failure`` keep working under worktree isolation.
             try:
-                collect_artifacts(job, project_dir, succeeded, effective_dir=wt_path)
-                collect_dotenv_report(job, project_dir, succeeded, effective_dir=wt_path)
+                collect_artifacts(job, pdir, succeeded, effective_dir=wt_path)
+                collect_dotenv_report(job, pdir, succeeded, effective_dir=wt_path)
             except OSError as exc:
                 print(f"⚠️ Failed to collect job outputs for {job.name}: {exc}", file=sys.stderr)
 
@@ -285,11 +283,6 @@ def _worktree_worker(
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-
-
-def sanitize_job_name(name: str) -> str:
-    """Replace characters that are invalid in filenames with underscores."""
-    return re.sub(r'[\\/:*?"<>|]', "_", name)
 
 
 def organize_jobs_by_stage(pipeline: PipelineConfig) -> dict[str, list[JobConfig]]:
@@ -305,12 +298,21 @@ def organize_jobs_by_stage(pipeline: PipelineConfig) -> dict[str, list[JobConfig
 # ---------------------------------------------------------------------------
 
 
-class StagePipelineRunner:
-    """Execute a pipeline stage-by-stage with pluggable callbacks.
+class BaseRunner:
+    """Common state and shared serial/parallel job dispatch.
 
-    This class contains all the logic that was previously duplicated across
-    ``StageOrchestrator``, ``TUIOrchestrator.execute_pipeline_tui()``, and
-    ``TUIOrchestrator.execute_pipeline_ci()``.
+    Both :class:`StagePipelineRunner` and :class:`DagPipelineRunner` share the
+    same fields, the same job-dir layout, and (mostly) the same per-job
+    lifecycle.  The two execution modes differ only in:
+
+    * how they decide which jobs are runnable next (stages vs. DAG ready set);
+    * whether the serial path stops on the first hard failure (stages do, DAG
+      does not — DAG fan-out tolerates failures and lets ``ts.done()`` propagate);
+    * whether mutation snapshots are taken around each job (stages do, DAG
+      currently does not).
+
+    Subclasses override :meth:`execute_pipeline` to drive the loop and call
+    :meth:`run_jobs_serial` / :meth:`run_jobs_parallel` with the right knobs.
     """
 
     def __init__(
@@ -330,29 +332,209 @@ class StagePipelineRunner:
             cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
         )
         if mp_ctx is None:
-            if sys.platform == "win32":
-                mp_ctx = mp.get_context("spawn")
-            else:
-                mp_ctx = mp.get_context("spawn")
-        self._mp_ctx = mp_ctx
-        self._mutation_config = mutation_config or MutationConfig()
-        self._parallel_backend = parallel_backend or ParallelBackendConfig()
-        self._worktree_config = worktree_config or WorktreeConfig()
+            mp_ctx = mp.get_context("spawn")
+        self.mp_ctx = mp_ctx
+        self.mutation_config = mutation_config or MutationConfig()
+        self.parallel_backend = parallel_backend or ParallelBackendConfig()
+        self.worktree_config = worktree_config or WorktreeConfig()
         # Cache the one-time "is this repo worktree-capable?" check so we
         # don't shell out to git per job.
-        self._worktrees_available: bool | None = None
+        self.worktrees_available: bool | None = None
         # Tracks names of all jobs that have completed (for artifact injection)
-        self._completed_jobs: list[str] = []
+        self.completed_jobs: list[str] = []
 
-    def _use_worktrees(self) -> bool:
+    def use_worktrees(self) -> bool:
         """Return True if we should create per-job worktrees for parallel jobs."""
-        if not self._worktree_config.enabled:
+        if not self.worktree_config.enabled:
             return False
         if self.job_executor.dry_run:
             return False
-        if self._worktrees_available is None:
-            self._worktrees_available = can_use_worktrees(self.job_executor.project_dir)
-        return self._worktrees_available
+        if self.worktrees_available is None:
+            self.worktrees_available = can_use_worktrees(self.job_executor.project_dir)
+        return self.worktrees_available
+
+    def make_job_dir(self, job: JobConfig) -> Path:
+        """Create and return the per-job directory."""
+        job_dir = self.job_executor.project_dir / ".bitrab" / sanitize_job_name(job.name)
+        if not self.job_executor.dry_run:
+            job_dir.mkdir(parents=True, exist_ok=True)
+        return job_dir
+
+    def make_pool(self, max_workers: int):
+        """Create the appropriate executor pool based on backend config."""
+        if self.parallel_backend.backend == "thread":
+            return ThreadPoolExecutor(max_workers=max_workers)
+        return ProcessPoolExecutor(
+            max_workers=max_workers,
+            mp_context=self.mp_ctx,
+        )
+
+    def run_jobs_serial(
+        self,
+        jobs: list[JobConfig],
+        *,
+        stop_on_failure: bool,
+        snapshot_mutations: bool,
+    ) -> list[JobOutcome]:
+        """Execute *jobs* one at a time in the calling process.
+
+        ``stop_on_failure``: stages stop on first hard failure; DAG batches do not.
+        ``snapshot_mutations``: stages can warn on unexpected file changes; DAG
+        skips this because DAG order isn't a fence (worktrees own isolation).
+        """
+        cb = self.callbacks
+        outcomes: list[JobOutcome] = []
+
+        for job in jobs:
+            job_dir = self.make_job_dir(job)
+            cb.on_job_start(job)
+            dotenv_vars: dict[str, str] = {}
+            if not self.job_executor.dry_run:
+                inject_dependencies(job, self.job_executor.project_dir, self.completed_jobs)
+                dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self.completed_jobs)
+            writer = cb.make_output_writer(job, job_dir)
+            ctx = self.job_executor.build_context(
+                job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None
+            )
+            ctx = cb.enrich_context(ctx)
+            succeeded = True
+
+            snap: MutationSnapshot | None = None
+            if snapshot_mutations and self.mutation_config.enabled and not self.job_executor.dry_run:
+                snap = MutationSnapshot(
+                    project_dir=self.job_executor.project_dir,
+                    config=self.mutation_config,
+                )
+                snap.take()
+
+            try:
+                self.job_executor.execute_job(ctx=ctx)
+                outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
+            except BaseException as exc:
+                succeeded = False
+                allowed = is_failure_allowed(job, exc)
+                outcome = JobOutcome(
+                    job=job,
+                    success=allowed,
+                    error=exc,
+                    history=list(self.job_executor.job_history),
+                    allowed_failure=allowed,
+                )
+            finally:
+                if not self.job_executor.dry_run:
+                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                    collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
+                self.completed_jobs.append(job.name)
+
+            if snap is not None:
+                report_mutations(job.name, snap, writer)
+
+            outcomes.append(outcome)
+            cb.on_job_complete(outcome)
+
+            if stop_on_failure and not outcome.success:
+                break  # stop stage on first hard failure
+
+        return outcomes
+
+    def run_jobs_parallel(
+        self,
+        jobs: list[JobConfig],
+        *,
+        pool_size: int,
+    ) -> list[JobOutcome]:
+        """Execute *jobs* across processes/threads using the configured pool."""
+        cb = self.callbacks
+        outcomes: list[JobOutcome] = []
+
+        wf = cb.get_worker_func()
+        inner_worker: WorkerFunc = wf if wf is not None else default_worker
+        use_worktrees = self.use_worktrees()
+
+        with self.make_pool(pool_size) as pool:
+            futures: dict[Any, JobConfig] = {}
+            for job in jobs:
+                job_dir = self.make_job_dir(job)
+                cb.on_job_start(job)
+                if not self.job_executor.dry_run and not use_worktrees:
+                    # Outside worktree mode, inject/collect bracket the outer
+                    # pool.submit.  Under worktrees, worktree_worker handles
+                    # both inside the isolated checkout.
+                    inject_dependencies(job, self.job_executor.project_dir, self.completed_jobs)
+                    # Bake upstream dotenv-report variables into this job's variables
+                    # so they survive the process boundary.  Job-level variables win
+                    # (they are already in job.variables and override dotenv).
+                    dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self.completed_jobs)
+                    if dotenv_vars:
+                        merged = {**dotenv_vars, **job.variables}
+                        job = dataclasses.replace(job, variables=merged)
+                extra = cb.make_worker_args(job, job_dir)
+
+                if use_worktrees:
+                    fut = pool.submit(
+                        worktree_worker,
+                        job,
+                        self.job_executor,
+                        job_dir,
+                        inner_worker=inner_worker,
+                        project_dir=str(self.job_executor.project_dir),
+                        worktree_root=(
+                            str(self.worktree_config.root) if self.worktree_config.root is not None else None
+                        ),
+                        completed_jobs=list(self.completed_jobs),
+                        **extra,
+                    )
+                else:
+                    fut = pool.submit(inner_worker, job, self.job_executor, job_dir, **extra)
+                futures[fut] = job
+
+            # Poll while futures are running (allows TUI queue draining etc.)
+            pending = set(futures.keys())
+            while pending:
+                cb.poll_during_parallel(futures)
+                done, pending = wait(pending, timeout=0.05, return_when=FIRST_COMPLETED)
+                if not done:
+                    continue
+                for fut in done:
+                    job = futures[fut]
+                    succeeded = True
+                    try:
+                        result = fut.result()
+                        if use_worktrees:
+                            history, _wt_path = result  # type: ignore[misc]
+                        else:
+                            history = result
+                        self.job_executor.job_history.extend(history)
+                        outcome = JobOutcome(job=job, success=True, history=history)
+                    except BaseException as exc:
+                        succeeded = False
+                        allowed = is_failure_allowed(job, exc)
+                        outcome = JobOutcome(
+                            job=job,
+                            success=allowed,
+                            error=exc,
+                            allowed_failure=allowed,
+                        )
+                    if not self.job_executor.dry_run and not use_worktrees:
+                        # Under worktrees the worker already collected before tearing
+                        # the worktree down, including the failure path.
+                        collect_artifacts(job, self.job_executor.project_dir, succeeded)
+                        collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
+                    self.completed_jobs.append(job.name)
+
+                    outcomes.append(outcome)
+                    cb.on_job_complete(outcome)
+
+        return outcomes
+
+
+class StagePipelineRunner(BaseRunner):
+    """Execute a pipeline stage-by-stage with pluggable callbacks.
+
+    This class contains all the logic that was previously duplicated across
+    ``StageOrchestrator``, ``TUIOrchestrator.execute_pipeline_tui()``, and
+    ``TUIOrchestrator.execute_pipeline_ci()``.
+    """
 
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
         """Run all stages sequentially; jobs within a stage run in parallel.
@@ -365,10 +547,10 @@ class StagePipelineRunner:
                 job_executor=self.job_executor,
                 callbacks=self.callbacks,
                 maximum_degree_of_parallelism=self.maximum_degree_of_parallelism,
-                mp_ctx=self._mp_ctx,
-                mutation_config=self._mutation_config,
-                parallel_backend=self._parallel_backend,
-                worktree_config=self._worktree_config,
+                mp_ctx=self.mp_ctx,
+                mutation_config=self.mutation_config,
+                parallel_backend=self.parallel_backend,
+                worktree_config=self.worktree_config,
             )
             dag_runner.execute_pipeline(pipeline)
             return
@@ -390,16 +572,28 @@ class StagePipelineRunner:
                     return
 
                 all_stage_jobs = jobs_by_stage.get(stage, [])
-                stage_jobs = _filter_jobs_by_when(all_stage_jobs, prior_had_failure)
+                stage_jobs = filter_jobs_by_when(all_stage_jobs, prior_had_failure)
+
+                # Surface manual jobs that this run silently dropped — GitLab pauses
+                # the pipeline and shows a Play button, but bitrab's streaming/CI path
+                # has no way to wait for human input, so the user is otherwise left
+                # wondering why their deploy job never ran.
+                manual_skipped = [j for j in all_stage_jobs if j.when == "manual"]
+                if manual_skipped:
+                    has_manual_skipped = True
+                    from bitrab.console import safe_print
+
+                    for j in manual_skipped:
+                        safe_print(
+                            f"⚠️  Job '{j.name}' (when: manual) skipped — bitrab does not pause for manual gating."
+                        )
 
                 if not stage_jobs:
-                    if any(j.when == "manual" for j in all_stage_jobs):
-                        has_manual_skipped = True
                     cb.on_stage_skip(stage)
                     continue
 
                 cb.on_stage_start(stage, stage_jobs)
-                outcomes = self._run_stage(stage_jobs)
+                outcomes = self.run_stage(stage_jobs)
                 cb.on_stage_complete(stage, outcomes)
 
                 hard_failures = [o for o in outcomes if not o.success]
@@ -427,171 +621,11 @@ class StagePipelineRunner:
                 cb.on_pipeline_awaiting_manual()
             cb.on_pipeline_complete(success)
 
-    def _run_stage(self, stage_jobs: list[JobConfig]) -> list[JobOutcome]:
+    def run_stage(self, stage_jobs: list[JobConfig]) -> list[JobOutcome]:
         """Execute all jobs in a single stage, serial or parallel."""
         if self.maximum_degree_of_parallelism == 1 or len(stage_jobs) == 1:
-            return self._run_stage_serial(stage_jobs)
-        return self._run_stage_parallel(stage_jobs)
-
-    def _run_stage_serial(self, stage_jobs: list[JobConfig]) -> list[JobOutcome]:
-        """Run jobs one at a time in the calling process."""
-        cb = self.callbacks
-        outcomes: list[JobOutcome] = []
-
-        for job in stage_jobs:
-            job_dir = self._make_job_dir(job)
-            cb.on_job_start(job)
-            dotenv_vars: dict[str, str] = {}
-            if not self.job_executor.dry_run:
-                inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
-                dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
-            writer = cb.make_output_writer(job, job_dir)
-            ctx = self.job_executor.build_context(
-                job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None
-            )
-            ctx = cb.enrich_context(ctx)
-            succeeded = True
-
-            snap: MutationSnapshot | None = None
-            if self._mutation_config.enabled and not self.job_executor.dry_run:
-                snap = MutationSnapshot(
-                    project_dir=self.job_executor.project_dir,
-                    config=self._mutation_config,
-                )
-                snap.take()
-
-            try:
-                self.job_executor.execute_job(ctx=ctx)
-                outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
-            except BaseException as exc:
-                succeeded = False
-                allowed = _is_failure_allowed(job, exc)
-                outcome = JobOutcome(
-                    job=job,
-                    success=allowed,
-                    error=exc,
-                    history=list(self.job_executor.job_history),
-                    allowed_failure=allowed,
-                )
-            finally:
-                if not self.job_executor.dry_run:
-                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
-                    collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
-                self._completed_jobs.append(job.name)
-
-            if snap is not None:
-                _report_mutations(job.name, snap, writer)
-
-            outcomes.append(outcome)
-            cb.on_job_complete(outcome)
-
-            if not outcome.success:
-                break  # stop stage on first hard failure
-
-        return outcomes
-
-    def _make_pool(self, max_workers: int):
-        """Create the appropriate executor pool based on backend config."""
-        if self._parallel_backend.backend == "thread":
-            return ThreadPoolExecutor(max_workers=max_workers)
-        return ProcessPoolExecutor(
-            max_workers=max_workers,
-            mp_context=self._mp_ctx,
-        )
-
-    def _run_stage_parallel(self, stage_jobs: list[JobConfig]) -> list[JobOutcome]:
-        """Run jobs across processes/threads using the configured pool executor."""
-        cb = self.callbacks
-        outcomes: list[JobOutcome] = []
-
-        _wf = cb.get_worker_func()
-        inner_worker: WorkerFunc = _wf if _wf is not None else _default_worker
-        use_worktrees = self._use_worktrees()
-
-        with self._make_pool(self.maximum_degree_of_parallelism) as pool:
-            futures = {}
-            for job in stage_jobs:
-                job_dir = self._make_job_dir(job)
-                cb.on_job_start(job)
-                if not self.job_executor.dry_run and not use_worktrees:
-                    # Outside worktree mode, inject/collect bracket the outer
-                    # pool.submit.  Under worktrees, _worktree_worker handles
-                    # both inside the isolated checkout.
-                    inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
-                    # Bake upstream dotenv-report variables into this job's variables
-                    # so they survive the process boundary.  Job-level variables win
-                    # (they are already in job.variables and override dotenv).
-                    dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
-                    if dotenv_vars:
-                        import dataclasses
-
-                        merged = {**dotenv_vars, **job.variables}
-                        job = dataclasses.replace(job, variables=merged)
-                extra = cb.make_worker_args(job, job_dir)
-
-                if use_worktrees:
-                    fut = pool.submit(
-                        _worktree_worker,
-                        job,
-                        self.job_executor,
-                        job_dir,
-                        _inner_worker=inner_worker,
-                        _project_dir=str(self.job_executor.project_dir),
-                        _worktree_root=(
-                            str(self._worktree_config.root) if self._worktree_config.root is not None else None
-                        ),
-                        _completed_jobs=list(self._completed_jobs),
-                        **extra,
-                    )
-                else:
-                    fut = pool.submit(inner_worker, job, self.job_executor, job_dir, **extra)
-                futures[fut] = job
-
-            # Poll while futures are running (allows TUI queue draining etc.)
-            pending = set(futures.keys())
-            while pending:
-                cb.poll_during_parallel(futures)
-                done, pending = wait(pending, timeout=0.05, return_when=FIRST_COMPLETED)
-                if not done:
-                    continue
-                for fut in done:
-                    job = futures[fut]
-                    succeeded = True
-                    try:
-                        result = fut.result()
-                        if use_worktrees:
-                            history, _wt_path = result  # type: ignore[misc]
-                        else:
-                            history = result
-                        self.job_executor.job_history.extend(history)
-                        outcome = JobOutcome(job=job, success=True, history=history)
-                    except BaseException as exc:
-                        succeeded = False
-                        allowed = _is_failure_allowed(job, exc)
-                        outcome = JobOutcome(
-                            job=job,
-                            success=allowed,
-                            error=exc,
-                            allowed_failure=allowed,
-                        )
-                    if not self.job_executor.dry_run and not use_worktrees:
-                        # Under worktrees the worker already collected before tearing
-                        # the worktree down, including the failure path.
-                        collect_artifacts(job, self.job_executor.project_dir, succeeded)
-                        collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
-                    self._completed_jobs.append(job.name)
-
-                    outcomes.append(outcome)
-                    cb.on_job_complete(outcome)
-
-        return outcomes
-
-    def _make_job_dir(self, job: JobConfig) -> Path:
-        """Create and return the per-job directory."""
-        job_dir = self.job_executor.project_dir / ".bitrab" / sanitize_job_name(job.name)
-        if not self.job_executor.dry_run:
-            job_dir.mkdir(parents=True, exist_ok=True)
-        return job_dir
+            return self.run_jobs_serial(stage_jobs, stop_on_failure=True, snapshot_mutations=True)
+        return self.run_jobs_parallel(stage_jobs, pool_size=self.maximum_degree_of_parallelism)
 
 
 # ---------------------------------------------------------------------------
@@ -604,7 +638,7 @@ def has_dag_jobs(pipeline: PipelineConfig) -> bool:
     return any(job.needs for job in pipeline.jobs)
 
 
-def _build_dag(pipeline: PipelineConfig) -> TopologicalSorter:
+def build_dag(pipeline: PipelineConfig) -> TopologicalSorter:
     """Build a TopologicalSorter from pipeline jobs.
 
     Mixed mode: jobs without ``needs:`` get synthetic dependencies on every job
@@ -639,20 +673,20 @@ def _build_dag(pipeline: PipelineConfig) -> TopologicalSorter:
 # ---------------------------------------------------------------------------
 
 
-def _report_mutations(job_name: str, snap: MutationSnapshot, writer: Any) -> None:
+def report_mutations(job_name: str, snap: MutationSnapshot, writer: Any) -> None:
     """Emit a warning for each unexpected mutation detected after a job ran."""
     from bitrab.console import safe_print
 
     changed = snap.mutations()
     if changed:
-        _print = (lambda msg: safe_print(msg, file=writer)) if writer else safe_print
-        _print(f"⚠️  [mutation] Job '{job_name}' modified {len(changed)} unexpected file(s):")
+        printer = (lambda msg: safe_print(msg, file=writer)) if writer else safe_print
+        printer(f"⚠️  [mutation] Job '{job_name}' modified {len(changed)} unexpected file(s):")
         for path in changed:
-            _print(f"   • {path}")
-        _print("   If these are intentional, add the pattern(s) to [tool.bitrab.mutation] whitelist in pyproject.toml")
+            printer(f"   • {path}")
+        printer("   If these are intentional, add the pattern(s) to [tool.bitrab.mutation] whitelist in pyproject.toml")
 
 
-class DagPipelineRunner:
+class DagPipelineRunner(BaseRunner):
     """Execute a pipeline using DAG scheduling based on ``needs:`` dependencies.
 
     Jobs become ready as soon as their dependencies complete, potentially
@@ -660,47 +694,13 @@ class DagPipelineRunner:
     customisation hooks as :class:`StagePipelineRunner`.
     """
 
-    def __init__(
-        self,
-        job_executor: JobExecutor,
-        callbacks: PipelineCallbacks | None = None,
-        maximum_degree_of_parallelism: int | None = None,
-        mp_ctx: Any = None,
-        mutation_config: MutationConfig | None = None,
-        parallel_backend: ParallelBackendConfig | None = None,
-        worktree_config: WorktreeConfig | None = None,
-    ) -> None:
-        self.job_executor = job_executor
-        self.callbacks = callbacks or PipelineCallbacks()
-        cpu_cnt = os.cpu_count() or 1
-        self.maximum_degree_of_parallelism = (
-            cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
-        )
-        if mp_ctx is None:
-            mp_ctx = mp.get_context("spawn")
-        self._mp_ctx = mp_ctx
-        self._mutation_config = mutation_config or MutationConfig()
-        self._parallel_backend = parallel_backend or ParallelBackendConfig()
-        self._worktree_config = worktree_config or WorktreeConfig()
-        self._worktrees_available: bool | None = None
-        self._completed_jobs: list[str] = []
-
-    def _use_worktrees(self) -> bool:
-        if not self._worktree_config.enabled:
-            return False
-        if self.job_executor.dry_run:
-            return False
-        if self._worktrees_available is None:
-            self._worktrees_available = can_use_worktrees(self.job_executor.project_dir)
-        return self._worktrees_available
-
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
         """Run all jobs respecting DAG dependencies."""
         cb = self.callbacks
         cb.on_pipeline_start(pipeline, self.maximum_degree_of_parallelism)
 
         # Build the DAG (raises CycleError if cyclic)
-        ts = _build_dag(pipeline)
+        ts = build_dag(pipeline)
         ts.prepare()
 
         # Index jobs by name for fast lookup
@@ -761,7 +761,7 @@ class DagPipelineRunner:
                     cb.on_stage_start(stage, stage_jobs)
 
                 # Execute ready jobs
-                outcomes = self._run_batch(ready_jobs)
+                outcomes = self.run_batch(ready_jobs)
                 all_outcomes.extend(outcomes)
 
                 # Notify stage completion
@@ -795,153 +795,8 @@ class DagPipelineRunner:
         finally:
             cb.on_pipeline_complete(success)
 
-    def _run_batch(self, jobs: list[JobConfig]) -> list[JobOutcome]:
+    def run_batch(self, jobs: list[JobConfig]) -> list[JobOutcome]:
         """Execute a batch of ready jobs, serial or parallel."""
         if self.maximum_degree_of_parallelism == 1 or len(jobs) == 1:
-            return self._run_batch_serial(jobs)
-        return self._run_batch_parallel(jobs)
-
-    def _run_batch_serial(self, jobs: list[JobConfig]) -> list[JobOutcome]:
-        """Run jobs one at a time."""
-        cb = self.callbacks
-        outcomes: list[JobOutcome] = []
-
-        for job in jobs:
-            job_dir = self._make_job_dir(job)
-            cb.on_job_start(job)
-            dotenv_vars: dict[str, str] = {}
-            if not self.job_executor.dry_run:
-                inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
-                dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
-            writer = cb.make_output_writer(job, job_dir)
-            ctx = self.job_executor.build_context(
-                job, job_dir=job_dir, output_writer=writer, extra_env=dotenv_vars or None
-            )
-            ctx = cb.enrich_context(ctx)
-            succeeded = True
-
-            snap: MutationSnapshot | None = None
-            if self._mutation_config.enabled and not self.job_executor.dry_run:
-                snap = MutationSnapshot(
-                    project_dir=self.job_executor.project_dir,
-                    config=self._mutation_config,
-                )
-                snap.take()
-
-            try:
-                self.job_executor.execute_job(ctx=ctx)
-                outcome = JobOutcome(job=job, success=True, history=list(self.job_executor.job_history))
-            except BaseException as exc:
-                succeeded = False
-                allowed = _is_failure_allowed(job, exc)
-                outcome = JobOutcome(
-                    job=job,
-                    success=allowed,
-                    error=exc,
-                    history=list(self.job_executor.job_history),
-                    allowed_failure=allowed,
-                )
-            finally:
-                if not self.job_executor.dry_run:
-                    collect_artifacts(job, self.job_executor.project_dir, succeeded)
-                    collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
-                self._completed_jobs.append(job.name)
-
-            if snap is not None:
-                _report_mutations(job.name, snap, writer)
-
-            outcomes.append(outcome)
-            cb.on_job_complete(outcome)
-        return outcomes
-
-    def _make_pool(self, max_workers: int):
-        """Create the appropriate executor pool based on backend config."""
-        if self._parallel_backend.backend == "thread":
-            return ThreadPoolExecutor(max_workers=max_workers)
-        return ProcessPoolExecutor(
-            max_workers=max_workers,
-            mp_context=self._mp_ctx,
-        )
-
-    def _run_batch_parallel(self, jobs: list[JobConfig]) -> list[JobOutcome]:
-        """Run jobs across processes/threads using the configured pool executor."""
-        cb = self.callbacks
-        outcomes: list[JobOutcome] = []
-
-        _wf = cb.get_worker_func()
-        inner_worker: WorkerFunc = _wf if _wf is not None else _default_worker
-        use_worktrees = self._use_worktrees()
-
-        with self._make_pool(min(self.maximum_degree_of_parallelism, len(jobs))) as pool:
-            futures = {}
-            for job in jobs:
-                job_dir = self._make_job_dir(job)
-                cb.on_job_start(job)
-                if not self.job_executor.dry_run and not use_worktrees:
-                    inject_dependencies(job, self.job_executor.project_dir, self._completed_jobs)
-                    dotenv_vars = load_dotenv_reports(job, self.job_executor.project_dir, self._completed_jobs)
-                    if dotenv_vars:
-                        import dataclasses
-
-                        merged = {**dotenv_vars, **job.variables}
-                        job = dataclasses.replace(job, variables=merged)
-                extra = cb.make_worker_args(job, job_dir)
-                if use_worktrees:
-                    fut = pool.submit(
-                        _worktree_worker,
-                        job,
-                        self.job_executor,
-                        job_dir,
-                        _inner_worker=inner_worker,
-                        _project_dir=str(self.job_executor.project_dir),
-                        _worktree_root=(
-                            str(self._worktree_config.root) if self._worktree_config.root is not None else None
-                        ),
-                        _completed_jobs=list(self._completed_jobs),
-                        **extra,
-                    )
-                else:
-                    fut = pool.submit(inner_worker, job, self.job_executor, job_dir, **extra)
-                futures[fut] = job
-
-            pending = set(futures.keys())
-            while pending:
-                cb.poll_during_parallel(futures)
-                done, pending = wait(pending, timeout=0.05, return_when=FIRST_COMPLETED)
-                if not done:
-                    continue
-                for fut in done:
-                    job = futures[fut]
-                    succeeded = True
-                    try:
-                        result = fut.result()
-                        if use_worktrees:
-                            history, _wt_path = result  # type: ignore[misc]
-                        else:
-                            history = result
-                        self.job_executor.job_history.extend(history)
-                        outcome = JobOutcome(job=job, success=True, history=history)
-                    except BaseException as exc:
-                        succeeded = False
-                        allowed = _is_failure_allowed(job, exc)
-                        outcome = JobOutcome(
-                            job=job,
-                            success=allowed,
-                            error=exc,
-                            allowed_failure=allowed,
-                        )
-                    if not self.job_executor.dry_run and not use_worktrees:
-                        collect_artifacts(job, self.job_executor.project_dir, succeeded)
-                        collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
-                    self._completed_jobs.append(job.name)
-                    outcomes.append(outcome)
-                    cb.on_job_complete(outcome)
-
-        return outcomes
-
-    def _make_job_dir(self, job: JobConfig) -> Path:
-        """Create and return the per-job directory."""
-        job_dir = self.job_executor.project_dir / ".bitrab" / sanitize_job_name(job.name)
-        if not self.job_executor.dry_run:
-            job_dir.mkdir(parents=True, exist_ok=True)
-        return job_dir
+            return self.run_jobs_serial(jobs, stop_on_failure=False, snapshot_mutations=True)
+        return self.run_jobs_parallel(jobs, pool_size=min(self.maximum_degree_of_parallelism, len(jobs)))

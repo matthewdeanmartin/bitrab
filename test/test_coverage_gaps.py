@@ -3,9 +3,9 @@
 Focuses on:
 - execution/job.py: retry helpers, env-based strategy/delay, execute via legacy params,
   exit-code-blocked retry, dry-run execution
-- execution/shell.py: _colors_enabled, merge_env, RunResult helpers, force_subproc_mode,
+- execution/shell.py: colors_enabled, merge_env, RunResult helpers, force_subproc_mode,
   run_colored, capture mode, invalid mode
-- execution/stage_runner.py: _is_failure_allowed, pipeline cancellation, on_cancelled hook,
+- execution/stage_runner.py: is_failure_allowed, pipeline cancellation, on_cancelled hook,
   DAG cancellation, DagPipelineRunner.execute_pipeline direct
 - config/schema.py: find_yaml_files, validate_single_file, write_results_to_output,
   print_validation_summary, run_validate_all serial/empty/missing-dir
@@ -27,8 +27,8 @@ import pytest
 
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.execution.job import JobExecutor
-from bitrab.execution.shell import RunResult, _colors_enabled, force_subproc_mode, merge_env, run_bash, run_colored
-from bitrab.execution.stage_runner import PipelineCallbacks, StagePipelineRunner, _is_failure_allowed
+from bitrab.execution.shell import RunResult, colors_enabled, force_subproc_mode, merge_env, run_bash, run_colored
+from bitrab.execution.stage_runner import PipelineCallbacks, StagePipelineRunner, is_failure_allowed
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 from bitrab.plan import LocalGitLabRunner, PipelineProcessor, filter_pipeline
@@ -38,12 +38,12 @@ from bitrab.plan import LocalGitLabRunner, PipelineProcessor, filter_pipeline
 # ---------------------------------------------------------------------------
 
 
-def _make_job(name="j", stage="test", **kwargs) -> JobConfig:
+def make_job(name="j", stage="test", **kwargs) -> JobConfig:
     kwargs.setdefault("script", ["echo hi"])
     return JobConfig(name=name, stage=stage, **kwargs)
 
 
-def _simple_pipeline(tmp_path: Path, yaml: str) -> PipelineConfig:
+def simple_pipeline(tmp_path: Path, yaml: str) -> PipelineConfig:
     ci = tmp_path / ".gitlab-ci.yml"
     ci.write_text(textwrap.dedent(yaml))
     loader = ConfigurationLoader(base_path=tmp_path)
@@ -51,7 +51,7 @@ def _simple_pipeline(tmp_path: Path, yaml: str) -> PipelineConfig:
     return PipelineProcessor().process_config(raw)
 
 
-def _executor(tmp_path: Path) -> JobExecutor:
+def executor(tmp_path: Path) -> JobExecutor:
     vm = VariableManager({}, project_dir=tmp_path)
     return JobExecutor(vm, project_dir=tmp_path)
 
@@ -64,114 +64,114 @@ def _executor(tmp_path: Path) -> JobExecutor:
 class TestJobRetryHelpers:
     def test_env_delay_invalid_string_returns_zero(self, monkeypatch):
         monkeypatch.setenv("BITRAB_RETRY_DELAY_SECONDS", "notanumber")
-        assert JobExecutor._env_delay_seconds() == 0
+        assert JobExecutor.env_delay_seconds() == 0
 
     def test_env_delay_negative_clamped_to_zero(self, monkeypatch):
         monkeypatch.setenv("BITRAB_RETRY_DELAY_SECONDS", "-5")
-        assert JobExecutor._env_delay_seconds() == 0
+        assert JobExecutor.env_delay_seconds() == 0
 
     def test_env_delay_valid(self, monkeypatch):
         monkeypatch.setenv("BITRAB_RETRY_DELAY_SECONDS", "3")
-        assert JobExecutor._env_delay_seconds() == 3
+        assert JobExecutor.env_delay_seconds() == 3
 
     def test_env_strategy_exponential_default(self, monkeypatch):
         monkeypatch.delenv("BITRAB_RETRY_STRATEGY", raising=False)
-        assert JobExecutor._env_strategy() == "exponential"
+        assert JobExecutor.env_strategy() == "exponential"
 
     def test_env_strategy_constant(self, monkeypatch):
         monkeypatch.setenv("BITRAB_RETRY_STRATEGY", "constant")
-        assert JobExecutor._env_strategy() == "constant"
+        assert JobExecutor.env_strategy() == "constant"
 
     def test_env_strategy_unknown_falls_back_to_exponential(self, monkeypatch):
         monkeypatch.setenv("BITRAB_RETRY_STRATEGY", "linear")
-        assert JobExecutor._env_strategy() == "exponential"
+        assert JobExecutor.env_strategy() == "exponential"
 
     def test_env_strategy_case_insensitive(self, monkeypatch):
         monkeypatch.setenv("BITRAB_RETRY_STRATEGY", "CONSTANT")
-        assert JobExecutor._env_strategy() == "constant"
+        assert JobExecutor.env_strategy() == "constant"
 
     def test_should_retry_when_empty_list_always_retries(self):
         exc = Exception("oops")
-        assert JobExecutor._should_retry_when([], exc) is True
+        assert JobExecutor.should_retry_when([], exc) is True
 
     def test_should_retry_when_always_keyword(self):
         exc = Exception("oops")
-        assert JobExecutor._should_retry_when(["always"], exc) is True
+        assert JobExecutor.should_retry_when(["always"], exc) is True
 
     def test_should_retry_when_script_failure_with_cpe(self):
         exc = subprocess.CalledProcessError(1, "cmd")
-        assert JobExecutor._should_retry_when(["script_failure"], exc) is True
+        assert JobExecutor.should_retry_when(["script_failure"], exc) is True
 
     def test_should_retry_when_script_failure_non_cpe_returns_false(self):
         exc = RuntimeError("nope")
-        assert JobExecutor._should_retry_when(["script_failure"], exc) is False
+        assert JobExecutor.should_retry_when(["script_failure"], exc) is False
 
     def test_should_retry_when_unknown_condition_returns_false(self):
         exc = subprocess.CalledProcessError(1, "cmd")
-        assert JobExecutor._should_retry_when(["runner_system_failure"], exc) is False
+        assert JobExecutor.should_retry_when(["runner_system_failure"], exc) is False
 
     def test_should_retry_exit_codes_empty_allows_all(self):
         exc = subprocess.CalledProcessError(42, "cmd")
-        assert JobExecutor._should_retry_exit_codes([], exc) is True
+        assert JobExecutor.should_retry_exit_codes([], exc) is True
 
     def test_should_retry_exit_codes_matching_code(self):
         exc = subprocess.CalledProcessError(2, "cmd")
-        assert JobExecutor._should_retry_exit_codes([1, 2, 3], exc) is True
+        assert JobExecutor.should_retry_exit_codes([1, 2, 3], exc) is True
 
     def test_should_retry_exit_codes_non_matching_code(self):
         exc = subprocess.CalledProcessError(99, "cmd")
-        assert JobExecutor._should_retry_exit_codes([1, 2], exc) is False
+        assert JobExecutor.should_retry_exit_codes([1, 2], exc) is False
 
     def test_should_retry_exit_codes_non_cpe_returns_false(self):
         exc = RuntimeError("oops")
-        assert JobExecutor._should_retry_exit_codes([1], exc) is False
+        assert JobExecutor.should_retry_exit_codes([1], exc) is False
 
     def test_compute_delay_zero_base(self):
-        assert JobExecutor._compute_delay_seconds("exponential", 0, 1) == 0.0
+        assert JobExecutor.compute_delay_seconds("exponential", 0, 1) == 0.0
 
     def test_compute_delay_constant(self):
-        assert JobExecutor._compute_delay_seconds("constant", 5, 3) == 5.0
+        assert JobExecutor.compute_delay_seconds("constant", 5, 3) == 5.0
 
     def test_compute_delay_exponential_attempt1(self):
-        assert JobExecutor._compute_delay_seconds("exponential", 2, 1) == 2.0
+        assert JobExecutor.compute_delay_seconds("exponential", 2, 1) == 2.0
 
     def test_compute_delay_exponential_attempt2(self):
-        assert JobExecutor._compute_delay_seconds("exponential", 2, 2) == 4.0
+        assert JobExecutor.compute_delay_seconds("exponential", 2, 2) == 4.0
 
     def test_compute_delay_exponential_attempt3(self):
-        assert JobExecutor._compute_delay_seconds("exponential", 2, 3) == 8.0
+        assert JobExecutor.compute_delay_seconds("exponential", 2, 3) == 8.0
 
 
 class TestJobExecuteLegacyParams:
     """execute_job called with positional job= rather than ctx=."""
 
     def test_legacy_call_succeeds(self, tmp_path):
-        ex = _executor(tmp_path)
-        job = _make_job(script=["echo legacy"])
+        ex = executor(tmp_path)
+        job = make_job(script=["echo legacy"])
         ex.execute_job(job, job_dir=tmp_path)
         assert len(ex.job_history) == 1
 
     def test_build_context_sets_ci_job_dir(self, tmp_path):
-        ex = _executor(tmp_path)
-        job = _make_job()
+        ex = executor(tmp_path)
+        job = make_job()
         ctx = ex.build_context(job, job_dir=tmp_path / "mydir")
         assert ctx.env.get("CI_JOB_DIR") == str(tmp_path / "mydir")
 
     def test_build_context_no_job_dir_no_ci_job_dir(self, tmp_path):
-        ex = _executor(tmp_path)
-        job = _make_job()
+        ex = executor(tmp_path)
+        job = make_job()
         ctx = ex.build_context(job)
         assert "CI_JOB_DIR" not in ctx.env
 
     def test_build_context_uses_job_timeout_over_param(self, tmp_path):
-        ex = _executor(tmp_path)
-        job = _make_job(timeout=120.0)
+        ex = executor(tmp_path)
+        job = make_job(timeout=120.0)
         ctx = ex.build_context(job, timeout=999.0)
         assert ctx.timeout == 120.0
 
     def test_build_context_falls_back_to_param_timeout(self, tmp_path):
-        ex = _executor(tmp_path)
-        job = _make_job(timeout=None)
+        ex = executor(tmp_path)
+        job = make_job(timeout=None)
         ctx = ex.build_context(job, timeout=60.0)
         assert ctx.timeout == 60.0
 
@@ -181,9 +181,9 @@ class TestJobExecuteRetryExitCodeBlocked:
 
     def test_retry_blocked_by_exit_code_filter(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BITRAB_RETRY_NO_SLEEP", "1")
-        ex = _executor(tmp_path)
+        ex = executor(tmp_path)
         # exit_codes=[99] but script exits 1 → retry should not happen (blocked by exit_codes)
-        job = _make_job(
+        job = make_job(
             script=["exit 1"],
             retry_max=2,
             retry_exit_codes=[99],  # only retry on exit code 99
@@ -197,9 +197,9 @@ class TestJobExecuteRetryExitCodeBlocked:
 
     def test_retry_blocked_by_when_condition(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BITRAB_RETRY_NO_SLEEP", "1")
-        ex = _executor(tmp_path)
+        ex = executor(tmp_path)
         # when=runner_system_failure but we raise CalledProcessError (script_failure)
-        job = _make_job(
+        job = make_job(
             script=["exit 1"],
             retry_max=2,
             retry_when=["runner_system_failure"],
@@ -216,14 +216,14 @@ class TestJobDryRun:
         marker = tmp_path / "marker.txt"
         vm = VariableManager({}, project_dir=tmp_path)
         ex = JobExecutor(vm, dry_run=True, project_dir=tmp_path)
-        job = _make_job(script=[f"touch {marker}"])
+        job = make_job(script=[f"touch {marker}"])
         ex.execute_job(job, job_dir=tmp_path)
         assert not marker.exists()
 
     def test_dry_run_records_history(self, tmp_path):
         vm = VariableManager({}, project_dir=tmp_path)
         ex = JobExecutor(vm, dry_run=True, project_dir=tmp_path)
-        job = _make_job(script=["echo dry"])
+        job = make_job(script=["echo dry"])
         ex.execute_job(job, job_dir=tmp_path)
         assert len(ex.job_history) == 1
         assert ex.job_history[0].returncode == 0
@@ -233,7 +233,7 @@ class TestJobDryRun:
         buf.flush = lambda: None
         vm = VariableManager({}, project_dir=tmp_path)
         ex = JobExecutor(vm, dry_run=True, project_dir=tmp_path)
-        job = _make_job(script=["echo something"])
+        job = make_job(script=["echo something"])
         ex.execute_job(job, job_dir=tmp_path, output_writer=buf)
         assert "echo something" in buf.getvalue()
 
@@ -242,7 +242,7 @@ class TestJobDryRun:
         buf.flush = lambda: None
         vm = VariableManager({}, project_dir=tmp_path)
         ex = JobExecutor(vm, dry_run=True, project_dir=tmp_path)
-        job = _make_job(
+        job = make_job(
             before_script=["echo before"],
             script=["echo main"],
             after_script=["echo after"],
@@ -262,7 +262,7 @@ class TestJobDryRun:
         pipeline = PipelineConfig(
             stages=["build"],
             jobs=[
-                _make_job(
+                make_job(
                     name="build job",
                     stage="build",
                     script=["echo build"],
@@ -286,19 +286,19 @@ class TestJobDryRun:
 class TestColorsEnabled:
     def test_force_true(self, monkeypatch):
         monkeypatch.delenv("NO_COLOR", raising=False)
-        assert _colors_enabled(True) is True
+        assert colors_enabled(True) is True
 
     def test_force_false(self, monkeypatch):
         monkeypatch.setenv("NO_COLOR", "1")
-        assert _colors_enabled(False) is False
+        assert colors_enabled(False) is False
 
     def test_no_color_env_disables(self, monkeypatch):
         monkeypatch.setenv("NO_COLOR", "1")
-        assert _colors_enabled(None) is False
+        assert colors_enabled(None) is False
 
     def test_no_env_enables(self, monkeypatch):
         monkeypatch.delenv("NO_COLOR", raising=False)
-        assert _colors_enabled(None) is True
+        assert colors_enabled(None) is True
 
 
 class TestMergeEnv:
@@ -388,37 +388,37 @@ class TestRunColored:
 
 class TestIsFailureAllowed:
     def test_allow_failure_false(self):
-        job = _make_job(allow_failure=False)
-        assert _is_failure_allowed(job, Exception()) is False
+        job = make_job(allow_failure=False)
+        assert is_failure_allowed(job, Exception()) is False
 
     def test_allow_failure_true_no_codes(self):
-        job = _make_job(allow_failure=True, allow_failure_exit_codes=[])
-        assert _is_failure_allowed(job, Exception()) is True
+        job = make_job(allow_failure=True, allow_failure_exit_codes=[])
+        assert is_failure_allowed(job, Exception()) is True
 
     def test_allow_failure_exit_codes_matching(self):
-        job = _make_job(allow_failure=True, allow_failure_exit_codes=[2, 5])
+        job = make_job(allow_failure=True, allow_failure_exit_codes=[2, 5])
         exc = subprocess.CalledProcessError(2, "cmd")
-        assert _is_failure_allowed(job, exc) is True
+        assert is_failure_allowed(job, exc) is True
 
     def test_allow_failure_exit_codes_non_matching(self):
-        job = _make_job(allow_failure=True, allow_failure_exit_codes=[2, 5])
+        job = make_job(allow_failure=True, allow_failure_exit_codes=[2, 5])
         exc = subprocess.CalledProcessError(99, "cmd")
-        assert _is_failure_allowed(job, exc) is False
+        assert is_failure_allowed(job, exc) is False
 
     def test_allow_failure_via_cause_chain(self):
         from bitrab.exceptions import JobExecutionError
 
-        job = _make_job(allow_failure=True, allow_failure_exit_codes=[1])
+        job = make_job(allow_failure=True, allow_failure_exit_codes=[1])
         cause = subprocess.CalledProcessError(1, "cmd")
         exc = JobExecutionError("failed")
         exc.__cause__ = cause
-        assert _is_failure_allowed(job, exc) is True
+        assert is_failure_allowed(job, exc) is True
 
     def test_allow_failure_non_cpe_no_codes_returns_true(self):
-        job = _make_job(allow_failure=True, allow_failure_exit_codes=[1])
+        job = make_job(allow_failure=True, allow_failure_exit_codes=[1])
         exc = RuntimeError("some other error")
         # Not a CalledProcessError and no cause → False
-        assert _is_failure_allowed(job, exc) is False
+        assert is_failure_allowed(job, exc) is False
 
 
 class TestPipelineCancellation:
@@ -453,7 +453,7 @@ class TestPipelineCancellation:
             def on_cancelled(self):
                 ran.append("CANCELLED")
 
-        ex = _executor(tmp_path)
+        ex = executor(tmp_path)
         runner = StagePipelineRunner(ex, callbacks=CancelAfterFirst(), maximum_degree_of_parallelism=1)
         runner.execute_pipeline(pipeline)
 
@@ -473,7 +473,7 @@ class TestDefaultCallbacksNoOps:
         cb.on_stage_start("test", [])
         cb.on_stage_skip("test")
         cb.on_stage_complete("test", [])
-        job = _make_job()
+        job = make_job()
         cb.on_job_start(job)
         from bitrab.execution.stage_runner import JobOutcome
 
@@ -678,7 +678,7 @@ class TestGitLabCIValidatorPragma:
 
 
 class TestFilterPipeline:
-    def _make_pipeline(self):
+    def make_pipeline(self):
         processor = PipelineProcessor()
         raw = {
             "stages": ["build", "test", "deploy"],
@@ -689,40 +689,40 @@ class TestFilterPipeline:
         return processor.process_config(raw)
 
     def test_filter_by_jobs_only(self):
-        p = self._make_pipeline()
+        p = self.make_pipeline()
         filtered = filter_pipeline(p, jobs=["build_job", "test_job"])
         assert {j.name for j in filtered.jobs} == {"build_job", "test_job"}
         assert "deploy" not in filtered.stages
 
     def test_filter_by_stages_only(self):
-        p = self._make_pipeline()
+        p = self.make_pipeline()
         filtered = filter_pipeline(p, stages=["build"])
         assert all(j.stage == "build" for j in filtered.jobs)
 
     def test_filter_by_both(self):
-        p = self._make_pipeline()
+        p = self.make_pipeline()
         filtered = filter_pipeline(p, jobs=["build_job", "test_job"], stages=["build"])
         assert [j.name for j in filtered.jobs] == ["build_job"]
 
     def test_unknown_job_silently_ignored(self):
-        p = self._make_pipeline()
+        p = self.make_pipeline()
         filtered = filter_pipeline(p, jobs=["nonexistent"])
         assert filtered.jobs == []
 
     def test_preserves_stage_order(self):
-        p = self._make_pipeline()
+        p = self.make_pipeline()
         filtered = filter_pipeline(p, stages=["deploy", "build"])
         # stages should follow original pipeline order
         assert filtered.stages == ["build", "deploy"]
 
     def test_no_filters_returns_all(self):
-        p = self._make_pipeline()
+        p = self.make_pipeline()
         filtered = filter_pipeline(p)
         assert len(filtered.jobs) == len(p.jobs)
 
 
 class TestLocalGitLabRunnerFilters:
-    def _write_ci(self, tmp_path: Path) -> Path:
+    def write_ci(self, tmp_path: Path) -> Path:
         ci = tmp_path / ".gitlab-ci.yml"
         ci.write_text(textwrap.dedent("""\
             stages: [build, test]
@@ -736,7 +736,7 @@ class TestLocalGitLabRunnerFilters:
         return ci
 
     def test_unknown_job_filter_warns(self, tmp_path, capsys):
-        self._write_ci(tmp_path)
+        self.write_ci(tmp_path)
         runner = LocalGitLabRunner(base_path=tmp_path)
         runner.run_pipeline(
             config_path=tmp_path / ".gitlab-ci.yml",
@@ -747,7 +747,7 @@ class TestLocalGitLabRunnerFilters:
         assert "ghost_job" in out
 
     def test_unknown_stage_filter_warns(self, tmp_path, capsys):
-        self._write_ci(tmp_path)
+        self.write_ci(tmp_path)
         runner = LocalGitLabRunner(base_path=tmp_path)
         runner.run_pipeline(
             config_path=tmp_path / ".gitlab-ci.yml",
@@ -758,7 +758,7 @@ class TestLocalGitLabRunnerFilters:
         assert "nonexistent_stage" in out
 
     def test_no_matching_jobs_returns_early(self, tmp_path, capsys):
-        self._write_ci(tmp_path)
+        self.write_ci(tmp_path)
         runner = LocalGitLabRunner(base_path=tmp_path)
         runner.run_pipeline(
             config_path=tmp_path / ".gitlab-ci.yml",
@@ -790,7 +790,7 @@ class TestLocalGitLabRunnerFilters:
         assert marker.exists()
 
     def test_dry_run_in_ci_mode_uses_streaming_runner(self, tmp_path, monkeypatch):
-        ci = self._write_ci(tmp_path)
+        ci = self.write_ci(tmp_path)
         runner = LocalGitLabRunner(base_path=tmp_path)
         stage_called = False
         tui_called = False
@@ -825,7 +825,7 @@ class TestLocalGitLabRunnerFilters:
         assert tui_called is False
 
     def test_dry_run_defaults_to_thread_backend(self, tmp_path, monkeypatch):
-        ci = self._write_ci(tmp_path)
+        ci = self.write_ci(tmp_path)
         runner = LocalGitLabRunner(base_path=tmp_path)
         captured_backend = None
 

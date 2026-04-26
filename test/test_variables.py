@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 from bitrab.execution.variables import (
     VariableManager,
-    _derive_git_variables,
-    _git_head_metadata,
-    _project_identity_from_remote,
+    derive_git_variables,
+    git_head_metadata,
+    project_identity_from_remote,
     load_dotenv_files,
     parse_dotenv,
 )
@@ -130,56 +130,56 @@ class TestLoadDotenvFiles:
 
 class TestProjectIdentityFromRemote:
     def test_empty_remote_returns_empty_tuple(self):
-        assert _project_identity_from_remote("") == ("", "", "")
+        assert project_identity_from_remote("") == ("", "", "")
 
     def test_ssh_remote(self):
-        ns, path, url = _project_identity_from_remote("git@gitlab.com:myorg/myrepo.git")
+        ns, path, url = project_identity_from_remote("git@gitlab.com:myorg/myrepo.git")
         assert ns == "myorg"
         assert path == "myorg/myrepo"
         assert url == "https://gitlab.com/myorg/myrepo"
 
     def test_https_remote(self):
-        ns, path, url = _project_identity_from_remote("https://gitlab.com/myorg/myrepo.git")
+        ns, path, url = project_identity_from_remote("https://gitlab.com/myorg/myrepo.git")
         assert ns == "myorg"
         assert path == "myorg/myrepo"
         # .git suffix stripped
         assert not url.endswith(".git")
 
     def test_https_without_git_suffix(self):
-        ns, path, url = _project_identity_from_remote("https://gitlab.com/myorg/myrepo")
+        ns, path, url = project_identity_from_remote("https://gitlab.com/myorg/myrepo")
         assert ns == "myorg"
         assert path == "myorg/myrepo"
 
     def test_unrecognised_url_returns_empty_tuple(self):
-        assert _project_identity_from_remote("not-a-url") == ("", "", "")
+        assert project_identity_from_remote("not-a-url") == ("", "", "")
 
 
 class TestGitHeadMetadata:
     def test_returns_six_tuple_on_success(self, tmp_path):
         # If we're in a real git repo the call succeeds — just check shape
-        result = _git_head_metadata(Path.cwd())
+        result = git_head_metadata(Path.cwd())
         assert isinstance(result, tuple)
         assert len(result) == 6
 
     def test_returns_empty_strings_for_non_repo(self, tmp_path):
-        result = _git_head_metadata(tmp_path)
+        result = git_head_metadata(tmp_path)
         assert result == ("", "", "", "", "", "")
 
     def test_returns_empty_strings_on_git_failure(self, tmp_path):
-        with patch("bitrab.execution.variables._git", return_value=""):
-            result = _git_head_metadata(tmp_path)
+        with patch("bitrab.execution.variables.git", return_value=""):
+            result = git_head_metadata(tmp_path)
         assert result == ("", "", "", "", "", "")
 
     def test_returns_empty_strings_when_wrong_field_count(self, tmp_path):
         # git output with wrong number of \x1f separators
-        with patch("bitrab.execution.variables._git", return_value="only\x1ffour\x1ffields"):
-            result = _git_head_metadata(tmp_path)
+        with patch("bitrab.execution.variables.git", return_value="only\x1ffour\x1ffields"):
+            result = git_head_metadata(tmp_path)
         assert result == ("", "", "", "", "", "")
 
 
 class TestDeriveGitVariables:
     def test_returns_all_expected_keys(self):
-        result = _derive_git_variables(Path.cwd())
+        result = derive_git_variables(Path.cwd())
         expected_keys = {
             "CI_COMMIT_SHA",
             "CI_COMMIT_SHORT_SHA",
@@ -199,128 +199,128 @@ class TestDeriveGitVariables:
         assert expected_keys <= result.keys()
 
     def test_empty_strings_for_non_repo(self, tmp_path):
-        result = _derive_git_variables(tmp_path)
+        result = derive_git_variables(tmp_path)
         assert result["CI_COMMIT_SHA"] == ""
         assert result["CI_COMMIT_SHORT_SHA"] == ""
         assert result["CI_COMMIT_BRANCH"] == ""
 
     def test_short_sha_is_first_8_chars(self):
         fake_sha = "abcdef1234567890"
-        with patch("bitrab.execution.variables._git_head_metadata") as mock_meta:
+        with patch("bitrab.execution.variables.git_head_metadata") as mock_meta:
             mock_meta.return_value = (fake_sha, "Author", "a@b.com", "2024-01-01", "msg", "msg")
-            with patch("bitrab.execution.variables._git", return_value="main"):
-                result = _derive_git_variables(Path.cwd())
+            with patch("bitrab.execution.variables.git", return_value="main"):
+                result = derive_git_variables(Path.cwd())
         assert result["CI_COMMIT_SHORT_SHA"] == fake_sha[:8]
 
     def test_tag_takes_precedence_over_branch_for_ref_name(self):
-        with patch("bitrab.execution.variables._git_head_metadata") as mock_meta:
+        with patch("bitrab.execution.variables.git_head_metadata") as mock_meta:
             mock_meta.return_value = ("abc123", "A", "a@b.com", "ts", "title", "msg")
-            # _git is called multiple times: branch, tag, remote
-            with patch("bitrab.execution.variables._git", side_effect=["main", "v1.0.0", ""]):
-                result = _derive_git_variables(Path.cwd())
+            # git is called multiple times: branch, tag, remote
+            with patch("bitrab.execution.variables.git", side_effect=["main", "v1.0.0", ""]):
+                result = derive_git_variables(Path.cwd())
         assert result["CI_COMMIT_REF_NAME"] == "v1.0.0"
         assert result["CI_COMMIT_TAG"] == "v1.0.0"
 
     def test_branch_used_when_no_tag(self):
-        with patch("bitrab.execution.variables._git_head_metadata") as mock_meta:
+        with patch("bitrab.execution.variables.git_head_metadata") as mock_meta:
             mock_meta.return_value = ("abc123", "A", "a@b.com", "ts", "title", "msg")
-            with patch("bitrab.execution.variables._git", side_effect=["feature/my-branch", "", ""]):
-                result = _derive_git_variables(Path.cwd())
+            with patch("bitrab.execution.variables.git", side_effect=["feature/my-branch", "", ""]):
+                result = derive_git_variables(Path.cwd())
         assert result["CI_COMMIT_REF_NAME"] == "feature/my-branch"
         assert result["CI_COMMIT_TAG"] == ""
 
     def test_ref_slug_replaces_slashes(self):
-        with patch("bitrab.execution.variables._git_head_metadata") as mock_meta:
+        with patch("bitrab.execution.variables.git_head_metadata") as mock_meta:
             mock_meta.return_value = ("abc123", "A", "a@b.com", "ts", "title", "msg")
-            with patch("bitrab.execution.variables._git", side_effect=["feature/my-branch", "", ""]):
-                result = _derive_git_variables(Path.cwd())
+            with patch("bitrab.execution.variables.git", side_effect=["feature/my-branch", "", ""]):
+                result = derive_git_variables(Path.cwd())
         assert "/" not in result["CI_COMMIT_REF_SLUG"]
         assert result["CI_COMMIT_REF_SLUG"] == "feature-my-branch"
 
     def test_ref_slug_truncated_to_63_chars(self):
         long_branch = "a" * 80
-        with patch("bitrab.execution.variables._git_head_metadata") as mock_meta:
+        with patch("bitrab.execution.variables.git_head_metadata") as mock_meta:
             mock_meta.return_value = ("abc123", "A", "a@b.com", "ts", "title", "msg")
-            with patch("bitrab.execution.variables._git", side_effect=[long_branch, "", ""]):
-                result = _derive_git_variables(Path.cwd())
+            with patch("bitrab.execution.variables.git", side_effect=[long_branch, "", ""]):
+                result = derive_git_variables(Path.cwd())
         assert len(result["CI_COMMIT_REF_SLUG"]) <= 63
 
     def test_author_formatted_correctly(self):
-        with patch("bitrab.execution.variables._git_head_metadata") as mock_meta:
+        with patch("bitrab.execution.variables.git_head_metadata") as mock_meta:
             mock_meta.return_value = ("abc123", "Jane Doe", "jane@example.com", "ts", "title", "msg")
-            with patch("bitrab.execution.variables._git", side_effect=["main", "", ""]):
-                result = _derive_git_variables(Path.cwd())
+            with patch("bitrab.execution.variables.git", side_effect=["main", "", ""]):
+                result = derive_git_variables(Path.cwd())
         assert result["CI_COMMIT_AUTHOR"] == "Jane Doe <jane@example.com>"
 
     def test_author_empty_when_no_author_name(self):
-        with patch("bitrab.execution.variables._git_head_metadata") as mock_meta:
+        with patch("bitrab.execution.variables.git_head_metadata") as mock_meta:
             mock_meta.return_value = ("abc123", "", "", "ts", "title", "msg")
-            with patch("bitrab.execution.variables._git", side_effect=["main", "", ""]):
-                result = _derive_git_variables(Path.cwd())
+            with patch("bitrab.execution.variables.git", side_effect=["main", "", ""]):
+                result = derive_git_variables(Path.cwd())
         assert result["CI_COMMIT_AUTHOR"] == ""
 
     def test_project_path_slug_lowercased(self):
-        with patch("bitrab.execution.variables._git_head_metadata") as mock_meta:
+        with patch("bitrab.execution.variables.git_head_metadata") as mock_meta:
             mock_meta.return_value = ("abc123", "A", "a@b.com", "ts", "title", "msg")
-            with patch("bitrab.execution.variables._git", side_effect=["main", "", "git@gitlab.com:MyOrg/MyRepo.git"]):
-                result = _derive_git_variables(Path.cwd())
+            with patch("bitrab.execution.variables.git", side_effect=["main", "", "git@gitlab.com:MyOrg/MyRepo.git"]):
+                result = derive_git_variables(Path.cwd())
         assert result["CI_PROJECT_PATH_SLUG"] == result["CI_PROJECT_PATH_SLUG"].lower()
 
 
 class TestVariableManager:
-    def _make_job(self, name="test-job", stage="test", variables=None) -> JobConfig:
+    def make_job(self, name="test-job", stage="test", variables=None) -> JobConfig:
         return JobConfig(name=name, stage=stage, variables=variables or {})
 
     def test_prepare_environment_sets_job_name(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
-        job = self._make_job(name="my-job")
+        job = self.make_job(name="my-job")
         env = vm.prepare_environment(job)
         assert env["CI_JOB_NAME"] == "my-job"
 
     def test_prepare_environment_sets_job_stage(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
-        job = self._make_job(stage="deploy")
+        job = self.make_job(stage="deploy")
         env = vm.prepare_environment(job)
         assert env["CI_JOB_STAGE"] == "deploy"
 
     def test_prepare_environment_sets_ci_true(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
-        env = vm.prepare_environment(self._make_job())
+        env = vm.prepare_environment(self.make_job())
         assert env["CI"] == "true"
         assert env["GITLAB_CI"] == "true"
 
     def test_prepare_environment_sets_project_dir(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
-        env = vm.prepare_environment(self._make_job())
+        env = vm.prepare_environment(self.make_job())
         assert env["CI_PROJECT_DIR"] == str(tmp_path)
 
     def test_prepare_environment_job_id_increments(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
-        env1 = vm.prepare_environment(self._make_job())
-        env2 = vm.prepare_environment(self._make_job())
+        env1 = vm.prepare_environment(self.make_job())
+        env2 = vm.prepare_environment(self.make_job())
         assert int(env2["CI_JOB_ID"]) > int(env1["CI_JOB_ID"])
 
     def test_job_variables_override_base(self, tmp_path):
         vm = VariableManager(base_variables={"MY_VAR": "base"}, project_dir=tmp_path)
-        job = self._make_job(variables={"MY_VAR": "job"})
+        job = self.make_job(variables={"MY_VAR": "job"})
         env = vm.prepare_environment(job)
         assert env["MY_VAR"] == "job"
 
     def test_base_variables_applied(self, tmp_path):
         vm = VariableManager(base_variables={"CUSTOM": "custom_val"}, project_dir=tmp_path)
-        env = vm.prepare_environment(self._make_job())
+        env = vm.prepare_environment(self.make_job())
         assert env["CUSTOM"] == "custom_val"
 
     def test_dotenv_file_loaded(self, tmp_path):
         (tmp_path / ".env").write_text("SECRET=mysecret\n", encoding="utf-8")
         vm = VariableManager(project_dir=tmp_path)
-        env = vm.prepare_environment(self._make_job())
+        env = vm.prepare_environment(self.make_job())
         assert env["SECRET"] == "mysecret"
 
     def test_base_variables_override_dotenv(self, tmp_path):
         (tmp_path / ".env").write_text("FOO=from_env\n", encoding="utf-8")
         vm = VariableManager(base_variables={"FOO": "from_base"}, project_dir=tmp_path)
-        env = vm.prepare_environment(self._make_job())
+        env = vm.prepare_environment(self.make_job())
         assert env["FOO"] == "from_base"
 
     def test_leaked_ci_job_vars_stripped(self, tmp_path):
@@ -334,7 +334,7 @@ class TestVariableManager:
         }
         with patch.dict(os.environ, leaked):
             vm = VariableManager(project_dir=tmp_path)
-            env = vm.prepare_environment(self._make_job(name="real-job", stage="real-stage"))
+            env = vm.prepare_environment(self.make_job(name="real-job", stage="real-stage"))
 
         # Per-job vars must come from the current job, not the parent
         assert env["CI_JOB_NAME"] == "real-job"
@@ -351,17 +351,17 @@ class TestVariableManager:
 
     def test_project_name_matches_dir_name(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
-        env = vm.prepare_environment(self._make_job())
+        env = vm.prepare_environment(self.make_job())
         assert env["CI_PROJECT_NAME"] == tmp_path.name
 
     def test_prepare_environment_does_not_mutate_shared_base(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
-        job = self._make_job(variables={"MUTATE_CHECK": "yes"})
+        job = self.make_job(variables={"MUTATE_CHECK": "yes"})
         vm.prepare_environment(job)
         # The shared base should not contain the job variable
-        assert "MUTATE_CHECK" not in vm._shared_base_env
+        assert "MUTATE_CHECK" not in vm.shared_base_env
 
     def test_ci_pipeline_id_is_numeric_string(self, tmp_path):
         vm = VariableManager(project_dir=tmp_path)
-        env = vm.prepare_environment(self._make_job())
+        env = vm.prepare_environment(self.make_job())
         assert env["CI_PIPELINE_ID"].isdigit()

@@ -7,7 +7,7 @@ from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 
 
-def _make_pipeline(jobs: list[JobConfig] | None = None) -> PipelineConfig:
+def make_pipeline(jobs: list[JobConfig] | None = None) -> PipelineConfig:
     if jobs is None:
         jobs = [
             JobConfig(name="lint", stage="test", script=["echo lint"]),
@@ -21,7 +21,7 @@ class TestEventCollector:
 
     def test_captures_pipeline_lifecycle(self):
         collector = EventCollector()
-        pipeline = _make_pipeline()
+        pipeline = make_pipeline()
 
         collector.on_pipeline_start(pipeline, max_workers=2)
         collector.on_pipeline_complete(success=True)
@@ -124,7 +124,7 @@ class TestEventCollector:
                 calls.append("job_complete")
 
         collector = EventCollector(inner=Tracker())
-        pipeline = _make_pipeline()
+        pipeline = make_pipeline()
         job = pipeline.jobs[0]
 
         collector.on_pipeline_start(pipeline, max_workers=1)
@@ -138,7 +138,7 @@ class TestEventCollector:
 
     def test_events_are_chronologically_ordered(self):
         collector = EventCollector()
-        pipeline = _make_pipeline()
+        pipeline = make_pipeline()
         job = pipeline.jobs[0]
 
         collector.on_pipeline_start(pipeline, max_workers=1)
@@ -170,10 +170,10 @@ class TestEventCollector:
 class TestPipelineSummary:
     """PipelineSummary.from_events constructs correct summaries."""
 
-    def _run_simple_pipeline(self) -> EventCollector:
+    def run_simple_pipeline(self) -> EventCollector:
         """Simulate a simple 2-job pipeline through the collector."""
         collector = EventCollector()
-        pipeline = _make_pipeline()
+        pipeline = make_pipeline()
         lint, build = pipeline.jobs
 
         collector.on_pipeline_start(pipeline, max_workers=1)
@@ -192,7 +192,7 @@ class TestPipelineSummary:
         return collector
 
     def test_summary_success(self):
-        collector = self._run_simple_pipeline()
+        collector = self.run_simple_pipeline()
         summary = collector.summary()
 
         assert summary.success is True
@@ -224,7 +224,7 @@ class TestPipelineSummary:
 
     def test_summary_with_skipped_stage(self):
         collector = EventCollector()
-        pipeline = _make_pipeline()
+        pipeline = make_pipeline()
 
         collector.on_pipeline_start(pipeline, max_workers=1)
         collector.on_stage_skip("deploy")
@@ -237,7 +237,7 @@ class TestPipelineSummary:
 
     def test_summary_cancelled(self):
         collector = EventCollector()
-        pipeline = _make_pipeline()
+        pipeline = make_pipeline()
 
         collector.on_pipeline_start(pipeline, max_workers=1)
         collector.on_cancelled()
@@ -248,7 +248,7 @@ class TestPipelineSummary:
 
     def test_summary_awaiting_manual(self):
         collector = EventCollector()
-        pipeline = _make_pipeline()
+        pipeline = make_pipeline()
 
         collector.on_pipeline_start(pipeline, max_workers=1)
         collector.on_pipeline_awaiting_manual()
@@ -258,7 +258,7 @@ class TestPipelineSummary:
         assert summary.awaiting_manual is True
 
     def test_format_text_contains_key_info(self):
-        collector = self._run_simple_pipeline()
+        collector = self.run_simple_pipeline()
         text = collector.summary().format_text()
 
         assert "Pipeline succeeded" in text
@@ -285,7 +285,7 @@ class TestPipelineSummary:
         assert "broken" in text
 
     def test_job_timing_is_non_negative(self):
-        collector = self._run_simple_pipeline()
+        collector = self.run_simple_pipeline()
         summary = collector.summary()
         for jt in summary.jobs:
             assert jt.duration_s >= 0.0

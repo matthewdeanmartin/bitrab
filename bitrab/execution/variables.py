@@ -8,8 +8,8 @@ from pathlib import Path
 
 from bitrab.models.pipeline import JobConfig
 
-_REMOTE_URL_RE = re.compile(r"[:/]([^/]+)/([^/.]+?)(?:\.git)?$")
-_GIT_FIELD_SEP = "\x1f"
+REMOTE_URL_RE = re.compile(r"[:/]([^/]+)/([^/.]+?)(?:\.git)?$")
+GIT_FIELD_SEP = "\x1f"
 
 
 def parse_dotenv(text: str) -> dict[str, str]:
@@ -77,10 +77,10 @@ def load_dotenv_files(project_dir: Path) -> dict[str, str]:
 # A simple incrementing counter used to generate unique-per-process job IDs.
 # GitLab uses globally unique integer IDs; we just need something non-empty and
 # distinct across jobs within a single run.
-_job_id_counter = 0
+job_id_counter = 0
 
 
-def _git(args: list[str], cwd: Path) -> str:
+def git(args: list[str], cwd: Path) -> str:
     """Run a git command and return stripped stdout, or '' on any failure."""
     try:
         result = subprocess.run(  # nosec B603 B607
@@ -95,35 +95,35 @@ def _git(args: list[str], cwd: Path) -> str:
         return ""
 
 
-def _git_head_metadata(project_dir: Path) -> tuple[str, str, str, str, str, str]:
+def git_head_metadata(project_dir: Path) -> tuple[str, str, str, str, str, str]:
     """Return HEAD-derived metadata in one git call.
 
     The tuple contains:
       sha, author_name, author_email, timestamp, commit_title, commit_message
     """
-    output = _git(
+    output = git(
         [
             "log",
             "-1",
-            f"--pretty=%H{_GIT_FIELD_SEP}%an{_GIT_FIELD_SEP}%ae{_GIT_FIELD_SEP}%cI{_GIT_FIELD_SEP}%s{_GIT_FIELD_SEP}%B",
+            f"--pretty=%H{GIT_FIELD_SEP}%an{GIT_FIELD_SEP}%ae{GIT_FIELD_SEP}%cI{GIT_FIELD_SEP}%s{GIT_FIELD_SEP}%B",
             "HEAD",
         ],
         project_dir,
     )
     if not output:
         return ("", "", "", "", "", "")
-    parts = output.split(_GIT_FIELD_SEP, 5)
+    parts = output.split(GIT_FIELD_SEP, 5)
     if len(parts) != 6:
         return ("", "", "", "", "", "")
     return tuple(parts)  # type: ignore[return-value]
 
 
-def _project_identity_from_remote(remote_url: str) -> tuple[str, str, str]:
+def project_identity_from_remote(remote_url: str) -> tuple[str, str, str]:
     """Derive namespace, path, and HTTP-ish URL from a git remote URL."""
     if not remote_url:
         return "", "", ""
 
-    m = _REMOTE_URL_RE.search(remote_url)
+    m = REMOTE_URL_RE.search(remote_url)
     if not m:
         return "", "", ""
 
@@ -135,7 +135,7 @@ def _project_identity_from_remote(remote_url: str) -> tuple[str, str, str]:
     return project_namespace, project_path, project_url
 
 
-def _derive_git_variables(project_dir: Path) -> dict[str, str]:
+def derive_git_variables(project_dir: Path) -> dict[str, str]:
     """
     Populate the GitLab CI_COMMIT_* / CI_PROJECT_* variables that GitLab
     derives from the repository at pipeline-trigger time.
@@ -145,7 +145,7 @@ def _derive_git_variables(project_dir: Path) -> dict[str, str]:
     (``[ -n "$CI_COMMIT_TAG" ]``) behave the same as they would in GitLab when
     there is no tag.
     """
-    sha, author_name, author_email, timestamp, commit_title, commit_message = _git_head_metadata(project_dir)
+    sha, author_name, author_email, timestamp, commit_title, commit_message = git_head_metadata(project_dir)
     if not sha:
         return {
             "CI_COMMIT_SHA": "",
@@ -165,14 +165,14 @@ def _derive_git_variables(project_dir: Path) -> dict[str, str]:
         }
 
     short_sha = sha[:8] if sha else ""
-    branch = _git(["branch", "--show-current"], project_dir)
-    tag = _git(["describe", "--tags", "--exact-match", "HEAD"], project_dir)
+    branch = git(["branch", "--show-current"], project_dir)
+    tag = git(["describe", "--tags", "--exact-match", "HEAD"], project_dir)
     ref_name = tag if tag else branch
     ref_slug = ref_name.replace("/", "-")[:63]  # GitLab slugifies refs
 
     # Remote URL → derive CI_PROJECT_NAMESPACE / CI_PROJECT_PATH
-    remote_url = _git(["remote", "get-url", "origin"], project_dir)
-    project_namespace, project_path, project_url = _project_identity_from_remote(remote_url)
+    remote_url = git(["remote", "get-url", "origin"], project_dir)
+    project_namespace, project_path, project_url = project_identity_from_remote(remote_url)
 
     return {
         # Commit identity
@@ -207,7 +207,7 @@ class VariableManager:
     def __init__(self, base_variables: dict[str, str] | None = None, project_dir: Path | None = None):
         self.base_variables = base_variables or {}
         self.project_dir = project_dir or Path.cwd()
-        self.gitlab_ci_vars = self._get_gitlab_ci_variables()
+        self.gitlab_ci_vars = self.get_gitlab_ci_variables()
 
         # Load .env / .bitrab.env from the project root.  These simulate
         # GitLab CI/CD Settings > Variables so developers can keep local
@@ -224,12 +224,12 @@ class VariableManager:
         base = os.environ.copy()
         for leaked in ("CI_JOB_DIR", "CI_JOB_ID", "CI_JOB_STAGE", "CI_JOB_NAME", "CI_JOB_URL"):
             base.pop(leaked, None)
-        self._shared_base_env = base
-        self._shared_base_env.update(self.gitlab_ci_vars)
-        self._shared_base_env.update(self.dotenv_vars)
-        self._shared_base_env.update(self.base_variables)
+        self.shared_base_env = base
+        self.shared_base_env.update(self.gitlab_ci_vars)
+        self.shared_base_env.update(self.dotenv_vars)
+        self.shared_base_env.update(self.base_variables)
 
-    def _get_gitlab_ci_variables(self) -> dict[str, str]:
+    def get_gitlab_ci_variables(self) -> dict[str, str]:
         """
         Get GitLab CI built-in variables that we can simulate locally.
 
@@ -260,7 +260,7 @@ class VariableManager:
             "CI_JOB_URL": "",
         }
 
-        base.update(_derive_git_variables(self.project_dir))
+        base.update(derive_git_variables(self.project_dir))
         return base
 
     def prepare_environment(self, job: JobConfig) -> dict[str, str]:
@@ -273,16 +273,16 @@ class VariableManager:
         Returns:
             A dictionary of prepared environment variables.
         """
-        global _job_id_counter
-        _job_id_counter += 1
+        global job_id_counter
+        job_id_counter += 1
 
         # Start from the pre-computed base instead of os.environ.copy()
-        env = self._shared_base_env.copy()
+        env = self.shared_base_env.copy()
 
         # Apply job-specific variables
         env.update(job.variables)
         env["CI_JOB_STAGE"] = job.stage
         env["CI_JOB_NAME"] = job.name
-        env["CI_JOB_ID"] = str(_job_id_counter)
+        env["CI_JOB_ID"] = str(job_id_counter)
 
         return env

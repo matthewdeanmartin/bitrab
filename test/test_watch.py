@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bitrab.watch import _collect_watched_paths, _PipelineRerunHandler
+from bitrab.watch import collect_watched_paths, PipelineRerunHandler
 
 
 class TestCollectWatchedPaths:
@@ -16,7 +16,7 @@ class TestCollectWatchedPaths:
         """Config with no includes returns an empty set."""
         ci = tmp_path / ".gitlab-ci.yml"
         ci.write_text("stages:\n  - test\njob:\n  script:\n    - echo\n", encoding="utf-8")
-        paths = _collect_watched_paths(ci.resolve())
+        paths = collect_watched_paths(ci.resolve())
         assert paths == set()
 
     def test_local_include_collected(self, tmp_path):
@@ -25,7 +25,7 @@ class TestCollectWatchedPaths:
         ci = tmp_path / ".gitlab-ci.yml"
         ci.write_text("include:\n  - local: sub.yml\n", encoding="utf-8")
 
-        paths = _collect_watched_paths(ci.resolve())
+        paths = collect_watched_paths(ci.resolve())
         assert sub.resolve() in paths
 
     def test_transitive_includes_collected(self, tmp_path):
@@ -36,7 +36,7 @@ class TestCollectWatchedPaths:
         ci = tmp_path / ".gitlab-ci.yml"
         ci.write_text("include:\n  - local: b.yml\n", encoding="utf-8")
 
-        paths = _collect_watched_paths(ci.resolve())
+        paths = collect_watched_paths(ci.resolve())
         assert b.resolve() in paths
         assert c.resolve() in paths
 
@@ -44,7 +44,7 @@ class TestCollectWatchedPaths:
         ci = tmp_path / ".gitlab-ci.yml"
         ci.write_text("include:\n  - remote: https://example.com/ci.yml\n", encoding="utf-8")
 
-        paths = _collect_watched_paths(ci.resolve())
+        paths = collect_watched_paths(ci.resolve())
         assert paths == set()
 
     def test_circular_includes_safe(self, tmp_path):
@@ -56,13 +56,13 @@ class TestCollectWatchedPaths:
         ci.write_text("include:\n  - local: a.yml\n", encoding="utf-8")
 
         # Should not recurse infinitely
-        paths = _collect_watched_paths(ci.resolve())
+        paths = collect_watched_paths(ci.resolve())
         assert a.resolve() in paths
         assert b.resolve() in paths
 
 
 class TestPipelineRerunHandler:
-    def _make_event(self, path: Path, is_directory: bool = False) -> MagicMock:
+    def make_event(self, path: Path, is_directory: bool = False) -> MagicMock:
         event = MagicMock()
         event.src_path = str(path)
         event.is_directory = is_directory
@@ -73,9 +73,9 @@ class TestPipelineRerunHandler:
         ci.touch()
 
         runner = MagicMock()
-        handler = _PipelineRerunHandler(runner, {ci.resolve()})
+        handler = PipelineRerunHandler(runner, {ci.resolve()})
 
-        event = self._make_event(ci.resolve())
+        event = self.make_event(ci.resolve())
         handler.on_modified(event)
         handler.on_modified(event)  # within debounce window
 
@@ -88,9 +88,9 @@ class TestPipelineRerunHandler:
         other.touch()
 
         runner = MagicMock()
-        handler = _PipelineRerunHandler(runner, {ci.resolve()})
+        handler = PipelineRerunHandler(runner, {ci.resolve()})
 
-        handler.on_modified(self._make_event(other.resolve()))
+        handler.on_modified(self.make_event(other.resolve()))
         assert runner.call_count == 0
 
     def test_skips_directory_events(self, tmp_path):
@@ -98,9 +98,9 @@ class TestPipelineRerunHandler:
         ci.touch()
 
         runner = MagicMock()
-        handler = _PipelineRerunHandler(runner, {ci.resolve()})
+        handler = PipelineRerunHandler(runner, {ci.resolve()})
 
-        handler.on_modified(self._make_event(ci.resolve(), is_directory=True))
+        handler.on_modified(self.make_event(ci.resolve(), is_directory=True))
         assert runner.call_count == 0
 
     def test_triggers_after_debounce_window(self, tmp_path):
@@ -109,12 +109,12 @@ class TestPipelineRerunHandler:
         ci.touch()
 
         runner = MagicMock()
-        handler = _PipelineRerunHandler(runner, {ci.resolve()})
+        handler = PipelineRerunHandler(runner, {ci.resolve()})
 
-        event = self._make_event(ci.resolve())
+        event = self.make_event(ci.resolve())
         handler.on_modified(event)
         # Force last_triggered into the past
-        handler._last_triggered = time.monotonic() - 2.0
+        handler.last_triggered = time.monotonic() - 2.0
         handler.on_modified(event)
 
         assert runner.call_count == 2
@@ -125,10 +125,10 @@ class TestPipelineRerunHandler:
         ci.touch()
 
         runner = MagicMock(side_effect=RuntimeError("boom"))
-        handler = _PipelineRerunHandler(runner, {ci.resolve()})
+        handler = PipelineRerunHandler(runner, {ci.resolve()})
 
         # Should not raise
-        handler.on_modified(self._make_event(ci.resolve()))
+        handler.on_modified(self.make_event(ci.resolve()))
 
 
 class TestCmdWatch:

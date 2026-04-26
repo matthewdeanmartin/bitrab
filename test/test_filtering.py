@@ -10,7 +10,7 @@ from bitrab.plan import PipelineProcessor, filter_pipeline
 # ---------------------------------------------------------------------------
 
 
-def _make_pipeline() -> PipelineConfig:
+def make_pipeline() -> PipelineConfig:
     """Three stages, five jobs."""
     proc = PipelineProcessor()
     return proc.process_config(
@@ -25,11 +25,11 @@ def _make_pipeline() -> PipelineConfig:
     )
 
 
-def _job_names(pipeline: PipelineConfig) -> list[str]:
+def job_names(pipeline: PipelineConfig) -> list[str]:
     return [j.name for j in pipeline.jobs]
 
 
-def _stage_list(pipeline: PipelineConfig) -> list[str]:
+def stage_list(pipeline: PipelineConfig) -> list[str]:
     return pipeline.stages
 
 
@@ -39,43 +39,43 @@ def _stage_list(pipeline: PipelineConfig) -> list[str]:
 
 
 def test_filter_jobs_keeps_named_jobs():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, jobs=["build_job", "lint"])
-    assert set(_job_names(result)) == {"build_job", "lint"}
+    assert set(job_names(result)) == {"build_job", "lint"}
 
 
 def test_filter_jobs_trims_stage_list():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, jobs=["unit_tests"])
-    assert _stage_list(result) == ["test"]
+    assert stage_list(result) == ["test"]
     assert "build" not in result.stages
     assert "deploy" not in result.stages
 
 
 def test_filter_jobs_preserves_stage_order():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, jobs=["build_job", "deploy_prod"])
-    assert _stage_list(result) == ["build", "deploy"]
+    assert stage_list(result) == ["build", "deploy"]
 
 
 def test_filter_jobs_unknown_name_returns_empty():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, jobs=["nonexistent"])
-    assert _job_names(result) == []
-    assert _stage_list(result) == []
+    assert job_names(result) == []
+    assert stage_list(result) == []
 
 
 def test_filter_jobs_none_keeps_all():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, jobs=None)
-    assert set(_job_names(result)) == {"build_job", "unit_tests", "lint", "deploy_staging", "deploy_prod"}
+    assert set(job_names(result)) == {"build_job", "unit_tests", "lint", "deploy_staging", "deploy_prod"}
 
 
 def test_filter_jobs_empty_list_returns_empty():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, jobs=[])
-    assert _job_names(result) == []
-    assert _stage_list(result) == []
+    assert job_names(result) == []
+    assert stage_list(result) == []
 
 
 # ---------------------------------------------------------------------------
@@ -84,34 +84,34 @@ def test_filter_jobs_empty_list_returns_empty():
 
 
 def test_filter_stages_keeps_jobs_in_stage():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, stages=["test"])
-    assert set(_job_names(result)) == {"unit_tests", "lint"}
+    assert set(job_names(result)) == {"unit_tests", "lint"}
 
 
 def test_filter_stages_multiple_stages():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, stages=["build", "deploy"])
-    assert set(_job_names(result)) == {"build_job", "deploy_staging", "deploy_prod"}
-    assert _stage_list(result) == ["build", "deploy"]
+    assert set(job_names(result)) == {"build_job", "deploy_staging", "deploy_prod"}
+    assert stage_list(result) == ["build", "deploy"]
 
 
 def test_filter_stages_preserves_original_order():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, stages=["deploy", "build"])  # reversed input
     # Output order follows original pipeline.stages order
-    assert _stage_list(result) == ["build", "deploy"]
+    assert stage_list(result) == ["build", "deploy"]
 
 
 def test_filter_stages_unknown_stage_returns_empty():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, stages=["nonexistent"])
-    assert _job_names(result) == []
-    assert _stage_list(result) == []
+    assert job_names(result) == []
+    assert stage_list(result) == []
 
 
 def test_filter_stages_none_keeps_all():
-    p = _make_pipeline()
+    p = make_pipeline()
     result = filter_pipeline(p, stages=None)
     assert len(result.jobs) == 5
     assert result.stages == ["build", "test", "deploy"]
@@ -123,19 +123,19 @@ def test_filter_stages_none_keeps_all():
 
 
 def test_filter_combined_jobs_and_stages():
-    p = _make_pipeline()
+    p = make_pipeline()
     # Ask for deploy_prod (deploy stage) but also restrict to test stage
     # => deploy_prod is excluded by stage filter, nothing remains
     result = filter_pipeline(p, jobs=["deploy_prod"], stages=["test"])
-    assert _job_names(result) == []
+    assert job_names(result) == []
 
 
 def test_filter_combined_narrowing():
-    p = _make_pipeline()
+    p = make_pipeline()
     # Jobs filter keeps build+test jobs; stage filter also restricts to test
     result = filter_pipeline(p, jobs=["build_job", "unit_tests", "lint"], stages=["test"])
-    assert set(_job_names(result)) == {"unit_tests", "lint"}
-    assert _stage_list(result) == ["test"]
+    assert set(job_names(result)) == {"unit_tests", "lint"}
+    assert stage_list(result) == ["test"]
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +144,7 @@ def test_filter_combined_narrowing():
 
 
 def test_filter_does_not_mutate_original():
-    p = _make_pipeline()
+    p = make_pipeline()
     original_jobs = list(p.jobs)
     original_stages = list(p.stages)
 

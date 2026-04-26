@@ -85,15 +85,15 @@ class EventCollector(PipelineCallbacks):
     """
 
     def __init__(self, inner: PipelineCallbacks | None = None) -> None:
-        self._inner = inner or PipelineCallbacks()
-        self._events: list[PipelineEvent] = []
+        self.inner = inner or PipelineCallbacks()
+        self.captured_events: list[PipelineEvent] = []
 
     @property
     def events(self) -> list[PipelineEvent]:
         """All events captured during execution, in chronological order."""
-        return list(self._events)
+        return list(self.captured_events)
 
-    def _emit(
+    def emit(
         self,
         event_type: EventType,
         *,
@@ -110,13 +110,13 @@ class EventCollector(PipelineCallbacks):
             job=job,
             data=data or {},
         )
-        self._events.append(event)
+        self.captured_events.append(event)
         return event
 
     # -- Pipeline lifecycle --------------------------------------------------
 
     def on_pipeline_start(self, pipeline: PipelineConfig, max_workers: int) -> None:
-        self._emit(
+        self.emit(
             EventType.PIPELINE_START,
             data={
                 "stages": list(pipeline.stages),
@@ -124,36 +124,36 @@ class EventCollector(PipelineCallbacks):
                 "max_workers": max_workers,
             },
         )
-        self._inner.on_pipeline_start(pipeline, max_workers)
+        self.inner.on_pipeline_start(pipeline, max_workers)
 
     def on_pipeline_complete(self, success: bool) -> None:
-        self._emit(EventType.PIPELINE_COMPLETE, data={"success": success})
-        self._inner.on_pipeline_complete(success)
+        self.emit(EventType.PIPELINE_COMPLETE, data={"success": success})
+        self.inner.on_pipeline_complete(success)
 
     def on_cancelled(self) -> None:
-        self._emit(EventType.PIPELINE_CANCELLED)
-        self._inner.on_cancelled()
+        self.emit(EventType.PIPELINE_CANCELLED)
+        self.inner.on_cancelled()
 
     def on_pipeline_awaiting_manual(self) -> None:
-        self._emit(EventType.PIPELINE_AWAITING_MANUAL)
-        self._inner.on_pipeline_awaiting_manual()
+        self.emit(EventType.PIPELINE_AWAITING_MANUAL)
+        self.inner.on_pipeline_awaiting_manual()
 
     # -- Stage lifecycle -----------------------------------------------------
 
     def on_stage_start(self, stage: str, jobs: list[JobConfig]) -> None:
-        self._emit(
+        self.emit(
             EventType.STAGE_START,
             stage=stage,
             data={"job_names": [j.name for j in jobs]},
         )
-        self._inner.on_stage_start(stage, jobs)
+        self.inner.on_stage_start(stage, jobs)
 
     def on_stage_skip(self, stage: str) -> None:
-        self._emit(EventType.STAGE_SKIP, stage=stage)
-        self._inner.on_stage_skip(stage)
+        self.emit(EventType.STAGE_SKIP, stage=stage)
+        self.inner.on_stage_skip(stage)
 
     def on_stage_complete(self, stage: str, outcomes: list[JobOutcome]) -> None:
-        self._emit(
+        self.emit(
             EventType.STAGE_COMPLETE,
             stage=stage,
             data={
@@ -167,17 +167,17 @@ class EventCollector(PipelineCallbacks):
                 ],
             },
         )
-        self._inner.on_stage_complete(stage, outcomes)
+        self.inner.on_stage_complete(stage, outcomes)
 
     # -- Job lifecycle -------------------------------------------------------
 
     def on_job_start(self, job: JobConfig) -> None:
-        self._emit(EventType.JOB_START, stage=job.stage, job=job.name)
-        self._inner.on_job_start(job)
+        self.emit(EventType.JOB_START, stage=job.stage, job=job.name)
+        self.inner.on_job_start(job)
 
     def on_job_complete(self, outcome: JobOutcome) -> None:
         status = "allowed_failure" if outcome.allowed_failure else ("success" if outcome.success else "failed")
-        self._emit(
+        self.emit(
             EventType.JOB_COMPLETE,
             stage=outcome.job.stage,
             job=outcome.job.name,
@@ -188,33 +188,33 @@ class EventCollector(PipelineCallbacks):
                 "error": repr(outcome.error) if outcome.error else None,
             },
         )
-        self._inner.on_job_complete(outcome)
+        self.inner.on_job_complete(outcome)
 
     # -- Passthrough hooks (no events needed) --------------------------------
 
     def is_cancelled(self) -> bool:
-        return self._inner.is_cancelled()
+        return self.inner.is_cancelled()
 
-    def make_output_writer(self, _job: JobConfig, _job_dir: Path) -> TextWriter | None:
-        return self._inner.make_output_writer(_job, _job_dir)
+    def make_output_writer(self, job: JobConfig, _job_dir: Path) -> TextWriter | None:
+        return self.inner.make_output_writer(job, _job_dir)
 
-    def make_worker_args(self, _job: JobConfig, _job_dir: Path) -> dict[str, Any]:
-        return self._inner.make_worker_args(_job, _job_dir)
+    def make_worker_args(self, job: JobConfig, _job_dir: Path) -> dict[str, Any]:
+        return self.inner.make_worker_args(job, _job_dir)
 
     def get_worker_func(self) -> WorkerFunc | None:
-        return self._inner.get_worker_func()
+        return self.inner.get_worker_func()
 
     def poll_during_parallel(self, futures: dict[Any, JobConfig]) -> None:
-        self._inner.poll_during_parallel(futures)
+        self.inner.poll_during_parallel(futures)
 
     def enrich_context(self, ctx: JobRuntimeContext) -> JobRuntimeContext:
-        return self._inner.enrich_context(ctx)
+        return self.inner.enrich_context(ctx)
 
     # -- Summary generation --------------------------------------------------
 
     def summary(self) -> PipelineSummary:
         """Build a :class:`PipelineSummary` from captured events."""
-        return PipelineSummary.from_events(self._events)
+        return PipelineSummary.from_events(self.captured_events)
 
 
 # ---------------------------------------------------------------------------

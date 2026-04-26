@@ -13,14 +13,14 @@ from bitrab.models.pipeline import JobConfig, PipelineConfig
 from bitrab.mutation import MutationConfig, ParallelBackendConfig, WorktreeConfig
 
 
-class _StreamingCallbacks(PipelineCallbacks):
+class StreamingCallbacks(PipelineCallbacks):
     """Callbacks that print status updates to stdout (original StageOrchestrator behaviour)."""
 
     def __init__(self, dry_run: bool = False) -> None:
-        self._dry_run = dry_run
+        self.dry_run = dry_run
 
     def on_pipeline_start(self, pipeline: PipelineConfig, max_workers: int) -> None:
-        if self._dry_run:
+        if self.dry_run:
             safe_print("🚀 Starting GitLab CI pipeline dry run")
         else:
             safe_print("🚀 Starting GitLab CI pipeline execution")
@@ -32,7 +32,7 @@ class _StreamingCallbacks(PipelineCallbacks):
             safe_print("\n🎉 Pipeline completed successfully!")
 
     def on_stage_start(self, stage: str, jobs: list[JobConfig]) -> None:
-        verb = "Previewing" if self._dry_run else "Executing"
+        verb = "Previewing" if self.dry_run else "Executing"
         safe_print(f"\n🎯 {verb} stage in parallel: {stage} ({len(jobs)} job(s))")
 
     def on_stage_skip(self, stage: str) -> None:
@@ -69,23 +69,18 @@ class StageOrchestrator:
         worktree_config: WorktreeConfig | None = None,
     ) -> None:
         self.job_executor = job_executor
-        self._event_collector = EventCollector(inner=_StreamingCallbacks(dry_run=dry_run))
-        self._runner = StagePipelineRunner(
+        self.event_collector = EventCollector(inner=StreamingCallbacks(dry_run=dry_run))
+        self.runner = StagePipelineRunner(
             job_executor=job_executor,
-            callbacks=self._event_collector,
+            callbacks=self.event_collector,
             maximum_degree_of_parallelism=maximum_degree_of_parallelism,
             mutation_config=mutation_config,
             parallel_backend=parallel_backend,
             worktree_config=worktree_config,
         )
 
-    @property
-    def event_collector(self) -> EventCollector:
-        """Access the structured event collector for this orchestrator."""
-        return self._event_collector
-
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
         """Execute all jobs in the pipeline, organized by stages."""
-        self._runner.execute_pipeline(pipeline)
-        summary = self._event_collector.summary()
+        self.runner.execute_pipeline(pipeline)
+        summary = self.event_collector.summary()
         safe_print(summary.format_text())

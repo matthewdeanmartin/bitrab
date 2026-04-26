@@ -30,7 +30,7 @@ pytestmark = pytest.mark.skipif(not is_git_available(), reason="git binary not a
 # ---------------------------------------------------------------------------
 
 
-def _init_repo(path: Path) -> None:
+def init_repo(path: Path) -> None:
     """Create a minimal git repo with one commit so worktree add can detach from HEAD."""
     subprocess.run(["git", "init", "-q", str(path)], check=True)  # nosec
     # Configure identity locally so the commit succeeds regardless of global config.
@@ -47,7 +47,7 @@ def _init_repo(path: Path) -> None:
 
 
 def test_is_git_repo_true(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     assert is_git_repo(tmp_path)
     assert can_use_worktrees(tmp_path)
 
@@ -82,7 +82,7 @@ def test_worktree_path_slash_and_space(tmp_path: Path) -> None:
 
 
 def test_create_and_remove_worktree(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     ctx = create_worktree(tmp_path, "myjob")
     try:
         assert ctx.worktree_path.exists()
@@ -94,7 +94,7 @@ def test_create_and_remove_worktree(tmp_path: Path) -> None:
 
 
 def test_job_worktree_context_manager_cleans_up(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     captured: Path | None = None
     with job_worktree(tmp_path, "build") as wt:
         captured = wt
@@ -105,7 +105,7 @@ def test_job_worktree_context_manager_cleans_up(tmp_path: Path) -> None:
 
 
 def test_job_worktree_cleans_on_exception(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     captured: Path | None = None
     with pytest.raises(RuntimeError, match="boom"):
         with job_worktree(tmp_path, "flaky") as wt:
@@ -117,7 +117,7 @@ def test_job_worktree_cleans_on_exception(tmp_path: Path) -> None:
 
 def test_two_worktrees_are_isolated(tmp_path: Path) -> None:
     """Two concurrent worktrees must not see each other's writes — that's the whole point."""
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     ctx_a = create_worktree(tmp_path, "jobA")
     ctx_b = create_worktree(tmp_path, "jobB")
     try:
@@ -140,7 +140,7 @@ def test_two_worktrees_are_isolated(tmp_path: Path) -> None:
 
 def test_create_worktree_overwrites_stale_dir(tmp_path: Path) -> None:
     """If a previous crashed run left a directory behind, create_worktree recovers."""
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     target = worktree_path_for(tmp_path, "myjob")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.mkdir()
@@ -156,14 +156,14 @@ def test_create_worktree_overwrites_stale_dir(tmp_path: Path) -> None:
 
 
 def test_prune_worktrees_is_safe_on_empty(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     # No worktrees yet — must not raise.
     prune_worktrees(tmp_path)
     assert not worktree_root(tmp_path).exists()
 
 
 def test_prune_worktrees_removes_root(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     root = worktree_root(tmp_path)
     root.mkdir(parents=True)
     (root / "orphan").mkdir()
@@ -177,18 +177,18 @@ def test_prune_worktrees_removes_root(tmp_path: Path) -> None:
 
 
 def test_is_repo_dirty_clean(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     assert not is_repo_dirty(tmp_path)
 
 
 def test_is_repo_dirty_uncommitted_change(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     (tmp_path / "README.md").write_text("changed\n", encoding="utf-8")
     assert is_repo_dirty(tmp_path)
 
 
 def test_is_repo_dirty_untracked_file(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     (tmp_path / "new_file.txt").write_text("untracked\n", encoding="utf-8")
     assert is_repo_dirty(tmp_path)
 

@@ -17,7 +17,7 @@ from bitrab.execution.scheduler import StageOrchestrator
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import DefaultConfig, JobConfig, PipelineConfig, RuleConfig
 
-_DURATION_RE = re.compile(
+DURATION_RE = re.compile(
     r"""
     (?:(\d+)\s*w(?:eeks?)?)?\s*
     (?:(\d+)\s*d(?:ays?)?)?\s*
@@ -42,7 +42,7 @@ def parse_duration(value: Any) -> float | None:
     s = str(value).strip()
     if not s:
         return None
-    m = _DURATION_RE.fullmatch(s)
+    m = DURATION_RE.fullmatch(s)
     if m:
         weeks, days, hours, minutes, seconds = (int(g or 0) for g in m.groups())
         total = weeks * 7 * 86400 + days * 86400 + hours * 3600 + minutes * 60 + seconds
@@ -130,29 +130,29 @@ class PipelineProcessor:
         raw_config = copy.deepcopy(raw_config)
 
         # Resolve extends: directives before building job objects
-        raw_config = self._resolve_extends(raw_config)
+        raw_config = self.resolve_extends(raw_config)
 
         # Extract global configuration
         stages = raw_config.get("stages", ["test"])
         global_variables = raw_config.get("variables", {})
-        default_config = self._process_default_config(raw_config.get("default", {}))
+        default_config = self.process_default_config(raw_config.get("default", {}))
 
         # Process jobs — skip reserved keywords and hidden templates (`.name`)
         jobs = []
         for name, job_data in raw_config.items():
             if name not in self.RESERVED_KEYWORDS and not name.startswith(".") and isinstance(job_data, dict):
-                job = self._process_job(name, job_data, default_config, global_variables)
+                job = self.process_job(name, job_data, default_config, global_variables)
                 jobs.append(job)
 
         # Expand parallel: N and parallel: matrix: directives
-        jobs = self._expand_parallel_jobs(jobs, raw_config)
+        jobs = self.expand_parallel_jobs(jobs, raw_config)
 
         # Resolve needs references to expanded matrix/parallel jobs
-        jobs = self._resolve_expanded_needs(jobs)
+        jobs = self.resolve_expanded_needs(jobs)
 
         return PipelineConfig(stages=stages, variables=global_variables, default=default_config, jobs=jobs)
 
-    def _resolve_extends(self, raw_config: dict[str, Any]) -> dict[str, Any]:
+    def resolve_extends(self, raw_config: dict[str, Any]) -> dict[str, Any]:
         """Resolve all ``extends:`` directives in *raw_config*.
 
         GitLab semantics:
@@ -178,7 +178,7 @@ class PipelineProcessor:
 
         resolved: dict[str, dict[str, Any]] = {}
 
-        def _resolve_one(name: str, chain: list[str]) -> dict[str, Any]:
+        def resolve_one(name: str, chain: list[str]) -> dict[str, Any]:
             if name in resolved:
                 return resolved[name]
             if name in chain:
@@ -196,14 +196,14 @@ class PipelineProcessor:
 
             merged: dict[str, Any] = {}
             for parent in parents:
-                parent_resolved = _resolve_one(parent, chain + [name])
-                merged = self._deep_merge(merged, parent_resolved)
+                parent_resolved = resolve_one(parent, chain + [name])
+                merged = self.deep_merge(merged, parent_resolved)
 
-            resolved[name] = self._deep_merge(merged, job_data)
+            resolved[name] = self.deep_merge(merged, job_data)
             return resolved[name]
 
         for name in list(all_jobs):
-            _resolve_one(name, [])
+            resolve_one(name, [])
 
         for name, data in resolved.items():
             raw_config[name] = data
@@ -211,7 +211,7 @@ class PipelineProcessor:
         return raw_config
 
     @staticmethod
-    def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
         """Deep-merge *overlay* on top of *base*.
 
         Dicts are merged recursively. All other types (lists, scalars) are
@@ -228,12 +228,12 @@ class PipelineProcessor:
         result = base.copy()
         for key, value in overlay.items():
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                result[key] = PipelineProcessor._deep_merge(result[key], value)
+                result[key] = PipelineProcessor.deep_merge(result[key], value)
             else:
                 result[key] = value
         return result
 
-    def _process_default_config(self, default_data: dict[str, Any]) -> DefaultConfig:
+    def process_default_config(self, default_data: dict[str, Any]) -> DefaultConfig:
         """
         Process default configuration block.
 
@@ -244,12 +244,12 @@ class PipelineProcessor:
             A DefaultConfig object.
         """
         return DefaultConfig(
-            before_script=self._ensure_list(default_data.get("before_script", [])),
-            after_script=self._ensure_list(default_data.get("after_script", [])),
+            before_script=self.ensure_list(default_data.get("before_script", [])),
+            after_script=self.ensure_list(default_data.get("after_script", [])),
             variables=default_data.get("variables", {}),
         )
 
-    def _process_job(
+    def process_job(
         self,
         name: str,
         job_data: dict[str, Any],
@@ -275,11 +275,11 @@ class PipelineProcessor:
         variables.update(job_data.get("variables", {}))
 
         # Scripts: job overrides default
-        before_script = self._ensure_list(job_data.get("before_script", []))
+        before_script = self.ensure_list(job_data.get("before_script", []))
         if not before_script:
             before_script = default.before_script
 
-        after_script = self._ensure_list(job_data.get("after_script", []))
+        after_script = self.ensure_list(job_data.get("after_script", []))
         if not after_script:
             after_script = default.after_script
 
@@ -294,17 +294,17 @@ class PipelineProcessor:
         elif isinstance(retry_cfg, dict):
             # GitLab uses "max"
             retry_max = int(retry_cfg.get("max", 0) or 0)
-            _when = retry_cfg.get("when", [])
-            if isinstance(_when, str):
-                retry_when = [_when]
-            elif isinstance(_when, list):
-                retry_when = [str(x) for x in _when if isinstance(x, (str, int))]
+            when_val = retry_cfg.get("when", [])
+            if isinstance(when_val, str):
+                retry_when = [when_val]
+            elif isinstance(when_val, list):
+                retry_when = [str(x) for x in when_val if isinstance(x, (str, int))]
 
-            _codes = retry_cfg.get("exit_codes", [])
-            if isinstance(_codes, int):
-                retry_exit_codes = [int(_codes)]
-            elif isinstance(_codes, list):
-                retry_exit_codes = [int(c) for c in _codes if isinstance(c, (int, str)) and str(c).isdigit()]
+            codes_val = retry_cfg.get("exit_codes", [])
+            if isinstance(codes_val, int):
+                retry_exit_codes = [int(codes_val)]
+            elif isinstance(codes_val, list):
+                retry_exit_codes = [int(c) for c in codes_val if isinstance(c, (int, str)) and str(c).isdigit()]
 
         # GitLab-aligned allow_failure parsing
         af_cfg = job_data.get("allow_failure", False)
@@ -315,11 +315,11 @@ class PipelineProcessor:
             allow_failure = af_cfg
         elif isinstance(af_cfg, dict):
             allow_failure = True
-            _codes = af_cfg.get("exit_codes", [])
-            if isinstance(_codes, int):
-                allow_failure_exit_codes = [int(_codes)]
-            elif isinstance(_codes, list):
-                allow_failure_exit_codes = [int(c) for c in _codes if isinstance(c, (int, str)) and str(c).isdigit()]
+            codes_val = af_cfg.get("exit_codes", [])
+            if isinstance(codes_val, int):
+                allow_failure_exit_codes = [int(codes_val)]
+            elif isinstance(codes_val, list):
+                allow_failure_exit_codes = [int(c) for c in codes_val if isinstance(c, (int, str)) and str(c).isdigit()]
 
         # needs: DAG dependencies
         needs_raw = job_data.get("needs", [])
@@ -340,21 +340,21 @@ class PipelineProcessor:
         artifacts_dotenv: str | None = None
         artifacts_raw = job_data.get("artifacts", {})
         if isinstance(artifacts_raw, dict):
-            _paths = artifacts_raw.get("paths", [])
-            if isinstance(_paths, list):
-                artifacts_paths = [str(p) for p in _paths if isinstance(p, str)]
-            _when = artifacts_raw.get("when", "on_success")
-            if _when in {"on_success", "on_failure", "always"}:
-                artifacts_when = _when
+            paths_val = artifacts_raw.get("paths", [])
+            if isinstance(paths_val, list):
+                artifacts_paths = [str(p) for p in paths_val if isinstance(p, str)]
+            when_val = artifacts_raw.get("when", "on_success")
+            if when_val in {"on_success", "on_failure", "always"}:
+                artifacts_when = when_val
             # artifacts: reports: dotenv: — pipeline variable passing via dotenv file
-            _reports = artifacts_raw.get("reports", {})
-            if isinstance(_reports, dict):
-                _dotenv = _reports.get("dotenv")
-                if isinstance(_dotenv, str) and _dotenv:
-                    artifacts_dotenv = _dotenv
-                elif isinstance(_dotenv, list) and _dotenv:
+            reports_val = artifacts_raw.get("reports", {})
+            if isinstance(reports_val, dict):
+                dotenv_val = reports_val.get("dotenv")
+                if isinstance(dotenv_val, str) and dotenv_val:
+                    artifacts_dotenv = dotenv_val
+                elif isinstance(dotenv_val, list) and dotenv_val:
                     # GitLab accepts a list; we take the first entry
-                    artifacts_dotenv = str(_dotenv[0])
+                    artifacts_dotenv = str(dotenv_val[0])
 
         # dependencies: None means "inherit all" (GitLab default)
         dependencies: list[str] | None = None
@@ -374,9 +374,9 @@ class PipelineProcessor:
                     rule_needs: list[str] | None = None
                     if "needs" in r:
                         rule_needs = []
-                        _rn = r["needs"]
-                        if isinstance(_rn, list):
-                            for item in _rn:
+                        rule_needs_raw = r["needs"]
+                        if isinstance(rule_needs_raw, list):
+                            for item in rule_needs_raw:
                                 if isinstance(item, str):
                                     rule_needs.append(item)
                                 elif isinstance(item, dict) and "job" in item:
@@ -384,11 +384,11 @@ class PipelineProcessor:
 
                     rule_exists: list[str] | None = None
                     if "exists" in r:
-                        _ex = r["exists"]
-                        if isinstance(_ex, list):
-                            rule_exists = [str(p) for p in _ex]
-                        elif isinstance(_ex, str):
-                            rule_exists = [_ex]
+                        rule_exists_raw = r["exists"]
+                        if isinstance(rule_exists_raw, list):
+                            rule_exists = [str(p) for p in rule_exists_raw]
+                        elif isinstance(rule_exists_raw, str):
+                            rule_exists = [rule_exists_raw]
 
                     rules.append(
                         RuleConfig(
@@ -405,11 +405,20 @@ class PipelineProcessor:
         when = job_data.get("when", "on_success")
         if when not in {"on_success", "on_failure", "always", "manual", "never", "delayed"}:
             when = "on_success"
+        if when == "delayed":
+            # GitLab honours `start_in:` and waits before launching. Bitrab has
+            # no scheduler so we run it immediately as on_success — flag it so
+            # users don't think their deploy gate is doing anything.
+            start_in = job_data.get("start_in")
+            extra = f" (start_in={start_in!r})" if start_in else ""
+            safe_print(
+                f"⚠️  Job '{name}' uses when: delayed{extra} — bitrab ignores start_in and runs it immediately."
+            )
 
         return JobConfig(
             name=name,
             stage=job_data.get("stage", "test"),
-            script=self._ensure_list(job_data.get("script", [])),
+            script=self.ensure_list(job_data.get("script", [])),
             variables=variables,
             before_script=before_script,
             after_script=after_script,
@@ -428,7 +437,7 @@ class PipelineProcessor:
             dependencies=dependencies,
         )
 
-    def _expand_parallel_jobs(
+    def expand_parallel_jobs(
         self,
         jobs: list[JobConfig],
         raw_config: dict[str, Any],
@@ -516,7 +525,7 @@ class PipelineProcessor:
         return expanded
 
     @staticmethod
-    def _resolve_expanded_needs(jobs: list[JobConfig]) -> list[JobConfig]:
+    def resolve_expanded_needs(jobs: list[JobConfig]) -> list[JobConfig]:
         """Rewrite ``needs`` entries that reference a job that was expanded by ``parallel:``.
 
         If job A has ``needs: [B]`` but B was expanded into ``B 1/3``, ``B 2/3``,
@@ -577,7 +586,7 @@ class PipelineProcessor:
 
         return jobs
 
-    def _ensure_list(self, value: Union[str, list[str]]) -> list[str]:
+    def ensure_list(self, value: Union[str, list[str]]) -> list[str]:
         """
         Ensure a value is a list of strings.
 
@@ -755,10 +764,10 @@ class LocalGitLabRunner:
             event_collector = getattr(self.orchestrator, "event_collector", None)
 
         if not dry_run and event_collector is not None:
-            _persist_run_log(self.base_path, event_collector, started_at, pipeline)
+            persist_run_log(self.base_path, event_collector, started_at, pipeline)
 
 
-def _persist_run_log(
+def persist_run_log(
     project_dir: Path,
     event_collector: Any,
     started_at: float,
@@ -829,9 +838,3 @@ def _persist_run_log(
             safe_print(warn)
     except Exception as exc:  # pylint: disable=broad-except
         logging.debug("Failed to persist run log: %s", exc)
-
-
-def best_efforts_run(config_path: Path) -> None:
-    """Main entry point for the best-efforts-run command."""
-    runner = LocalGitLabRunner()
-    runner.run_pipeline(config_path)

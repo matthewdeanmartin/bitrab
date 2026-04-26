@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
 import pytest
@@ -33,23 +32,20 @@ class TestBitrabCiYmlPreference:
         cfg = loader.load_config()
         assert cfg["stages"] == ["bitrab"]
 
-    def test_warns_when_both_exist(self, tmp_path):
+    def test_warns_when_both_exist(self, tmp_path, caplog):
         (tmp_path / ".bitrab-ci.yml").write_text("stages:\n  - bitrab\n")
         (tmp_path / ".gitlab-ci.yml").write_text("stages:\n  - gitlab\n")
         loader = self._make_loader(tmp_path)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            loader.load_config()
-        messages = [str(w.message) for w in caught]
-        assert any(".bitrab-ci.yml" in m and ".gitlab-ci.yml" in m for m in messages)
+        loader.load_config()
+        assert any(".bitrab-ci.yml" in m and ".gitlab-ci.yml" in m for m in caplog.messages)
 
-    def test_no_warning_when_only_bitrab_ci(self, tmp_path):
+    def test_no_warning_when_only_bitrab_ci(self, tmp_path, caplog):
         (tmp_path / ".bitrab-ci.yml").write_text("stages:\n  - build\n")
         loader = self._make_loader(tmp_path)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            loader.load_config()
-        assert not caught
+        loader.load_config()
+        # Filter for messages that mention both files
+        relevant_messages = [m for m in caplog.messages if ".bitrab-ci.yml" in m and ".gitlab-ci.yml" in m]
+        assert not relevant_messages
 
     def test_explicit_config_path_not_redirected(self, tmp_path):
         (tmp_path / ".bitrab-ci.yml").write_text("stages:\n  - bitrab\n")

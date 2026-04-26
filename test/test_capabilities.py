@@ -9,15 +9,19 @@ from bitrab.config.capabilities import CapabilityDiagnostic, DiagnosticLevel, ch
 # ---------------------------------------------------------------------------
 
 
-def _errors(diags):
+def errors(diags):
     return [d for d in diags if d.level == DiagnosticLevel.ERROR]
 
 
-def _warnings(diags):
+def warnings(diags):
     return [d for d in diags if d.level == DiagnosticLevel.WARNING]
 
 
-def _features(diags):
+def infos(diags):
+    return [d for d in diags if d.level == DiagnosticLevel.INFO]
+
+
+def features(diags):
     return {d.feature for d in diags}
 
 
@@ -46,9 +50,9 @@ def test_include_component_is_error():
         "job": {"script": ["echo hi"]},
     }
     diags = check_capabilities(raw)
-    errors = _errors(diags)
-    assert len(errors) == 1
-    assert errors[0].feature == "include:component"
+    errs = errors(diags)
+    assert len(errs) == 1
+    assert errs[0].feature == "include:component"
 
 
 def test_include_local_no_diagnostic():
@@ -57,8 +61,8 @@ def test_include_local_no_diagnostic():
         "job": {"script": ["echo hi"]},
     }
     diags = check_capabilities(raw)
-    assert not _errors(diags)
-    assert "include:component" not in _features(diags)
+    assert not errors(diags)
+    assert "include:component" not in features(diags)
 
 
 def test_include_remote_no_warning():
@@ -68,7 +72,7 @@ def test_include_remote_no_warning():
         "job": {"script": ["echo hi"]},
     }
     diags = check_capabilities(raw)
-    assert not _errors(diags)
+    assert not errors(diags)
     assert not any(d.feature == "include:remote/template" for d in diags)
 
 
@@ -78,7 +82,7 @@ def test_include_project_is_warning():
         "job": {"script": ["echo hi"]},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "include:project" for d in _warnings(diags))
+    assert any(d.feature == "include:project" for d in warnings(diags))
 
 
 # ---------------------------------------------------------------------------
@@ -108,15 +112,14 @@ def test_job_level_inputs_is_error():
 # ---------------------------------------------------------------------------
 
 
-def test_top_level_image_is_warning():
+def test_top_level_image_is_info():
     raw = {
         "image": "python:3.11",
         "job": {"script": ["python -m pytest"]},
     }
     diags = check_capabilities(raw)
-    warns = _warnings(diags)
-    assert any(d.feature == "image" for d in warns)
-    assert not _errors(diags)
+    assert any(d.feature == "image" for d in infos(diags))
+    assert not errors(diags)
 
 
 def test_top_level_services_is_warning():
@@ -125,16 +128,25 @@ def test_top_level_services_is_warning():
         "job": {"script": ["psql -c 'SELECT 1'"]},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "services" for d in _warnings(diags))
+    assert any(d.feature == "services" for d in warnings(diags))
 
 
-def test_job_level_image_is_warning():
+def test_top_level_cache_is_warning():
+    raw = {
+        "cache": {"paths": ["node_modules/"]},
+        "job": {"script": ["npm test"]},
+    }
+    diags = check_capabilities(raw)
+    assert any(d.feature == "cache" for d in warnings(diags))
+
+
+def test_job_level_image_is_info():
     raw = {
         "job": {"image": "node:18", "script": ["npm test"]},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "image" for d in _warnings(diags))
-    assert not _errors(diags)
+    assert any(d.feature == "image" for d in infos(diags))
+    assert not errors(diags)
 
 
 def test_job_level_services_is_warning():
@@ -142,7 +154,15 @@ def test_job_level_services_is_warning():
         "job": {"services": ["redis:7"], "script": ["redis-cli ping"]},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "services" for d in _warnings(diags))
+    assert any(d.feature == "services" for d in warnings(diags))
+
+
+def test_job_level_cache_is_warning():
+    raw = {
+        "job": {"cache": {"paths": [".pip-cache"]}, "script": ["pip install -e ."]},
+    }
+    diags = check_capabilities(raw)
+    assert any(d.feature == "cache" for d in warnings(diags))
 
 
 # ---------------------------------------------------------------------------
@@ -155,8 +175,8 @@ def test_trigger_job_is_error():
         "deploy_child": {"trigger": {"project": "mygroup/child", "branch": "main"}},
     }
     diags = check_capabilities(raw)
-    errors = _errors(diags)
-    assert any(d.feature == "trigger" for d in errors)
+    errs = errors(diags)
+    assert any(d.feature == "trigger" for d in errs)
 
 
 # ---------------------------------------------------------------------------
@@ -169,8 +189,8 @@ def test_resource_group_is_warning():
         "deploy": {"script": ["./deploy.sh"], "resource_group": "production"},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "resource_group" for d in _warnings(diags))
-    assert not _errors(diags)
+    assert any(d.feature == "resource_group" for d in warnings(diags))
+    assert not errors(diags)
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +203,8 @@ def test_environment_is_warning():
         "deploy": {"script": ["./deploy.sh"], "environment": {"name": "production"}},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "environment" for d in _warnings(diags))
-    assert not _errors(diags)
+    assert any(d.feature == "environment" for d in warnings(diags))
+    assert not errors(diags)
 
 
 # ---------------------------------------------------------------------------
@@ -198,8 +218,8 @@ def test_workflow_is_warning():
         "job": {"script": ["echo hi"]},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "workflow" for d in _warnings(diags))
-    assert not _errors(diags)
+    assert any(d.feature == "workflow" for d in warnings(diags))
+    assert not errors(diags)
 
 
 # ---------------------------------------------------------------------------
@@ -215,8 +235,8 @@ def test_rules_changes_is_warning():
         }
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "rules:changes" for d in _warnings(diags))
-    assert not _errors(diags)
+    assert any(d.feature == "rules:changes" for d in warnings(diags))
+    assert not errors(diags)
 
 
 def test_rules_without_changes_no_warning():
@@ -227,7 +247,7 @@ def test_rules_without_changes_no_warning():
         }
     }
     diags = check_capabilities(raw)
-    assert "rules:changes" not in _features(diags)
+    assert "rules:changes" not in features(diags)
 
 
 # ---------------------------------------------------------------------------
@@ -240,8 +260,8 @@ def test_pages_job_is_warning():
         "pages": {"script": ["mkdocs build"], "artifacts": {"paths": ["public"]}},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "pages" for d in _warnings(diags))
-    assert not _errors(diags)
+    assert any(d.feature == "pages" for d in warnings(diags))
+    assert not errors(diags)
 
 
 # ---------------------------------------------------------------------------
@@ -257,8 +277,8 @@ def test_release_block_is_warning():
         }
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "release" for d in _warnings(diags))
-    assert not _errors(diags)
+    assert any(d.feature == "release" for d in warnings(diags))
+    assert not errors(diags)
 
 
 # ---------------------------------------------------------------------------
@@ -276,13 +296,13 @@ def test_multiple_issues_all_reported():
         },
     }
     diags = check_capabilities(raw)
-    features = _features(diags)
-    assert "include:component" in features
-    assert "workflow" in features
-    assert "trigger" in features
-    assert "image" in features
+    feats = features(diags)
+    assert "include:component" in feats
+    assert "workflow" in feats
+    assert "trigger" in feats
+    assert "image" in feats
     # Must have at least one error (component + trigger)
-    assert len(_errors(diags)) >= 2
+    assert len(errors(diags)) >= 2
 
 
 # ---------------------------------------------------------------------------

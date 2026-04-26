@@ -5,7 +5,7 @@ import asyncio
 from textual.widgets import RichLog, Static, TabbedContent
 
 from bitrab.models.pipeline import JobConfig, PipelineConfig
-from bitrab.tui.app import JobOutput, JobStatusChanged, PipelineApp, _extract_richlog_text
+from bitrab.tui.app import JobOutput, JobStatusChanged, PipelineApp, extract_richlog_text
 
 
 class DummyOrchestrator:
@@ -57,7 +57,7 @@ class AwaitingManualOrchestrator(DummyOrchestrator):
         app.call_from_thread(app.on_pipeline_complete, True)
 
 
-def _pipeline() -> PipelineConfig:
+def pipeline() -> PipelineConfig:
     return PipelineConfig(
         stages=["build", "test"],
         jobs=[
@@ -67,7 +67,7 @@ def _pipeline() -> PipelineConfig:
     )
 
 
-def _static_text(widget: Static) -> str:
+def static_text(widget: Static) -> str:
     content = widget.content
     return content.plain if hasattr(content, "plain") else str(content)
 
@@ -75,7 +75,7 @@ def _static_text(widget: Static) -> str:
 def test_pipeline_app_renders_initial_state() -> None:
     async def scenario() -> None:
         orchestrator = DummyOrchestrator()
-        app = PipelineApp(_pipeline(), orchestrator)
+        app = PipelineApp(pipeline(), orchestrator)
 
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
@@ -83,11 +83,11 @@ def test_pipeline_app_renders_initial_state() -> None:
             assert orchestrator.execute_calls == 1
 
             summary = app.query_one("#summary", Static)
-            assert "Initializing pipeline" in _static_text(summary)
+            assert "Initializing pipeline" in static_text(summary)
 
             tabbed = app.query_one(TabbedContent)
-            build_tab = tabbed.get_tab(app._job_tab_ids["build-job"])
-            test_tab = tabbed.get_tab(app._job_tab_ids["test-job"])
+            build_tab = tabbed.get_tab(app.job_tab_ids["build-job"])
+            test_tab = tabbed.get_tab(app.job_tab_ids["test-job"])
             assert build_tab is not None
             assert test_tab is not None
             assert "🔲 build/build-job" in str(build_tab.label)
@@ -98,7 +98,7 @@ def test_pipeline_app_renders_initial_state() -> None:
 
 def test_pipeline_app_routes_status_and_output_messages() -> None:
     async def scenario() -> None:
-        app = PipelineApp(_pipeline(), DummyOrchestrator())
+        app = PipelineApp(pipeline(), DummyOrchestrator())
 
         async with app.run_test(size=(120, 40)) as pilot:
             app.post_message(JobStatusChanged("build-job", "running"))
@@ -106,14 +106,14 @@ def test_pipeline_app_routes_status_and_output_messages() -> None:
             await pilot.pause()
 
             tabbed = app.query_one(TabbedContent)
-            build_tab_id = app._job_tab_ids["build-job"]
+            build_tab_id = app.job_tab_ids["build-job"]
             build_tab = tabbed.get_tab(build_tab_id)
             assert tabbed.active == build_tab_id
             assert build_tab is not None
             assert "⏳ build/build-job" in str(build_tab.label)
 
             rich_log = app.query_one(f"#{build_tab_id} RichLog", RichLog)
-            assert _extract_richlog_text(rich_log) == "line one\nline two"
+            assert extract_richlog_text(rich_log) == "line one\nline two"
 
             app.post_message(JobStatusChanged("build-job", "success"))
             await pilot.pause()
@@ -125,7 +125,7 @@ def test_pipeline_app_routes_status_and_output_messages() -> None:
 def test_pipeline_app_cancel_pipeline_button_updates_summary() -> None:
     async def scenario() -> None:
         orchestrator = DummyOrchestrator()
-        app = PipelineApp(_pipeline(), orchestrator)
+        app = PipelineApp(pipeline(), orchestrator)
 
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.click("#cancel-pipeline-btn")
@@ -133,16 +133,16 @@ def test_pipeline_app_cancel_pipeline_button_updates_summary() -> None:
 
             assert orchestrator.cancel_pipeline_calls == 1
             summary = app.query_one("#summary", Static)
-            assert "Cancelling" in _static_text(summary)
+            assert "Cancelling" in static_text(summary)
 
     asyncio.run(scenario())
 
 
 def test_pipeline_app_copy_button_reports_success(monkeypatch) -> None:
-    monkeypatch.setattr("bitrab.tui.app._copy_to_clipboard", lambda text: True)
+    monkeypatch.setattr("bitrab.tui.app.copy_to_clipboard", lambda text: True)
 
     async def scenario() -> None:
-        app = PipelineApp(_pipeline(), DummyOrchestrator())
+        app = PipelineApp(pipeline(), DummyOrchestrator())
 
         async with app.run_test(size=(120, 40)) as pilot:
             app.post_message(JobStatusChanged("build-job", "running"))
@@ -153,7 +153,7 @@ def test_pipeline_app_copy_button_reports_success(monkeypatch) -> None:
             await pilot.pause()
 
             status = app.query_one("#copy-status", Static)
-            assert "Copied 1 lines from [build-job]" in _static_text(status)
+            assert "Copied 1 lines from [build-job]" in static_text(status)
 
     asyncio.run(scenario())
 
@@ -161,7 +161,7 @@ def test_pipeline_app_copy_button_reports_success(monkeypatch) -> None:
 def test_pipeline_app_can_close_on_completion() -> None:
     async def scenario() -> None:
         orchestrator = CompletingOrchestrator(success=True)
-        app = PipelineApp(_pipeline(), orchestrator, close_on_completion=True)
+        app = PipelineApp(pipeline(), orchestrator, close_on_completion=True)
 
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
@@ -176,14 +176,14 @@ def test_pipeline_app_can_close_on_completion() -> None:
 def test_pipeline_app_awaiting_manual_updates_summary() -> None:
     async def scenario() -> None:
         orchestrator = AwaitingManualOrchestrator()
-        app = PipelineApp(_pipeline(), orchestrator)
+        app = PipelineApp(pipeline(), orchestrator)
 
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await pilot.pause()
 
             summary = app.query_one("#summary", Static)
-            assert "manual" in _static_text(summary).lower()
+            assert "manual" in static_text(summary).lower()
 
     asyncio.run(scenario())
 
@@ -191,7 +191,7 @@ def test_pipeline_app_awaiting_manual_updates_summary() -> None:
 def test_pipeline_app_awaiting_manual_closes_when_flag_set() -> None:
     async def scenario() -> None:
         orchestrator = AwaitingManualOrchestrator()
-        app = PipelineApp(_pipeline(), orchestrator, close_on_completion=True)
+        app = PipelineApp(pipeline(), orchestrator, close_on_completion=True)
 
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()

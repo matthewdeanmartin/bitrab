@@ -79,8 +79,8 @@ def test_cmd_run_config_not_found(capsys):
     assert "Configuration file not found" in captured.err
 
 
-@patch("bitrab.cli.LocalGitLabRunner")
-def test_cmd_run_success(mock_runner_class, tmp_path):
+@patch("bitrab.cli._get_local_gitlab_runner")
+def test_cmd_run_success(mock_get_runner, tmp_path):
     config_file = tmp_path / ".gitlab-ci.yml"
     config_file.write_text("stages: [test]")
 
@@ -88,7 +88,8 @@ def test_cmd_run_success(mock_runner_class, tmp_path):
         config=str(config_file), jobs=None, stage=None, parallel=None, dry_run=False, verbose=False, quiet=False
     )
 
-    mock_runner = mock_runner_class.return_value
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = MagicMock(return_value=mock_runner)
 
     # Mock is_ci_mode and should_use_tui
     with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
@@ -97,8 +98,8 @@ def test_cmd_run_success(mock_runner_class, tmp_path):
             assert mock_runner.run_pipeline.called
 
 
-@patch("bitrab.cli.LocalGitLabRunner")
-def test_cmd_run_dry_run_reports_preview_mode(mock_runner_class, tmp_path, capsys):
+@patch("bitrab.cli._get_local_gitlab_runner")
+def test_cmd_run_dry_run_reports_preview_mode(mock_get_runner, tmp_path, capsys):
     config_file = tmp_path / ".gitlab-ci.yml"
     config_file.write_text("stages: [test]")
 
@@ -106,7 +107,8 @@ def test_cmd_run_dry_run_reports_preview_mode(mock_runner_class, tmp_path, capsy
         config=str(config_file), jobs=None, stage=None, parallel=None, dry_run=True, verbose=False, quiet=False
     )
 
-    mock_runner = mock_runner_class.return_value
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = MagicMock(return_value=mock_runner)
 
     with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
         with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
@@ -156,12 +158,13 @@ def test_create_parser_parses_clean_dry_run_flag():
     assert args.func is cmd_clean
 
 
-@patch("bitrab.cli.LocalGitLabRunner")
+@patch("bitrab.cli._get_local_gitlab_runner")
 @patch("bitrab.cli.setup_logging")
-def test_main_run_dry_run_dispatches_flag(mock_setup_logging, mock_runner_class, tmp_path, monkeypatch, capsys):
+def test_main_run_dry_run_dispatches_flag(mock_setup_logging, mock_get_runner, tmp_path, monkeypatch, capsys):
     config_file = tmp_path / ".gitlab-ci.yml"
     config_file.write_text("stages: [test]")
-    mock_runner = mock_runner_class.return_value
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = MagicMock(return_value=mock_runner)
 
     monkeypatch.setattr(sys, "argv", ["bitrab", "-c", str(config_file), "run", "--dry-run"])
 
@@ -226,13 +229,13 @@ def test_resolve_config_path_prefers_bitrab_ci(tmp_path, monkeypatch):
     assert path == Path(".bitrab-ci.yml")
 
 
-def test_resolve_config_path_warns_when_both_exist(tmp_path, monkeypatch, capsys):
+def test_resolve_config_path_warns_when_both_exist(tmp_path, monkeypatch, caplog):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".bitrab-ci.yml").touch()
     (tmp_path / ".gitlab-ci.yml").touch()
     path = resolve_config_path(None)
     assert path == Path(".bitrab-ci.yml")
-    assert ".bitrab-ci.yml" in capsys.readouterr().out
+    assert any(".bitrab-ci.yml" in m and ".gitlab-ci.yml" in m for m in caplog.messages)
 
 
 def test_resolve_config_path_falls_back_to_gitlab_ci(tmp_path, monkeypatch):
@@ -313,12 +316,13 @@ def test_load_and_process_config_unexpected_error(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@patch("bitrab.cli.LocalGitLabRunner")
-def test_cmd_run_keyboard_interrupt(mock_runner_class, tmp_path, capsys):
+@patch("bitrab.cli._get_local_gitlab_runner")
+def test_cmd_run_keyboard_interrupt(mock_get_runner, tmp_path, capsys):
     config_file = tmp_path / ".gitlab-ci.yml"
     config_file.write_text("stages: [test]")
 
-    mock_runner = mock_runner_class.return_value
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = MagicMock(return_value=mock_runner)
     mock_runner.run_pipeline.side_effect = KeyboardInterrupt()
 
     args = argparse.Namespace(
@@ -341,12 +345,13 @@ def test_cmd_run_keyboard_interrupt(mock_runner_class, tmp_path, capsys):
     assert "interrupted" in capsys.readouterr().err
 
 
-@patch("bitrab.cli.LocalGitLabRunner")
-def test_cmd_run_bitrab_error_reraises(mock_runner_class, tmp_path):
+@patch("bitrab.cli._get_local_gitlab_runner")
+def test_cmd_run_bitrab_error_reraises(mock_get_runner, tmp_path):
     config_file = tmp_path / ".gitlab-ci.yml"
     config_file.write_text("stages: [test]")
 
-    mock_runner = mock_runner_class.return_value
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = MagicMock(return_value=mock_runner)
     mock_runner.run_pipeline.side_effect = BitrabError("bad")
 
     args = argparse.Namespace(
@@ -367,12 +372,13 @@ def test_cmd_run_bitrab_error_reraises(mock_runner_class, tmp_path):
                 cmd_run(args)
 
 
-@patch("bitrab.cli.LocalGitLabRunner")
-def test_cmd_run_unexpected_error_reraises(mock_runner_class, tmp_path):
+@patch("bitrab.cli._get_local_gitlab_runner")
+def test_cmd_run_unexpected_error_reraises(mock_get_runner, tmp_path):
     config_file = tmp_path / ".gitlab-ci.yml"
     config_file.write_text("stages: [test]")
 
-    mock_runner = mock_runner_class.return_value
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = MagicMock(return_value=mock_runner)
     mock_runner.run_pipeline.side_effect = RuntimeError("unexpected")
 
     args = argparse.Namespace(
@@ -393,70 +399,14 @@ def test_cmd_run_unexpected_error_reraises(mock_runner_class, tmp_path):
                 cmd_run(args)
 
 
-# @patch("bitrab.cli.LocalGitLabRunner")
-# def test_cmd_run_dirty_repo_serial_answer(mock_runner_class, tmp_path):
-#     """User picks 's' (serial) at the dirty-repo prompt."""
-#     config_file = tmp_path / ".gitlab-ci.yml"
-#     config_file.write_text("stages: [test]")
-#
-#     mock_runner = mock_runner_class.return_value
-#
-#     args = argparse.Namespace(
-#         config=str(config_file),
-#         jobs=None,
-#         stage=None,
-#         parallel=None,
-#         dry_run=False,
-#         serial=False,
-#         no_worktrees=False,
-#         parallel_backend=None,
-#         no_tui=False,
-#     )
-#
-#     with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
-#         with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
-#             with patch("bitrab.git_worktree.is_repo_dirty", return_value=True):
-#                 with patch("builtins.input", return_value="s"):
-#                     cmd_run(args)
-#
-#     call_kwargs = mock_runner.run_pipeline.call_args.kwargs
-#     assert call_kwargs["serial"] is True
-
-
-# @patch("bitrab.cli.LocalGitLabRunner")
-# def test_cmd_run_dirty_repo_quit_answer(mock_runner_class, tmp_path):
-#     """User picks 'q' at the dirty-repo prompt → sys.exit(0)."""
-#     config_file = tmp_path / ".gitlab-ci.yml"
-#     config_file.write_text("stages: [test]")
-#
-#     args = argparse.Namespace(
-#         config=str(config_file),
-#         jobs=None,
-#         stage=None,
-#         parallel=None,
-#         dry_run=False,
-#         serial=False,
-#         no_worktrees=False,
-#         parallel_backend=None,
-#         no_tui=False,
-#     )
-#
-#     with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
-#         with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
-#             with patch("bitrab.git_worktree.is_repo_dirty", return_value=True):
-#                 with patch("builtins.input", return_value="q"):
-#                     with pytest.raises(SystemExit) as exc:
-#                         cmd_run(args)
-#     assert exc.value.code == 0
-
-
-@patch("bitrab.cli.LocalGitLabRunner")
-def test_cmd_run_dirty_repo_parallel_answer(mock_runner_class, tmp_path):
+@patch("bitrab.cli._get_local_gitlab_runner")
+def test_cmd_run_dirty_repo_parallel_answer(mock_get_runner, tmp_path):
     """User picks 'p' at the dirty-repo prompt → runs in parallel."""
     config_file = tmp_path / ".gitlab-ci.yml"
     config_file.write_text("stages: [test]")
 
-    mock_runner = mock_runner_class.return_value
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = MagicMock(return_value=mock_runner)
 
     args = argparse.Namespace(
         config=str(config_file),
@@ -898,11 +848,12 @@ def test_main_no_command_defaults_to_run(monkeypatch, tmp_path):
     ci_file.write_text(SIMPLE_CI)
     monkeypatch.setattr(sys, "argv", ["bitrab", "-c", str(ci_file)])
 
-    with patch("bitrab.cli.LocalGitLabRunner") as mock_runner_class:
+    with patch("bitrab.cli._get_local_gitlab_runner") as mock_get_runner:
+        mock_get_runner.return_value = MagicMock()
         with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=True):
             with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
                 main()
-        assert mock_runner_class.return_value.run_pipeline.called
+        assert mock_get_runner.return_value.return_value.run_pipeline.called
 
 
 def test_main_quiet_flag(monkeypatch, tmp_path):
@@ -910,7 +861,7 @@ def test_main_quiet_flag(monkeypatch, tmp_path):
     ci_file.write_text(SIMPLE_CI)
     monkeypatch.setattr(sys, "argv", ["bitrab", "-q", "-c", str(ci_file), "run"])
 
-    with patch("bitrab.cli.LocalGitLabRunner"):
+    with patch("bitrab.cli._get_local_gitlab_runner"):
         with patch("bitrab.cli.setup_logging") as mock_log:
             with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=True):
                 with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
@@ -923,7 +874,7 @@ def test_main_verbose_flag(monkeypatch, tmp_path):
     ci_file.write_text(SIMPLE_CI)
     monkeypatch.setattr(sys, "argv", ["bitrab", "-v", "-c", str(ci_file), "run"])
 
-    with patch("bitrab.cli.LocalGitLabRunner"):
+    with patch("bitrab.cli._get_local_gitlab_runner"):
         with patch("bitrab.cli.setup_logging") as mock_log:
             with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=True):
                 with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):

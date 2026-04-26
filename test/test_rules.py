@@ -1,6 +1,6 @@
 import textwrap
 
-from bitrab.config.rules import _evaluate_if, evaluate_rules
+from bitrab.config.rules import evaluate_if, evaluate_rules
 from bitrab.models.pipeline import RuleConfig
 from bitrab.plan import LocalGitLabRunner
 
@@ -130,7 +130,7 @@ def test_rules_needs_override(tmp_path):
     pipeline = processor.process_config(raw)
 
     vm = VariableManager(pipeline.variables, project_dir=tmp_path)
-    env = vm._get_gitlab_ci_variables()
+    env = vm.get_gitlab_ci_variables()
     env.update(vm.base_variables)
 
     test_job = next(j for j in pipeline.jobs if j.name == "test_job")
@@ -148,50 +148,50 @@ def test_rules_needs_override(tmp_path):
 class TestRulesExists:
     def test_exists_matches_when_file_present(self, tmp_path):
         (tmp_path / "Dockerfile").write_text("FROM alpine")
-        from bitrab.config.rules import _evaluate_exists
+        from bitrab.config.rules import evaluate_exists
 
-        assert _evaluate_exists(["Dockerfile"], tmp_path) is True
+        assert evaluate_exists(["Dockerfile"], tmp_path) is True
 
     def test_exists_no_match_when_file_absent(self, tmp_path):
-        from bitrab.config.rules import _evaluate_exists
+        from bitrab.config.rules import evaluate_exists
 
-        assert _evaluate_exists(["Dockerfile"], tmp_path) is False
+        assert evaluate_exists(["Dockerfile"], tmp_path) is False
 
     def test_exists_glob_pattern(self, tmp_path):
         (tmp_path / "setup.py").write_text("")
-        from bitrab.config.rules import _evaluate_exists
+        from bitrab.config.rules import evaluate_exists
 
-        assert _evaluate_exists(["*.py"], tmp_path) is True
+        assert evaluate_exists(["*.py"], tmp_path) is True
 
     def test_exists_multiple_patterns_any_match(self, tmp_path):
         (tmp_path / "Makefile").write_text("")
-        from bitrab.config.rules import _evaluate_exists
+        from bitrab.config.rules import evaluate_exists
 
-        assert _evaluate_exists(["Dockerfile", "Makefile"], tmp_path) is True
+        assert evaluate_exists(["Dockerfile", "Makefile"], tmp_path) is True
 
     def test_rule_matches_when_exists_file_present(self, tmp_path):
         (tmp_path / "Dockerfile").write_text("FROM alpine")
-        from bitrab.config.rules import _rule_matches
+        from bitrab.config.rules import rule_matches
 
         rule = RuleConfig(exists=["Dockerfile"])
-        assert _rule_matches(rule, {}, project_dir=tmp_path) is True
+        assert rule_matches(rule, {}, project_dir=tmp_path) is True
 
     def test_rule_does_not_match_when_exists_file_absent(self, tmp_path):
-        from bitrab.config.rules import _rule_matches
+        from bitrab.config.rules import rule_matches
 
         rule = RuleConfig(exists=["Dockerfile"])
-        assert _rule_matches(rule, {}, project_dir=tmp_path) is False
+        assert rule_matches(rule, {}, project_dir=tmp_path) is False
 
     def test_rule_requires_both_if_and_exists(self, tmp_path):
         """Both if_expr and exists must pass."""
         (tmp_path / "Dockerfile").write_text("FROM alpine")
-        from bitrab.config.rules import _rule_matches
+        from bitrab.config.rules import rule_matches
 
         rule = RuleConfig(if_expr='$CI_COMMIT_BRANCH == "main"', exists=["Dockerfile"])
         # if_expr fails (var not set) => rule does not match
-        assert _rule_matches(rule, {}, project_dir=tmp_path) is False
+        assert rule_matches(rule, {}, project_dir=tmp_path) is False
         # both pass
-        assert _rule_matches(rule, {"CI_COMMIT_BRANCH": "main"}, project_dir=tmp_path) is True
+        assert rule_matches(rule, {"CI_COMMIT_BRANCH": "main"}, project_dir=tmp_path) is True
 
     def test_exists_integration(self, tmp_path):
         """End-to-end: job only runs if Dockerfile exists."""
@@ -235,58 +235,58 @@ class TestRulesExists:
 class TestCompoundExpressions:
     def test_and_both_true(self):
         env = {"A": "hello", "B": "world"}
-        assert _evaluate_if("$A && $B", env) is True
+        assert evaluate_if("$A && $B", env) is True
 
     def test_and_one_false(self):
         env = {"A": "hello"}
-        assert _evaluate_if("$A && $B", env) is False
+        assert evaluate_if("$A && $B", env) is False
 
     def test_or_first_true(self):
         env = {"A": "hello"}
-        assert _evaluate_if("$A || $B", env) is True
+        assert evaluate_if("$A || $B", env) is True
 
     def test_or_second_true(self):
         env = {"B": "world"}
-        assert _evaluate_if("$A || $B", env) is True
+        assert evaluate_if("$A || $B", env) is True
 
     def test_or_both_false(self):
-        assert _evaluate_if("$A || $B", {}) is False
+        assert evaluate_if("$A || $B", {}) is False
 
     def test_and_binds_tighter_than_or(self):
         # A || B && C  =>  A || (B && C)
         # A=set, B=unset, C=unset  =>  True || False  => True
         env = {"A": "1"}
-        assert _evaluate_if("$A || $B && $C", env) is True
+        assert evaluate_if("$A || $B && $C", env) is True
 
     def test_equality_in_compound(self):
         env = {"BRANCH": "main", "SOURCE": "push"}
         expr = '$BRANCH == "main" && $SOURCE == "push"'
-        assert _evaluate_if(expr, env) is True
+        assert evaluate_if(expr, env) is True
 
     def test_equality_compound_one_fails(self):
         env = {"BRANCH": "main", "SOURCE": "web"}
         expr = '$BRANCH == "main" && $SOURCE == "push"'
-        assert _evaluate_if(expr, env) is False
+        assert evaluate_if(expr, env) is False
 
     def test_or_with_equality(self):
         env = {"BRANCH": "develop"}
         expr = '$BRANCH == "main" || $BRANCH == "develop"'
-        assert _evaluate_if(expr, env) is True
+        assert evaluate_if(expr, env) is True
 
     def test_quoted_value_containing_double_ampersand_not_split(self):
         # The literal string "a&&b" inside quotes should not be treated as operator
         env = {"VAR": "a&&b"}
-        assert _evaluate_if('$VAR == "a&&b"', env) is True
+        assert evaluate_if('$VAR == "a&&b"', env) is True
 
     def test_compound_with_regex(self):
         env = {"TAG": "v1.2.3", "BRANCH": "main"}
         expr = '$TAG =~ /^v/ && $BRANCH == "main"'
-        assert _evaluate_if(expr, env) is True
+        assert evaluate_if(expr, env) is True
 
     def test_three_way_and(self):
         env = {"A": "1", "B": "2", "C": "3"}
-        assert _evaluate_if("$A && $B && $C", env) is True
+        assert evaluate_if("$A && $B && $C", env) is True
 
     def test_three_way_and_one_missing(self):
         env = {"A": "1", "B": "2"}
-        assert _evaluate_if("$A && $B && $C", env) is False
+        assert evaluate_if("$A && $B && $C", env) is False

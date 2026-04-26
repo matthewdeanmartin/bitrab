@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bitrab.execution.artifacts import _artifact_dir, collect_artifacts, inject_dependencies
+from bitrab.execution.artifacts import artifact_dir, collect_artifacts, inject_dependencies
 from bitrab.models.pipeline import JobConfig
 from bitrab.plan import PipelineProcessor
 
@@ -13,7 +13,7 @@ from bitrab.plan import PipelineProcessor
 # ---------------------------------------------------------------------------
 
 
-def _job(
+def make_job(
     name: str = "myjob",
     artifacts_paths: list[str] | None = None,
     artifacts_when: str = "on_success",
@@ -145,62 +145,62 @@ def test_dependencies_none_when_not_configured():
 def test_collect_artifacts_on_success_copies_files(tmp_path):
     (tmp_path / "dist").mkdir()
     (tmp_path / "dist" / "app.whl").write_text("wheel")
-    job = _job(artifacts_paths=["dist/app.whl"], artifacts_when="on_success")
+    job = make_job(artifacts_paths=["dist/app.whl"], artifacts_when="on_success")
 
     collect_artifacts(job, tmp_path, succeeded=True)
 
-    dest = _artifact_dir(tmp_path, "myjob") / "dist" / "app.whl"
+    dest = artifact_dir(tmp_path, "myjob") / "dist" / "app.whl"
     assert dest.exists()
     assert dest.read_text() == "wheel"
 
 
 def test_collect_artifacts_on_success_skips_when_failed(tmp_path):
     (tmp_path / "out.txt").write_text("data")
-    job = _job(artifacts_paths=["out.txt"], artifacts_when="on_success")
+    job = make_job(artifacts_paths=["out.txt"], artifacts_when="on_success")
 
     collect_artifacts(job, tmp_path, succeeded=False)
 
-    dest = _artifact_dir(tmp_path, "myjob") / "out.txt"
+    dest = artifact_dir(tmp_path, "myjob") / "out.txt"
     assert not dest.exists()
 
 
 def test_collect_artifacts_on_failure_copies_when_failed(tmp_path):
     (tmp_path / "crash.log").write_text("error")
-    job = _job(artifacts_paths=["crash.log"], artifacts_when="on_failure")
+    job = make_job(artifacts_paths=["crash.log"], artifacts_when="on_failure")
 
     collect_artifacts(job, tmp_path, succeeded=False)
 
-    dest = _artifact_dir(tmp_path, "myjob") / "crash.log"
+    dest = artifact_dir(tmp_path, "myjob") / "crash.log"
     assert dest.exists()
 
 
 def test_collect_artifacts_on_failure_skips_when_succeeded(tmp_path):
     (tmp_path / "crash.log").write_text("error")
-    job = _job(artifacts_paths=["crash.log"], artifacts_when="on_failure")
+    job = make_job(artifacts_paths=["crash.log"], artifacts_when="on_failure")
 
     collect_artifacts(job, tmp_path, succeeded=True)
 
-    dest = _artifact_dir(tmp_path, "myjob") / "crash.log"
+    dest = artifact_dir(tmp_path, "myjob") / "crash.log"
     assert not dest.exists()
 
 
 def test_collect_artifacts_always_copies_on_success(tmp_path):
     (tmp_path / "report.xml").write_text("<report/>")
-    job = _job(artifacts_paths=["report.xml"], artifacts_when="always")
+    job = make_job(artifacts_paths=["report.xml"], artifacts_when="always")
 
     collect_artifacts(job, tmp_path, succeeded=True)
 
-    dest = _artifact_dir(tmp_path, "myjob") / "report.xml"
+    dest = artifact_dir(tmp_path, "myjob") / "report.xml"
     assert dest.exists()
 
 
 def test_collect_artifacts_always_copies_on_failure(tmp_path):
     (tmp_path / "report.xml").write_text("<report/>")
-    job = _job(artifacts_paths=["report.xml"], artifacts_when="always")
+    job = make_job(artifacts_paths=["report.xml"], artifacts_when="always")
 
     collect_artifacts(job, tmp_path, succeeded=False)
 
-    dest = _artifact_dir(tmp_path, "myjob") / "report.xml"
+    dest = artifact_dir(tmp_path, "myjob") / "report.xml"
     assert dest.exists()
 
 
@@ -211,23 +211,23 @@ def test_collect_artifacts_glob_pattern(tmp_path):
     (src_dir / "b.so").write_text("b")
     (src_dir / "readme.md").write_text("docs")
 
-    job = _job(artifacts_paths=["build/*.so"], artifacts_when="on_success")
+    job = make_job(artifacts_paths=["build/*.so"], artifacts_when="on_success")
     collect_artifacts(job, tmp_path, succeeded=True)
 
-    art_dir = _artifact_dir(tmp_path, "myjob")
+    art_dir = artifact_dir(tmp_path, "myjob")
     assert (art_dir / "build" / "a.so").exists()
     assert (art_dir / "build" / "b.so").exists()
     assert not (art_dir / "build" / "readme.md").exists()
 
 
 def test_collect_artifacts_no_paths_does_nothing(tmp_path):
-    job = _job(artifacts_paths=[])
+    job = make_job(artifacts_paths=[])
     collect_artifacts(job, tmp_path, succeeded=True)
-    assert not _artifact_dir(tmp_path, "myjob").exists()
+    assert not artifact_dir(tmp_path, "myjob").exists()
 
 
 def test_collect_artifacts_missing_file_is_silently_skipped(tmp_path):
-    job = _job(artifacts_paths=["nonexistent.txt"], artifacts_when="on_success")
+    job = make_job(artifacts_paths=["nonexistent.txt"], artifacts_when="on_success")
     # Should not raise
     collect_artifacts(job, tmp_path, succeeded=True)
 
@@ -237,16 +237,16 @@ def test_collect_artifacts_missing_file_is_silently_skipped(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _put_artifact(project_dir: Path, job_name: str, rel_path: str, content: str) -> None:
+def put_artifact(project_dir: Path, job_name: str, rel_path: str, content: str) -> None:
     """Helper: write a file into a job's artifact directory."""
-    dest = _artifact_dir(project_dir, job_name) / rel_path
+    dest = artifact_dir(project_dir, job_name) / rel_path
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content)
 
 
 def test_inject_copies_named_dependency_artifacts(tmp_path):
-    _put_artifact(tmp_path, "build_job", "dist/app.whl", "wheel")
-    job = _job(name="test_job", dependencies=["build_job"])
+    put_artifact(tmp_path, "build_job", "dist/app.whl", "wheel")
+    job = make_job(name="test_job", dependencies=["build_job"])
 
     inject_dependencies(job, tmp_path, completed_jobs=["build_job"])
 
@@ -254,8 +254,8 @@ def test_inject_copies_named_dependency_artifacts(tmp_path):
 
 
 def test_inject_empty_dependencies_copies_nothing(tmp_path):
-    _put_artifact(tmp_path, "build_job", "dist/app.whl", "wheel")
-    job = _job(name="test_job", dependencies=[])
+    put_artifact(tmp_path, "build_job", "dist/app.whl", "wheel")
+    job = make_job(name="test_job", dependencies=[])
 
     inject_dependencies(job, tmp_path, completed_jobs=["build_job"])
 
@@ -263,9 +263,9 @@ def test_inject_empty_dependencies_copies_nothing(tmp_path):
 
 
 def test_inject_none_dependencies_copies_all_completed(tmp_path):
-    _put_artifact(tmp_path, "job_a", "a.txt", "A")
-    _put_artifact(tmp_path, "job_b", "b.txt", "B")
-    job = _job(name="job_c", dependencies=None)
+    put_artifact(tmp_path, "job_a", "a.txt", "A")
+    put_artifact(tmp_path, "job_b", "b.txt", "B")
+    job = make_job(name="job_c", dependencies=None)
 
     inject_dependencies(job, tmp_path, completed_jobs=["job_a", "job_b"])
 
@@ -274,7 +274,7 @@ def test_inject_none_dependencies_copies_all_completed(tmp_path):
 
 
 def test_inject_skips_job_with_no_artifact_dir(tmp_path):
-    job = _job(name="test_job", dependencies=None)
+    job = make_job(name="test_job", dependencies=None)
     # job_a has no artifacts directory
     inject_dependencies(job, tmp_path, completed_jobs=["job_a"])
     # Should not raise and should produce no output files
@@ -282,9 +282,9 @@ def test_inject_skips_job_with_no_artifact_dir(tmp_path):
 
 
 def test_inject_respects_named_dependencies_only(tmp_path):
-    _put_artifact(tmp_path, "job_a", "a.txt", "A")
-    _put_artifact(tmp_path, "job_b", "b.txt", "B")
-    job = _job(name="job_c", dependencies=["job_a"])
+    put_artifact(tmp_path, "job_a", "a.txt", "A")
+    put_artifact(tmp_path, "job_b", "b.txt", "B")
+    job = make_job(name="job_c", dependencies=["job_a"])
 
     inject_dependencies(job, tmp_path, completed_jobs=["job_a", "job_b"])
 

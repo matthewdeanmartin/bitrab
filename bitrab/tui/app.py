@@ -60,7 +60,7 @@ class JobStatusChanged(Message):
 # ---------------------------------------------------------------------------
 
 
-def _copy_to_clipboard(text: str) -> bool:
+def copy_to_clipboard(text: str) -> bool:
     """Copy text to system clipboard. Returns True on success."""
     try:
         if sys.platform == "win32":
@@ -94,7 +94,7 @@ def _copy_to_clipboard(text: str) -> bool:
     return False
 
 
-def _extract_richlog_text(rich_log: RichLog) -> str:
+def extract_richlog_text(rich_log: RichLog) -> str:
     """Extract plain text from a RichLog widget's stored lines."""
     lines = []
     for line in rich_log.lines:
@@ -111,7 +111,7 @@ def _extract_richlog_text(rich_log: RichLog) -> str:
 # Main App
 # ---------------------------------------------------------------------------
 
-_STATUS_ICONS = {
+STATUS_ICONS = {
     "running": "⏳",
     "success": "✅",
     "failed": "❌",
@@ -120,7 +120,7 @@ _STATUS_ICONS = {
     "cancelled": "🚫",
 }
 
-_CSS = """
+APP_CSS = """
 Screen {
     background: $surface;
 }
@@ -180,7 +180,7 @@ class PipelineApp(App[int]):
     """
 
     TITLE = "bitrab – GitLab CI Runner"
-    CSS = _CSS
+    CSS = APP_CSS
     BINDINGS = [
         Binding("q", "quit_app", "Quit", show=True),
         Binding("c", "copy_log", "Copy log", show=True),
@@ -193,16 +193,16 @@ class PipelineApp(App[int]):
         self, pipeline: PipelineConfig, orchestrator: TUIOrchestrator, *, close_on_completion: bool = False
     ) -> None:
         super().__init__()
-        self._pipeline = pipeline
-        self._orchestrator = orchestrator
-        self._close_on_completion = close_on_completion
+        self.pipeline = pipeline
+        self.orchestrator = orchestrator
+        self.close_on_completion = close_on_completion
         # Map job name → tab_id for fast lookup
-        self._job_tab_ids: dict[str, str] = {}
+        self.job_tab_ids: dict[str, str] = {}
         # Track pipeline success for exit code
-        self._pipeline_success: bool | None = None
+        self.pipeline_success: bool | None = None
         # Set when on_pipeline_awaiting_manual has fired; prevents on_pipeline_complete
         # from overwriting the summary message.
-        self._awaiting_manual: bool = False
+        self.awaiting_manual: bool = False
 
     # ------------------------------------------------------------------
     # Layout
@@ -218,10 +218,10 @@ class PipelineApp(App[int]):
             yield Button("▶ Run/restart selected job  [R]", id="restart-job-btn", variant="default")
             yield Button("✕ Cancel job", id="cancel-job-btn", variant="error")
         with TabbedContent():
-            for job in self._pipeline.jobs:
-                tab_id = self._make_tab_id(job.name)
-                self._job_tab_ids[job.name] = tab_id
-                label = f"{_STATUS_ICONS['pending']} {job.stage}/{job.name}"
+            for job in self.pipeline.jobs:
+                tab_id = self.make_tab_id(job.name)
+                self.job_tab_ids[job.name] = tab_id
+                label = f"{STATUS_ICONS['pending']} {job.stage}/{job.name}"
                 yield TabPane(label, RichLog(highlight=False, markup=False), id=tab_id)
         with Static(id="copy-bar"):
             yield Static("", id="copy-status")
@@ -230,16 +230,16 @@ class PipelineApp(App[int]):
 
     async def on_mount(self) -> None:
         """Start the pipeline worker once the UI is ready."""
-        self.run_worker(self._run_pipeline_worker, thread=True, name="pipeline-runner")
+        self.run_worker(self.run_pipeline_worker, thread=True, name="pipeline-runner")
 
     # ------------------------------------------------------------------
     # Worker (background thread)
     # ------------------------------------------------------------------
 
-    def _run_pipeline_worker(self) -> None:
+    def run_pipeline_worker(self) -> None:
         """Run inside a background thread. Calls orchestrator which uses ProcessPoolExecutor."""
         try:
-            self._orchestrator.execute_pipeline_tui(self._pipeline, self)
+            self.orchestrator.execute_pipeline_tui(self.pipeline, self)
         except Exception:  # nosec B110
             # on_pipeline_complete already called by orchestrator
             pass
@@ -256,40 +256,40 @@ class PipelineApp(App[int]):
 
     def on_pipeline_awaiting_manual(self) -> None:
         """Called when all auto-runnable jobs finished but manual jobs remain."""
-        self._pipeline_success = True
-        self._awaiting_manual = True
+        self.pipeline_success = True
+        self.awaiting_manual = True
         summary = self.query_one("#summary", Static)
         summary.update("⏸️  Pipeline paused — manual jobs are ready to trigger.")
-        if self._close_on_completion:
+        if self.close_on_completion:
             self.exit(0)
 
     def on_pipeline_complete(self, success: bool) -> None:
         """Called by orchestrator when the whole pipeline finishes."""
-        self._pipeline_success = success
-        if not self._awaiting_manual:
+        self.pipeline_success = success
+        if not self.awaiting_manual:
             summary = self.query_one("#summary", Static)
             if success:
                 summary.update("🎉 Pipeline completed successfully!")
             else:
                 summary.update("❌ Pipeline failed.")
-        if self._close_on_completion and not self._awaiting_manual:
+        if self.close_on_completion and not self.awaiting_manual:
             self.exit(0 if success else 1)
 
     def on_pipeline_cancelled(self) -> None:
         """Called by orchestrator when the pipeline is cancelled by user."""
-        self._pipeline_success = False
+        self.pipeline_success = False
         summary = self.query_one("#summary", Static)
         summary.update("🚫 Pipeline cancelled.")
         # Mark any still-running tabs as cancelled
         tabbed = self.query_one(TabbedContent)
-        for job_name, tab_id in self._job_tab_ids.items():
+        for job_name, tab_id in self.job_tab_ids.items():
             try:
                 tab = tabbed.get_tab(tab_id)
-                if tab and _STATUS_ICONS["running"] in str(tab.label):
-                    tab.label = self._job_label_for(job_name, "cancelled")  # type: ignore[assignment]
+                if tab and STATUS_ICONS["running"] in str(tab.label):
+                    tab.label = self.job_label_for(job_name, "cancelled")  # type: ignore[assignment]
             except Exception:  # nosec B110
                 pass
-        if self._close_on_completion:
+        if self.close_on_completion:
             self.exit(1)
 
     # ------------------------------------------------------------------
@@ -298,7 +298,7 @@ class PipelineApp(App[int]):
 
     def on_job_output(self, message: JobOutput) -> None:
         """Route job output text to the correct RichLog."""
-        tab_id = self._job_tab_ids.get(message.job_name)
+        tab_id = self.job_tab_ids.get(message.job_name)
         if not tab_id:
             return
         try:
@@ -312,11 +312,11 @@ class PipelineApp(App[int]):
 
     def on_job_status_changed(self, message: JobStatusChanged) -> None:
         """Update the tab label with status icon and switch active tab to running jobs."""
-        tab_id = self._job_tab_ids.get(message.job_name)
+        tab_id = self.job_tab_ids.get(message.job_name)
         if not tab_id:
             return
 
-        job_label = self._job_label_for(message.job_name, message.status)
+        job_label = self.job_label_for(message.job_name, message.status)
         try:
             tabbed = self.query_one(TabbedContent)
             tab = tabbed.get_tab(tab_id)
@@ -347,7 +347,7 @@ class PipelineApp(App[int]):
 
     def action_quit_app(self) -> None:
         """Quit with appropriate exit code."""
-        code = 0 if self._pipeline_success else 1
+        code = 0 if self.pipeline_success else 1
         self.exit(code)
 
     def action_copy_log(self) -> None:
@@ -360,16 +360,16 @@ class PipelineApp(App[int]):
                 status_widget.update("No active tab")
                 return
             rich_log = self.query_one(f"#{active_id} RichLog", RichLog)
-            text = _extract_richlog_text(rich_log)
+            text = extract_richlog_text(rich_log)
             if not text.strip():
                 status_widget.update("Nothing to copy")
                 return
-            job_name = next((name for name, tid in self._job_tab_ids.items() if tid == active_id), active_id)
+            job_name = next((name for name, tid in self.job_tab_ids.items() if tid == active_id), active_id)
             line_count = len(text.splitlines())
             status_widget.update("⏳ Copying…")
 
-            def _do_copy() -> None:
-                ok = _copy_to_clipboard(text)
+            def do_copy() -> None:
+                ok = copy_to_clipboard(text)
                 if ok:
                     self.call_from_thread(status_widget.update, f"✅ Copied {line_count} lines from [{job_name}]")
                 else:
@@ -377,13 +377,13 @@ class PipelineApp(App[int]):
                         status_widget.update, "⚠️  Clipboard unavailable — try selecting text with mouse"
                     )
 
-            threading.Thread(target=_do_copy, daemon=True).start()
+            threading.Thread(target=do_copy, daemon=True).start()
         except Exception as exc:
             status_widget.update(f"❌ Copy failed: {exc}")
 
     def action_cancel_pipeline(self) -> None:
         """Signal the orchestrator to stop after the current stage."""
-        self._orchestrator.cancel_pipeline()
+        self.orchestrator.cancel_pipeline()
         summary = self.query_one("#summary", Static)
         summary.update("🚫 Cancelling… (current stage will finish)")
 
@@ -394,31 +394,31 @@ class PipelineApp(App[int]):
             active_id = tabbed.active
             if not active_id:
                 return
-            job_name = next((n for n, tid in self._job_tab_ids.items() if tid == active_id), None)
+            job_name = next((n for n, tid in self.job_tab_ids.items() if tid == active_id), None)
             if job_name:
-                self._orchestrator.cancel_job(job_name)
+                self.orchestrator.cancel_job(job_name)
         except Exception:  # nosec B110
             pass
 
     def action_restart_pipeline(self) -> None:
         """Reset all UI state and re-run the entire pipeline from scratch."""
         # Guard: don't restart while pipeline is actively running (not cancelled, not yet done)
-        if self._pipeline_success is None and self._orchestrator.is_running():
+        if self.pipeline_success is None and self.orchestrator.is_running():
             self.query_one("#copy-status", Static).update("Cancel the pipeline first before restarting.")
             return
 
         # Reset orchestrator state
-        self._orchestrator.reset()
-        self._pipeline_success = None
+        self.orchestrator.reset()
+        self.pipeline_success = None
 
         # Reset all tabs: clear logs and reset labels to pending
         tabbed = self.query_one(TabbedContent)
-        for job in self._pipeline.jobs:
-            tab_id = self._job_tab_ids[job.name]
+        for job in self.pipeline.jobs:
+            tab_id = self.job_tab_ids[job.name]
             try:
                 tab = tabbed.get_tab(tab_id)
                 if tab:
-                    tab.label = self._job_label_for(job.name, "pending")  # type: ignore[assignment]
+                    tab.label = self.job_label_for(job.name, "pending")  # type: ignore[assignment]
                 rich_log = self.query_one(f"#{tab_id} RichLog", RichLog)
                 rich_log.clear()
             except Exception:  # nosec B110
@@ -428,7 +428,7 @@ class PipelineApp(App[int]):
         summary.update("Restarting pipeline…")
 
         # Re-launch the pipeline worker
-        self.run_worker(self._run_pipeline_worker, thread=True, name="pipeline-runner")
+        self.run_worker(self.run_pipeline_worker, thread=True, name="pipeline-runner")
 
     def action_restart_job(self) -> None:
         """Re-run the job shown in the active tab."""
@@ -437,16 +437,16 @@ class PipelineApp(App[int]):
             active_id = tabbed.active
             if not active_id:
                 return
-            job_name = next((n for n, tid in self._job_tab_ids.items() if tid == active_id), None)
+            job_name = next((n for n, tid in self.job_tab_ids.items() if tid == active_id), None)
             if not job_name:
                 return
-            job = next((j for j in self._pipeline.jobs if j.name == job_name), None)
+            job = next((j for j in self.pipeline.jobs if j.name == job_name), None)
             if not job:
                 return
 
             # Guard: don't restart a job that is still running
             tab = tabbed.get_tab(active_id)
-            if tab and _STATUS_ICONS["running"] in str(tab.label):
+            if tab and STATUS_ICONS["running"] in str(tab.label):
                 self.query_one("#copy-status", Static).update("Job is still running.")
                 return
 
@@ -456,7 +456,7 @@ class PipelineApp(App[int]):
 
             # Run the job in a new background thread
             self.run_worker(
-                lambda: self._orchestrator.run_job_inline(job, self),
+                lambda: self.orchestrator.run_job_inline(job, self),
                 thread=True,
                 name=f"restart-{job_name}",
             )
@@ -467,13 +467,13 @@ class PipelineApp(App[int]):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _make_tab_id(self, job_name: str) -> str:
+    def make_tab_id(self, job_name: str) -> str:
         """Convert a job name to a valid CSS ID."""
         sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", job_name)
         return f"job-{sanitized}"
 
-    def _job_label_for(self, job_name: str, status: str) -> str:
+    def job_label_for(self, job_name: str, status: str) -> str:
         """Build tab label with status icon, stage, and job name."""
-        icon = _STATUS_ICONS.get(status, "❓")
-        stage = next((j.stage for j in self._pipeline.jobs if j.name == job_name), "?")
+        icon = STATUS_ICONS.get(status, "❓")
+        stage = next((j.stage for j in self.pipeline.jobs if j.name == job_name), "?")
         return f"{icon} {stage}/{job_name}"

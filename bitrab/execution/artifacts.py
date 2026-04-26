@@ -18,24 +18,17 @@ from __future__ import annotations
 
 import glob
 import os
-import re
 import shutil
 from pathlib import Path
 
 from bitrab.execution.variables import parse_dotenv
 from bitrab.models.pipeline import JobConfig
-
-_INVALID_PATH_CHARS_RE = re.compile(r'[\\/:*?"<>|]')
-
-
-def _sanitize(name: str) -> str:
-    """Replace filesystem-invalid characters with underscores."""
-    return _INVALID_PATH_CHARS_RE.sub("_", name)
+from bitrab.utils import sanitize_job_name as sanitize_name
 
 
-def _artifact_dir(project_dir: Path, job_name: str) -> Path:
+def artifact_dir(project_dir: Path, job_name: str) -> Path:
     """Return the artifact storage directory for a job."""
-    return project_dir / ".bitrab" / "artifacts" / _sanitize(job_name)
+    return project_dir / ".bitrab" / "artifacts" / sanitize_name(job_name)
 
 
 def collect_artifacts(
@@ -69,7 +62,7 @@ def collect_artifacts(
     # "always" falls through
 
     source_dir = effective_dir if effective_dir is not None else project_dir
-    dest_root = _artifact_dir(project_dir, job.name)
+    dest_root = artifact_dir(project_dir, job.name)
     dest_root.mkdir(parents=True, exist_ok=True)
 
     for pattern in job.artifacts_paths:
@@ -120,7 +113,7 @@ def inject_dependencies(
     target_dir = effective_dir if effective_dir is not None else project_dir
 
     for dep_name in sources:
-        artifact_src = _artifact_dir(project_dir, dep_name)
+        artifact_src = artifact_dir(project_dir, dep_name)
         if not artifact_src.exists():
             continue
         # Copy each file from the artifact directory to the target tree,
@@ -141,7 +134,7 @@ def inject_dependencies(
 # Dotenv report: artifacts: reports: dotenv:
 # ---------------------------------------------------------------------------
 
-_DOTENV_STORE = ".bitrab/artifacts/{job_name}/.dotenv_report"
+DOTENV_STORE = ".bitrab/artifacts/{job_name}/.dotenv_report"
 
 
 def collect_dotenv_report(
@@ -176,7 +169,7 @@ def collect_dotenv_report(
     if not src.is_file():
         return
 
-    dest = project_dir / _DOTENV_STORE.format(job_name=_sanitize(job.name))
+    dest = project_dir / DOTENV_STORE.format(job_name=sanitize_name(job.name))
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dest)
 
@@ -211,7 +204,7 @@ def load_dotenv_reports(
 
     merged: dict[str, str] = {}
     for dep_name in sources:
-        store = project_dir / _DOTENV_STORE.format(job_name=_sanitize(dep_name))
+        store = project_dir / DOTENV_STORE.format(job_name=sanitize_name(dep_name))
         if store.is_file():
             try:
                 merged.update(parse_dotenv(store.read_text(encoding="utf-8")))

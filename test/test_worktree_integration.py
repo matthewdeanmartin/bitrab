@@ -19,7 +19,7 @@ from bitrab.plan import LocalGitLabRunner
 pytestmark = pytest.mark.skipif(not is_git_available(), reason="git binary not available")
 
 
-def _init_repo(path: Path) -> None:
+def init_repo(path: Path) -> None:
     subprocess.run(["git", "init", "-q", str(path)], check=True)  # nosec
     subprocess.run(["git", "-C", str(path), "config", "user.email", "test@example.com"], check=True)  # nosec
     subprocess.run(["git", "-C", str(path), "config", "user.name", "Test"], check=True)  # nosec
@@ -28,7 +28,7 @@ def _init_repo(path: Path) -> None:
     subprocess.run(["git", "-C", str(path), "commit", "-q", "-m", "seed"], check=True)  # nosec
 
 
-def _write_ci(tmp_path: Path, content: str) -> Path:
+def write_ci(tmp_path: Path, content: str) -> Path:
     p = tmp_path / ".gitlab-ci.yml"
     p.write_text(textwrap.dedent(content), encoding="utf-8")
     return p
@@ -41,8 +41,8 @@ def test_parallel_mutating_jobs_do_not_conflict(tmp_path: Path) -> None:
     each job gets its own checkout, so the writes are isolated and each job
     collects its own artifact.
     """
-    _init_repo(tmp_path)
-    _write_ci(
+    init_repo(tmp_path)
+    write_ci(
         tmp_path,
         """
         stages: [build]
@@ -84,8 +84,8 @@ def test_parallel_mutating_jobs_do_not_conflict(tmp_path: Path) -> None:
 
 def test_worktree_root_cleaned_up_after_run(tmp_path: Path) -> None:
     """After the pipeline finishes, no worktree directories should remain."""
-    _init_repo(tmp_path)
-    _write_ci(
+    init_repo(tmp_path)
+    write_ci(
         tmp_path,
         """
         stages: [build]
@@ -117,8 +117,8 @@ def test_serial_mode_skips_worktrees_and_mutates_project(tmp_path: Path) -> None
     This is the intended behaviour for formatters / autofixers that need to
     modify the actual working copy.
     """
-    _init_repo(tmp_path)
-    _write_ci(
+    init_repo(tmp_path)
+    write_ci(
         tmp_path,
         """
         stages: [format]
@@ -143,8 +143,8 @@ def test_serial_mode_skips_worktrees_and_mutates_project(tmp_path: Path) -> None
 
 def test_no_worktrees_flag_disables_isolation(tmp_path: Path) -> None:
     """With --no-worktrees, parallel jobs run in the real project dir."""
-    _init_repo(tmp_path)
-    _write_ci(
+    init_repo(tmp_path)
+    write_ci(
         tmp_path,
         """
         stages: [build]
@@ -168,8 +168,8 @@ def test_no_worktrees_flag_disables_isolation(tmp_path: Path) -> None:
 
 def test_worktree_mode_falls_back_gracefully_outside_git(tmp_path: Path) -> None:
     """Project not a git repo → worktree flag is ignored, job runs in project dir."""
-    # No _init_repo call — this path is not a git repo.
-    _write_ci(
+    # No init_repo call — this path is not a git repo.
+    write_ci(
         tmp_path,
         """
         stages: [build]
@@ -191,13 +191,13 @@ def test_worktree_mode_falls_back_gracefully_outside_git(tmp_path: Path) -> None
 
 
 def test_configured_external_worktree_root_keeps_repo_clean(tmp_path: Path) -> None:
-    _init_repo(tmp_path)
+    init_repo(tmp_path)
     external_root = tmp_path.parent / f"{tmp_path.name}-worktrees"
     (tmp_path / "pyproject.toml").write_text(
         f'[tool.bitrab]\nworktree_root = "{external_root.as_posix()}"\n',
         encoding="utf-8",
     )
-    _write_ci(
+    write_ci(
         tmp_path,
         """
         stages: [build]

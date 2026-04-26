@@ -15,10 +15,10 @@ from bitrab.console import safe_print
 
 logger = logging.getLogger(__name__)
 
-_DEBOUNCE_SECONDS = 1.0  # coalesce rapid saves within this window
+DEBOUNCE_SECONDS = 1.0  # coalesce rapid saves within this window
 
 
-def _collect_watched_paths(config_path: Path) -> set[Path]:
+def collect_watched_paths(config_path: Path) -> set[Path]:
     """Return the set of local files the config depends on (excluding itself).
 
     Args:
@@ -31,14 +31,14 @@ def _collect_watched_paths(config_path: Path) -> set[Path]:
     return loader.collect_include_paths(config_path)
 
 
-class _PipelineRerunHandler(FileSystemEventHandler):
+class PipelineRerunHandler(FileSystemEventHandler):
     """Watchdog handler that re-runs the pipeline on relevant file changes."""
 
     def __init__(self, runner_fn: Any, watched_paths: set[Path]) -> None:
         super().__init__()
-        self._runner_fn = runner_fn
-        self._watched = {str(p) for p in watched_paths}
-        self._last_triggered = 0.0
+        self.runner_fn = runner_fn
+        self.watched = {str(p) for p in watched_paths}
+        self.last_triggered = 0.0
 
     def on_modified(self, event: FileSystemEvent) -> None:
         if event.is_directory:
@@ -46,15 +46,15 @@ class _PipelineRerunHandler(FileSystemEventHandler):
         src_path = event.src_path
         if isinstance(src_path, bytes):
             src_path = src_path.decode("utf-8")
-        if str(Path(src_path).resolve()) not in self._watched:
+        if str(Path(src_path).resolve()) not in self.watched:
             return
         now = time.monotonic()
-        if now - self._last_triggered < _DEBOUNCE_SECONDS:
+        if now - self.last_triggered < DEBOUNCE_SECONDS:
             return
-        self._last_triggered = now
+        self.last_triggered = now
         safe_print("\n[watch] File changed — re-running pipeline...")
         try:
-            self._runner_fn()
+            self.runner_fn()
         except Exception as exc:  # pylint: disable=broad-except
             safe_print(f"[watch] Pipeline run failed: {exc}")
 
@@ -77,18 +77,18 @@ def run_watch(
     base_path = config_path.parent
     runner = LocalGitLabRunner(base_path=base_path)
 
-    def _run() -> None:
+    def run() -> None:
         runner.run_pipeline(config_path=config_path, **runner_kwargs)
 
     # Initial run
     safe_print("[watch] Starting initial pipeline run...")
     try:
-        _run()
+        run()
     except Exception as exc:  # pylint: disable=broad-except
         safe_print(f"[watch] Initial run failed: {exc}")
 
     # Determine which paths to watch
-    watched = _collect_watched_paths(config_path)
+    watched = collect_watched_paths(config_path)
     watched.add(config_path.resolve())
     watch_dirs = {p.parent for p in watched}
 
@@ -96,7 +96,7 @@ def run_watch(
     for p in sorted(watched):
         safe_print(f"         {p}")
 
-    handler = _PipelineRerunHandler(_run, watched)
+    handler = PipelineRerunHandler(run, watched)
     observer = Observer()
     for d in watch_dirs:
         observer.schedule(handler, str(d), recursive=False)

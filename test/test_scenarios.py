@@ -20,10 +20,10 @@ import pytest
 
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.exceptions import JobExecutionError
-from bitrab.execution.artifacts import _artifact_dir, collect_artifacts, inject_dependencies
+from bitrab.execution.artifacts import artifact_dir, collect_artifacts, inject_dependencies
 from bitrab.execution.stage_runner import (
-    _build_dag,
-    _filter_jobs_by_when,
+    build_dag,
+    filter_jobs_by_when,
     has_dag_jobs,
     organize_jobs_by_stage,
     sanitize_job_name,
@@ -37,17 +37,17 @@ from bitrab.plan import LocalGitLabRunner, PipelineProcessor, filter_pipeline, p
 # ---------------------------------------------------------------------------
 
 
-def _write_ci(tmp_path: Path, content: str) -> Path:
+def write_ci(tmp_path: Path, content: str) -> Path:
     p = tmp_path / ".gitlab-ci.yml"
     p.write_text(textwrap.dedent(content))
     return p
 
 
-def _runner(tmp_path: Path) -> LocalGitLabRunner:
+def runner(tmp_path: Path) -> LocalGitLabRunner:
     return LocalGitLabRunner(base_path=tmp_path)
 
 
-def _proc(raw: dict) -> PipelineConfig:
+def proc(raw: dict) -> PipelineConfig:
     return PipelineProcessor().process_config(raw)
 
 
@@ -221,7 +221,7 @@ class TestVariableManager:
 
 class TestConfigurationLoader:
     def test_load_simple_config(self, tmp_path):
-        _write_ci(
+        write_ci(
             tmp_path,
             """
             stages: [build]
@@ -238,7 +238,7 @@ class TestConfigurationLoader:
     def test_local_include_merged(self, tmp_path):
         shared = tmp_path / "shared.yml"
         shared.write_text("shared_job:\n  script: [echo shared]\n")
-        _write_ci(
+        write_ci(
             tmp_path,
             """
             include:
@@ -254,7 +254,7 @@ class TestConfigurationLoader:
         """Main config keys override included keys."""
         shared = tmp_path / "defaults.yml"
         shared.write_text("variables:\n  COLOR: red\n")
-        _write_ci(
+        write_ci(
             tmp_path,
             """
             include:
@@ -294,7 +294,7 @@ class TestConfigurationLoader:
 class TestPipelineProcessor:
     def test_default_stage_is_test(self):
         raw = {"job": {"script": ["echo hi"]}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].stage == "test"
 
     def test_global_variables_in_job(self):
@@ -302,7 +302,7 @@ class TestPipelineProcessor:
             "variables": {"REGISTRY": "registry.example.com"},
             "push": {"stage": "test", "script": ["docker push $REGISTRY/image"]},
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].variables["REGISTRY"] == "registry.example.com"
 
     def test_default_before_script_inherited(self):
@@ -310,7 +310,7 @@ class TestPipelineProcessor:
             "default": {"before_script": ["source venv/bin/activate"]},
             "test": {"script": ["pytest"]},
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].before_script == ["source venv/bin/activate"]
 
     def test_job_before_script_overrides_default(self):
@@ -318,12 +318,12 @@ class TestPipelineProcessor:
             "default": {"before_script": ["global setup"]},
             "test": {"before_script": ["local setup"], "script": ["pytest"]},
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].before_script == ["local setup"]
 
     def test_retry_int(self):
         raw = {"job": {"script": ["flaky"], "retry": 2}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].retry_max == 2
 
     def test_retry_dict(self):
@@ -333,14 +333,14 @@ class TestPipelineProcessor:
                 "retry": {"max": 3, "when": "script_failure"},
             }
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         job = pipeline.jobs[0]
         assert job.retry_max == 3
         assert job.retry_when == ["script_failure"]
 
     def test_allow_failure_bool(self):
         raw = {"job": {"script": ["exit 1"], "allow_failure": True}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].allow_failure is True
 
     def test_allow_failure_exit_codes(self):
@@ -350,7 +350,7 @@ class TestPipelineProcessor:
                 "allow_failure": {"exit_codes": [42, 100]},
             }
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         job = pipeline.jobs[0]
         assert job.allow_failure is True
         assert job.allow_failure_exit_codes == [42, 100]
@@ -361,7 +361,7 @@ class TestPipelineProcessor:
             "build": {"stage": "build", "script": ["make"]},
             "test": {"stage": "test", "script": ["pytest"], "needs": ["build"]},
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         test_job = next(j for j in pipeline.jobs if j.name == "test")
         assert test_job.needs == ["build"]
 
@@ -375,13 +375,13 @@ class TestPipelineProcessor:
                 "needs": [{"job": "build"}],
             },
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         test_job = next(j for j in pipeline.jobs if j.name == "test")
         assert test_job.needs == ["build"]
 
     def test_timeout_parsed(self):
         raw = {"job": {"script": ["echo hi"], "timeout": "30m"}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].timeout == 1800.0
 
     def test_artifacts_parsed(self):
@@ -391,7 +391,7 @@ class TestPipelineProcessor:
                 "artifacts": {"paths": ["dist/", "*.so"], "when": "always"},
             }
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         job = pipeline.jobs[0]
         assert "dist/" in job.artifacts_paths
         assert "*.so" in job.artifacts_paths
@@ -399,27 +399,27 @@ class TestPipelineProcessor:
 
     def test_when_keyword(self):
         raw = {"job": {"script": ["echo hi"], "when": "on_failure"}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].when == "on_failure"
 
     def test_invalid_when_defaults_to_on_success(self):
         raw = {"job": {"script": ["echo hi"], "when": "bogus"}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].when == "on_success"
 
     def test_dependencies_empty_list(self):
         raw = {"job": {"script": ["echo hi"], "dependencies": []}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].dependencies == []
 
     def test_dependencies_named_jobs(self):
         raw = {"job": {"script": ["echo hi"], "dependencies": ["build", "lint"]}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].dependencies == ["build", "lint"]
 
     def test_dependencies_none_when_omitted(self):
         raw = {"job": {"script": ["echo hi"]}}
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert pipeline.jobs[0].dependencies is None
 
     def test_reserved_keywords_not_treated_as_jobs(self):
@@ -435,62 +435,62 @@ class TestPipelineProcessor:
             "artifacts": {"paths": ["dist/"]},
             "myjob": {"script": ["pytest"]},
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert len(pipeline.jobs) == 1
         assert pipeline.jobs[0].name == "myjob"
 
 
 # ===========================================================================
-# _filter_jobs_by_when (stage_runner helper)
+# filter_jobs_by_when (stage_runner helper)
 # ===========================================================================
 
 
 class TestFilterJobsByWhen:
-    def _jobs(self, *specs):
+    def jobs(self, *specs):
         return [JobConfig(name=n, stage="test", when=w) for n, w in specs]
 
     def test_on_success_runs_when_no_failure(self):
-        jobs = self._jobs(("j", "on_success"))
-        result = _filter_jobs_by_when(jobs, prior_had_failure=False)
+        jobs = self.jobs(("j", "on_success"))
+        result = filter_jobs_by_when(jobs, prior_had_failure=False)
         assert len(result) == 1
 
     def test_on_success_skipped_after_failure(self):
-        jobs = self._jobs(("j", "on_success"))
-        result = _filter_jobs_by_when(jobs, prior_had_failure=True)
+        jobs = self.jobs(("j", "on_success"))
+        result = filter_jobs_by_when(jobs, prior_had_failure=True)
         assert result == []
 
     def test_on_failure_runs_after_failure(self):
-        jobs = self._jobs(("j", "on_failure"))
-        result = _filter_jobs_by_when(jobs, prior_had_failure=True)
+        jobs = self.jobs(("j", "on_failure"))
+        result = filter_jobs_by_when(jobs, prior_had_failure=True)
         assert len(result) == 1
 
     def test_on_failure_skipped_when_no_failure(self):
-        jobs = self._jobs(("j", "on_failure"))
-        result = _filter_jobs_by_when(jobs, prior_had_failure=False)
+        jobs = self.jobs(("j", "on_failure"))
+        result = filter_jobs_by_when(jobs, prior_had_failure=False)
         assert result == []
 
     def test_always_runs_regardless(self):
-        jobs = self._jobs(("j", "always"))
-        assert len(_filter_jobs_by_when(jobs, False)) == 1
-        assert len(_filter_jobs_by_when(jobs, True)) == 1
+        jobs = self.jobs(("j", "always"))
+        assert len(filter_jobs_by_when(jobs, False)) == 1
+        assert len(filter_jobs_by_when(jobs, True)) == 1
 
     def test_never_always_skipped(self):
-        jobs = self._jobs(("j", "never"))
-        assert _filter_jobs_by_when(jobs, False) == []
-        assert _filter_jobs_by_when(jobs, True) == []
+        jobs = self.jobs(("j", "never"))
+        assert filter_jobs_by_when(jobs, False) == []
+        assert filter_jobs_by_when(jobs, True) == []
 
     def test_manual_always_skipped(self):
-        jobs = self._jobs(("j", "manual"))
-        assert _filter_jobs_by_when(jobs, False) == []
+        jobs = self.jobs(("j", "manual"))
+        assert filter_jobs_by_when(jobs, False) == []
 
     def test_mixed_jobs(self):
-        jobs = self._jobs(
+        jobs = self.jobs(
             ("success_job", "on_success"),
             ("failure_job", "on_failure"),
             ("always_job", "always"),
             ("never_job", "never"),
         )
-        result = _filter_jobs_by_when(jobs, prior_had_failure=True)
+        result = filter_jobs_by_when(jobs, prior_had_failure=True)
         names = {j.name for j in result}
         assert "failure_job" in names
         assert "always_job" in names
@@ -505,7 +505,7 @@ class TestFilterJobsByWhen:
 
 class TestStageRunnerHelpers:
     def test_no_dag_when_no_needs(self):
-        pipeline = _proc({"stages": ["test"], "job": {"script": ["echo hi"]}})
+        pipeline = proc({"stages": ["test"], "job": {"script": ["echo hi"]}})
         assert not has_dag_jobs(pipeline)
 
     def test_has_dag_when_needs_present(self):
@@ -514,7 +514,7 @@ class TestStageRunnerHelpers:
             "build": {"stage": "build", "script": ["make"]},
             "test": {"stage": "test", "script": ["pytest"], "needs": ["build"]},
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         assert has_dag_jobs(pipeline)
 
     def test_organize_by_stage(self):
@@ -524,7 +524,7 @@ class TestStageRunnerHelpers:
             "test_a": {"stage": "test", "script": ["pytest"]},
             "test_b": {"stage": "test", "script": ["ruff"]},
         }
-        pipeline = _proc(raw)
+        pipeline = proc(raw)
         by_stage = organize_jobs_by_stage(pipeline)
         assert len(by_stage["build"]) == 1
         assert len(by_stage["test"]) == 2
@@ -535,8 +535,8 @@ class TestStageRunnerHelpers:
             "build": {"stage": "build", "script": ["make"]},
             "test": {"stage": "test", "script": ["pytest"], "needs": ["build"]},
         }
-        pipeline = _proc(raw)
-        ts = _build_dag(pipeline)
+        pipeline = proc(raw)
+        ts = build_dag(pipeline)
         ts.prepare()
         # Should not raise CycleError
 
@@ -548,8 +548,8 @@ class TestStageRunnerHelpers:
             "a": {"stage": "build", "script": ["x"], "needs": ["b"]},
             "b": {"stage": "test", "script": ["y"], "needs": ["a"]},
         }
-        pipeline = _proc(raw)
-        ts = _build_dag(pipeline)
+        pipeline = proc(raw)
+        ts = build_dag(pipeline)
         with pytest.raises(CycleError):
             ts.prepare()
 
@@ -570,7 +570,7 @@ class TestArtifactHelpers:
             artifacts_when="on_success",
         )
         collect_artifacts(job, tmp_path, succeeded=True)
-        dest = _artifact_dir(tmp_path, "build")
+        dest = artifact_dir(tmp_path, "build")
         assert (dest / "dist" / "app").exists()
 
     def test_collect_skipped_on_failure_when_on_success(self, tmp_path):
@@ -582,7 +582,7 @@ class TestArtifactHelpers:
             artifacts_when="on_success",
         )
         collect_artifacts(job, tmp_path, succeeded=False)
-        dest = _artifact_dir(tmp_path, "test")
+        dest = artifact_dir(tmp_path, "test")
         assert not dest.exists()
 
     def test_collect_on_failure_only_when_failed(self, tmp_path):
@@ -594,7 +594,7 @@ class TestArtifactHelpers:
             artifacts_when="on_failure",
         )
         collect_artifacts(job, tmp_path, succeeded=False)
-        dest = _artifact_dir(tmp_path, "build")
+        dest = artifact_dir(tmp_path, "build")
         assert (dest / "error.log").exists()
 
     def test_collect_always_regardless_of_status(self, tmp_path):
@@ -606,7 +606,7 @@ class TestArtifactHelpers:
             artifacts_when="always",
         )
         collect_artifacts(job, tmp_path, succeeded=False)
-        dest = _artifact_dir(tmp_path, "test")
+        dest = artifact_dir(tmp_path, "test")
         assert (dest / "coverage.xml").exists()
 
     def test_collect_no_paths_is_noop(self, tmp_path):
@@ -616,7 +616,7 @@ class TestArtifactHelpers:
 
     def test_inject_dependencies_none_copies_all(self, tmp_path):
         # Simulate build job artifacts
-        art_dir = _artifact_dir(tmp_path, "build")
+        art_dir = artifact_dir(tmp_path, "build")
         art_dir.mkdir(parents=True)
         (art_dir / "app.so").write_text("compiled")
         job = JobConfig(name="test", stage="test", dependencies=None)
@@ -624,7 +624,7 @@ class TestArtifactHelpers:
         assert (tmp_path / "app.so").exists()
 
     def test_inject_dependencies_empty_copies_nothing(self, tmp_path):
-        art_dir = _artifact_dir(tmp_path, "build")
+        art_dir = artifact_dir(tmp_path, "build")
         art_dir.mkdir(parents=True)
         (art_dir / "app.so").write_text("compiled")
         job = JobConfig(name="test", stage="test", dependencies=[])
@@ -633,7 +633,7 @@ class TestArtifactHelpers:
 
     def test_inject_dependencies_named(self, tmp_path):
         for dep in ["build", "codegen"]:
-            d = _artifact_dir(tmp_path, dep)
+            d = artifact_dir(tmp_path, dep)
             d.mkdir(parents=True)
             (d / f"{dep}.out").write_text(dep)
         job = JobConfig(name="test", stage="test", dependencies=["build"])
@@ -652,7 +652,7 @@ class TestArtifactHelpers:
         (tmp_path / "bin").mkdir()
         (tmp_path / "bin" / "app").write_text("exe")
         collect_artifacts(job, tmp_path, succeeded=True)
-        dest = _artifact_dir(tmp_path, "build:linux/x86_64")
+        dest = artifact_dir(tmp_path, "build:linux/x86_64")
         assert dest.exists()
 
 
@@ -702,16 +702,16 @@ class TestQualityGatePipeline:
         """
 
     def test_quality_gate_runs_all_stages(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "lint_result.txt").exists()
         assert (tmp_path / "typecheck_result.txt").exists()
         assert (tmp_path / "test_result.txt").exists()
         assert (tmp_path / "coverage.txt").exists()
 
     def test_quality_gate_no_failure_notification_on_success(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "failure_notify.txt").exists()
 
     def test_quality_gate_failure_triggers_notify(self, tmp_path):
@@ -727,9 +727,9 @@ class TestQualityGatePipeline:
               script:
                 - echo "FAILED" > failure_notify.txt
             """
-        _write_ci(tmp_path, ci)
+        write_ci(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "failure_notify.txt").exists()
 
     def test_quality_gate_lint_allow_failure_continues_pipeline(self, tmp_path):
@@ -750,9 +750,9 @@ class TestQualityGatePipeline:
               script:
                 - echo "tests passed" > test_result.txt
             """
-        _write_ci(tmp_path, ci)
+        write_ci(tmp_path, ci)
         # Should not raise despite lint failing
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "test_result.txt").exists()
 
     def test_quality_gate_allow_failure_exit_code_gate(self, tmp_path):
@@ -773,13 +773,13 @@ class TestQualityGatePipeline:
               script:
                 - echo "published" > published.txt
             """
-        _write_ci(tmp_path, ci)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write_ci(tmp_path, ci)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "published.txt").exists()
 
     def test_filter_to_lint_stage_only(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(
             maximum_degree_of_parallelism=1,
             stage_filter=["lint"],
         )
@@ -849,9 +849,9 @@ class TestNativeBuildChain:
         """
 
     def test_native_chain_completes(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
+        write_ci(tmp_path, self.CI)
         (tmp_path / "build").mkdir()
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "configure.log").exists()
         assert (tmp_path / "compile_core.log").exists()
         assert (tmp_path / "compile_tests.log").exists()
@@ -859,16 +859,16 @@ class TestNativeBuildChain:
         assert (tmp_path / "test_run.log").exists()
 
     def test_native_chain_uses_dag(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
+        write_ci(tmp_path, self.CI)
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(tmp_path / ".gitlab-ci.yml")
         pipeline = PipelineProcessor().process_config(raw)
         assert has_dag_jobs(pipeline)
 
     def test_native_chain_filter_to_compile_only(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
+        write_ci(tmp_path, self.CI)
         # Only run the configure + compile_core jobs
-        _runner(tmp_path).run_pipeline(
+        runner(tmp_path).run_pipeline(
             maximum_degree_of_parallelism=1,
             job_filter=["configure", "compile_core"],
         )
@@ -890,9 +890,9 @@ class TestNativeBuildChain:
                   - build/app.o
                 when: on_success
             """
-        _write_ci(tmp_path, ci)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        dest = _artifact_dir(tmp_path, "compile")
+        write_ci(tmp_path, ci)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        dest = artifact_dir(tmp_path, "compile")
         assert (dest / "build" / "app.o").exists()
 
 
@@ -952,14 +952,14 @@ class TestConvenienceTaskRunner:
         """
 
     def test_monorepo_pipeline_completes(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         for svc in ["svc_a", "svc_b", "svc_c"]:
             assert (tmp_path / f"build_{svc}.log").exists()
         assert (tmp_path / "integration.log").exists()
 
     def test_monorepo_global_variables_available(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
+        write_ci(tmp_path, self.CI)
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(tmp_path / ".gitlab-ci.yml")
         pipeline = PipelineProcessor().process_config(raw)
@@ -968,7 +968,7 @@ class TestConvenienceTaskRunner:
         assert gen_job.variables.get("OUTPUT_DIR") == "gen"
 
     def test_per_service_variables(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
+        write_ci(tmp_path, self.CI)
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(tmp_path / ".gitlab-ci.yml")
         pipeline = PipelineProcessor().process_config(raw)
@@ -976,8 +976,8 @@ class TestConvenienceTaskRunner:
         assert svc_a.variables["SERVICE"] == "svc_a"
 
     def test_run_single_service_filter(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(
             maximum_degree_of_parallelism=1,
             job_filter=["generate_protos", "build_svc_b"],
         )
@@ -987,7 +987,7 @@ class TestConvenienceTaskRunner:
         assert not (tmp_path / "integration.log").exists()
 
     def test_dag_needs_respected_in_monorepo(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
+        write_ci(tmp_path, self.CI)
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(tmp_path / ".gitlab-ci.yml")
         pipeline = PipelineProcessor().process_config(raw)
@@ -1084,8 +1084,8 @@ class TestJavaScriptPipeline:
         """
 
     def test_js_pipeline_completes(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "npm_ci.log").exists()
         assert (tmp_path / "build.log").exists()
         assert (tmp_path / "eslint.log").exists()
@@ -1094,13 +1094,13 @@ class TestJavaScriptPipeline:
         assert (tmp_path / "webpack.log").exists()
 
     def test_manual_deploy_not_triggered(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "deploy_staging.log").exists()
 
     def test_cleanup_not_triggered_on_success(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "cleanup.log").exists()
 
     def test_e2e_allow_failure_does_not_block(self, tmp_path):
@@ -1118,12 +1118,12 @@ class TestJavaScriptPipeline:
               script:
                 - echo "bundled" > dist_bundle.log
             """
-        _write_ci(tmp_path, ci)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write_ci(tmp_path, ci)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "dist_bundle.log").exists()
 
     def test_node_env_variable_in_jobs(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
+        write_ci(tmp_path, self.CI)
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(tmp_path / ".gitlab-ci.yml")
         pipeline = PipelineProcessor().process_config(raw)
@@ -1131,7 +1131,7 @@ class TestJavaScriptPipeline:
         assert jest_job.variables.get("NODE_ENV") == "test"
 
     def test_dag_structure_in_js_pipeline(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
+        write_ci(tmp_path, self.CI)
         loader = ConfigurationLoader(base_path=tmp_path)
         raw = loader.load_config(tmp_path / ".gitlab-ci.yml")
         pipeline = PipelineProcessor().process_config(raw)
@@ -1140,8 +1140,8 @@ class TestJavaScriptPipeline:
         assert set(unit_tests.needs) == {"build", "typescript_check"}
 
     def test_filter_to_check_stage_only(self, tmp_path):
-        _write_ci(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(
+        write_ci(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(
             maximum_degree_of_parallelism=1,
             stage_filter=["install", "check"],
         )
@@ -1167,9 +1167,9 @@ class TestJavaScriptPipeline:
                   - dist/bundle.min.js
                 when: on_success
             """
-        _write_ci(tmp_path, ci)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        dest = _artifact_dir(tmp_path, "bundle")
+        write_ci(tmp_path, ci)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        dest = artifact_dir(tmp_path, "bundle")
         assert (dest / "dist" / "bundle.min.js").exists()
 
 
@@ -1189,7 +1189,7 @@ class TestMultiIncludeConfig:
             "include:\n  - local: variables.yml\n" "shared_test:\n  stage: test\n  script:\n    - echo shared\n"
         )
 
-        _write_ci(
+        write_ci(
             tmp_path,
             """
             include:
@@ -1210,7 +1210,7 @@ class TestMultiIncludeConfig:
     def test_include_does_not_leave_include_key(self, tmp_path):
         shared = tmp_path / "shared.yml"
         shared.write_text("helper_job:\n  script: [echo hi]\n")
-        _write_ci(
+        write_ci(
             tmp_path,
             """
             include:
@@ -1229,8 +1229,8 @@ class TestMultiIncludeConfig:
 
 
 class TestFilterPipelineEdgeCases:
-    def _pipeline(self):
-        return _proc(
+    def pipeline(self):
+        return proc(
             {
                 "stages": ["build", "test", "deploy"],
                 "build": {"stage": "build", "script": ["make"]},
@@ -1242,13 +1242,13 @@ class TestFilterPipelineEdgeCases:
         )
 
     def test_both_filters_applied_together(self):
-        p = self._pipeline()
+        p = self.pipeline()
         result = filter_pipeline(p, jobs=["unit", "lint", "deploy_prod"], stages=["test"])
         assert {j.name for j in result.jobs} == {"unit", "lint"}
         assert result.stages == ["test"]
 
     def test_unknown_job_silently_ignored(self):
-        p = self._pipeline()
+        p = self.pipeline()
         result = filter_pipeline(p, jobs=["build", "no_such_job"])
         assert {j.name for j in result.jobs} == {"build"}
 
@@ -1258,18 +1258,18 @@ class TestFilterPipelineEdgeCases:
             "variables": {"TOKEN": "secret"},
             "job": {"stage": "test", "script": ["echo hi"]},
         }
-        p = _proc(raw)
+        p = proc(raw)
         result = filter_pipeline(p, jobs=["job"])
         assert result.variables["TOKEN"] == "secret"
 
     def test_empty_stages_filter_returns_empty(self):
-        p = self._pipeline()
+        p = self.pipeline()
         result = filter_pipeline(p, stages=[])
         assert result.jobs == []
         assert result.stages == []
 
     def test_filter_preserves_stage_order(self):
-        p = self._pipeline()
+        p = self.pipeline()
         # Request in reverse order — output must follow original pipeline order
         result = filter_pipeline(p, stages=["deploy", "build"])
         assert result.stages == ["build", "deploy"]

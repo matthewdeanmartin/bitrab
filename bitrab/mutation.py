@@ -30,14 +30,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from bitrab._toml import load_file as load_toml_file
+from bitrab.toml_backend import load_file as load_toml_file
 
 # Cache for parsed pyproject.toml: maps (path, mtime) -> parsed dict
-_TOML_CACHE: dict[tuple[str, float], dict[str, Any]] = {}
+TOML_CACHE: dict[tuple[str, float], dict[str, Any]] = {}
 
 # Patterns always considered safe regardless of user config.
 # Relative to project root, using forward-slash glob syntax.
-_BUILTIN_WHITELIST: list[str] = [
+BUILTIN_WHITELIST: list[str] = [
     ".mypy_cache/**",
     ".pytest_cache/**",
     ".ruff_cache/**",
@@ -67,7 +67,7 @@ class MutationConfig:
     @property
     def effective_whitelist(self) -> list[str]:
         """Return builtin patterns plus user-supplied ones."""
-        return _BUILTIN_WHITELIST + self.whitelist
+        return BUILTIN_WHITELIST + self.whitelist
 
 
 @dataclass
@@ -121,16 +121,30 @@ class SerialConfig:
     enabled: bool = False
 
 
-def _load_toml(file_path: Path) -> dict[str, Any]:
+def load_toml(file_path: Path) -> dict[str, Any]:
     """Load a TOML file, caching the result by path + mtime."""
     try:
         mtime = file_path.stat().st_mtime
     except OSError:
         return load_toml_file(file_path)
     key = (str(file_path), mtime)
-    if key not in _TOML_CACHE:
-        _TOML_CACHE[key] = load_toml_file(file_path)
-    return _TOML_CACHE[key]
+    if key not in TOML_CACHE:
+        TOML_CACHE[key] = load_toml_file(file_path)
+    return TOML_CACHE[key]
+
+
+def load_bitrab_section(project_dir: Path) -> dict[str, Any] | None:
+    """Return ``[tool.bitrab]`` from ``pyproject.toml`` or None if missing.
+
+    Centralises the ``data.get("tool", {}).get("bitrab", {})`` navigation that
+    every ``load_*_config`` previously repeated.  Returning None lets callers
+    fall back to their own dataclass defaults without re-checking existence.
+    """
+    pyproject = project_dir / "pyproject.toml"
+    if not pyproject.exists():
+        return None
+    data = load_toml(pyproject)
+    return data.get("tool", {}).get("bitrab", {})
 
 
 def load_parallel_config(project_dir: Path) -> ParallelBackendConfig:
@@ -139,14 +153,10 @@ def load_parallel_config(project_dir: Path) -> ParallelBackendConfig:
     Returns the default (process) config if ``pyproject.toml`` is missing or
     the section is absent.
     """
-    pyproject = project_dir / "pyproject.toml"
-    if not pyproject.exists():
+    bitrab_section = load_bitrab_section(project_dir)
+    if bitrab_section is None:
         return ParallelBackendConfig()
-
-    data = _load_toml(pyproject)
-    bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
     backend = str(bitrab_section.get("parallel_backend", "process")).lower()
-
     return ParallelBackendConfig(backend=backend)
 
 
@@ -158,12 +168,9 @@ def load_worktree_config(project_dir: Path) -> WorktreeConfig:
     opt out via ``use_git_worktrees = false`` and may relocate scratch
     worktrees with ``worktree_root = "..."``.
     """
-    pyproject = project_dir / "pyproject.toml"
-    if not pyproject.exists():
+    bitrab_section = load_bitrab_section(project_dir)
+    if bitrab_section is None:
         return WorktreeConfig()
-
-    data = _load_toml(pyproject)
-    bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
     enabled = bool(bitrab_section.get("use_git_worktrees", True))
     root_value = bitrab_section.get("worktree_root")
     root: Path | None = None
@@ -175,12 +182,9 @@ def load_worktree_config(project_dir: Path) -> WorktreeConfig:
 
 def load_serial_config(project_dir: Path) -> SerialConfig:
     """Read ``[tool.bitrab]`` from ``pyproject.toml`` and return serial config."""
-    pyproject = project_dir / "pyproject.toml"
-    if not pyproject.exists():
+    bitrab_section = load_bitrab_section(project_dir)
+    if bitrab_section is None:
         return SerialConfig()
-
-    data = _load_toml(pyproject)
-    bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
     enabled = bool(bitrab_section.get("serial", False))
     return SerialConfig(enabled=enabled)
 
@@ -191,20 +195,16 @@ def load_mutation_config(project_dir: Path) -> MutationConfig:
     Returns a disabled MutationConfig if ``pyproject.toml`` is missing or the
     section is absent.
     """
-    pyproject = project_dir / "pyproject.toml"
-    if not pyproject.exists():
+    bitrab_section = load_bitrab_section(project_dir)
+    if bitrab_section is None:
         return MutationConfig()
-
-    data = _load_toml(pyproject)
-    bitrab_section: dict[str, Any] = data.get("tool", {}).get("bitrab", {})
     enabled: bool = bool(bitrab_section.get("warn_on_mutation", False))
     mutation_section: dict[str, Any] = bitrab_section.get("mutation", {})
     whitelist: list[str] = list(mutation_section.get("whitelist", []))
-
     return MutationConfig(enabled=enabled, whitelist=whitelist)
 
 
-def _snapshot(project_dir: Path) -> dict[str, float]:
+def snapshot(project_dir: Path) -> dict[str, float]:
     """Walk *project_dir* and return a dict of ``{rel_path: mtime}``."""
     snapshot: dict[str, float] = {}
     root = str(project_dir)
@@ -218,7 +218,7 @@ def _snapshot(project_dir: Path) -> dict[str, float]:
     return snapshot
 
 
-def _is_whitelisted(rel_path: str, patterns: list[str]) -> bool:
+def is_whitelisted(rel_path: str, patterns: list[str]) -> bool:
     """Return True if *rel_path* matches any whitelist glob pattern."""
     # Normalise to forward-slash for consistent matching on all platforms
     norm = rel_path.replace(os.sep, "/")
@@ -245,14 +245,14 @@ class MutationSnapshot:
 
     project_dir: Path
     config: MutationConfig
-    _before: dict[str, float] = field(default_factory=dict, init=False)
+    before: dict[str, float] = field(default_factory=dict, init=False)
     # small grace period so timestamps written right at job-end aren't missed
-    _taken_at: float = field(default_factory=time.monotonic, init=False)
+    taken_at: float = field(default_factory=time.monotonic, init=False)
 
     def take(self) -> None:
         """Capture the current state of the project directory."""
-        self._before = _snapshot(self.project_dir)
-        self._taken_at = time.monotonic()
+        self.before = snapshot(self.project_dir)
+        self.taken_at = time.monotonic()
 
     def mutations(self) -> list[str]:
         """Compare the filesystem against the snapshot.
@@ -260,14 +260,14 @@ class MutationSnapshot:
         Returns a sorted list of relative paths that were created or modified
         after the snapshot was taken, excluding whitelisted paths.
         """
-        after = _snapshot(self.project_dir)
+        after = snapshot(self.project_dir)
         whitelist = self.config.effective_whitelist
         changed: list[str] = []
 
         for rel, mtime in after.items():
-            prev = self._before.get(rel)
+            prev = self.before.get(rel)
             if prev is None or mtime > prev:
-                if not _is_whitelisted(rel, whitelist):
+                if not is_whitelisted(rel, whitelist):
                     changed.append(rel)
 
         return sorted(changed)

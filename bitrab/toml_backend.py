@@ -15,42 +15,42 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 try:
-    import rtoml as _rtoml  # type: ignore[import]
+    import rtoml as rtoml_backend  # type: ignore[import]
 
-    def _load(file_path: Path) -> dict[str, Any]:
-        return _rtoml.load(file_path)
+    def load(file_path: Path) -> dict[str, Any]:
+        return rtoml_backend.load(file_path)
 
 except ImportError:
-    _rtoml = None  # type: ignore[assignment]
+    rtoml_backend = None  # type: ignore[assignment]
 
     try:
-        import tomllib as _tomllib  # type: ignore[import]
+        import tomllib as tomllib_backend  # type: ignore[import]
 
-        def _load(file_path: Path) -> dict[str, Any]:  # type: ignore[misc]
+        def load(file_path: Path) -> dict[str, Any]:  # type: ignore[misc]
             with open(file_path, "rb") as fh:
-                return _tomllib.load(fh)
+                return tomllib_backend.load(fh)
 
     except ImportError:
-        _tomllib = None  # type: ignore[assignment]
+        tomllib_backend = None  # type: ignore[assignment]
 
         try:
-            import tomli as _tomli  # type: ignore[import]
+            import tomli as tomli_backend  # type: ignore[import]
 
-            def _load(file_path: Path) -> dict[str, Any]:  # type: ignore[misc]
+            def load(file_path: Path) -> dict[str, Any]:  # type: ignore[misc]
                 with open(file_path, "rb") as fh:
-                    return _tomli.load(fh)
+                    return tomli_backend.load(fh)
 
         except ImportError:
-            import toml as _toml  # type: ignore[import]
+            import toml as toml_lib  # type: ignore[import]
 
-            def _load(file_path: Path) -> dict[str, Any]:  # type: ignore[misc]
+            def load(file_path: Path) -> dict[str, Any]:  # type: ignore[misc]
                 with open(file_path, encoding="utf-8") as fh:
-                    return _toml.load(fh)
+                    return toml_lib.load(fh)
 
 
 def load_file(file_path: Path) -> dict[str, Any]:
     """Load a TOML file, preferring rtoml (fast extras) then stdlib/tomli/toml."""
     try:
-        return _load(file_path)
+        return load(file_path)
     except Exception:
         return {}

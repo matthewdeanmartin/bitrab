@@ -20,7 +20,7 @@ import pytest
 
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.exceptions import JobExecutionError
-from bitrab.execution.artifacts import _artifact_dir
+from bitrab.execution.artifacts import artifact_dir
 from bitrab.execution.stage_runner import has_dag_jobs
 from bitrab.plan import LocalGitLabRunner, PipelineProcessor
 
@@ -29,27 +29,27 @@ from bitrab.plan import LocalGitLabRunner, PipelineProcessor
 # ---------------------------------------------------------------------------
 
 
-def _write(tmp_path: Path, content: str) -> Path:
+def write(tmp_path: Path, content: str) -> Path:
     p = tmp_path / ".gitlab-ci.yml"
     p.write_text(textwrap.dedent(content))
     return p
 
 
-def _runner(tmp_path: Path) -> LocalGitLabRunner:
+def runner(tmp_path: Path) -> LocalGitLabRunner:
     return LocalGitLabRunner(base_path=tmp_path)
 
 
-def _pipeline(tmp_path: Path):
+def pipeline(tmp_path: Path):
     loader = ConfigurationLoader(base_path=tmp_path)
     raw = loader.load_config(tmp_path / ".gitlab-ci.yml")
     return PipelineProcessor().process_config(raw)
 
 
-def _job_names(pipeline) -> set[str]:
+def job_names(pipeline) -> set[str]:
     return {j.name for j in pipeline.jobs}
 
 
-def _needs(pipeline, job_name: str) -> list[str]:
+def needs(pipeline, job_name: str) -> list[str]:
     return next(j.needs for j in pipeline.jobs if j.name == job_name)
 
 
@@ -112,26 +112,26 @@ class TestScenario1ClosedLoopGeneration:
         """
 
     def test_pipeline_is_a_dag(self, tmp_path):
-        _write(tmp_path, self.CI)
-        assert has_dag_jobs(_pipeline(tmp_path))
+        write(tmp_path, self.CI)
+        assert has_dag_jobs(pipeline(tmp_path))
 
     def test_linear_chain_jobs_parsed(self, tmp_path):
-        _write(tmp_path, self.CI)
-        names = _job_names(_pipeline(tmp_path))
+        write(tmp_path, self.CI)
+        names = job_names(pipeline(tmp_path))
         assert names == {"spec", "codegen", "testgen", "run_tests", "docgen", "publish"}
 
     def test_needs_chain(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "codegen") == ["spec"]
-        assert _needs(p, "testgen") == ["codegen"]
-        assert _needs(p, "run_tests") == ["testgen"]
-        assert _needs(p, "docgen") == ["run_tests"]
-        assert _needs(p, "publish") == ["docgen"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "codegen") == ["spec"]
+        assert needs(p, "testgen") == ["codegen"]
+        assert needs(p, "run_tests") == ["testgen"]
+        assert needs(p, "docgen") == ["run_tests"]
+        assert needs(p, "publish") == ["docgen"]
 
     def test_full_pipeline_executes(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "spec.json").exists()
         assert (tmp_path / "generated.py").exists()
         assert (tmp_path / "test_results.txt").exists()
@@ -157,21 +157,21 @@ class TestScenario1ClosedLoopGeneration:
               script:
                 - echo "should not run" > published.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "published.txt").exists()
 
     def test_spec_artifact_collected(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        dest = _artifact_dir(tmp_path, "spec")
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        dest = artifact_dir(tmp_path, "spec")
         assert (dest / "spec.json").exists()
 
     def test_codegen_artifact_collected(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        dest = _artifact_dir(tmp_path, "codegen")
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        dest = artifact_dir(tmp_path, "codegen")
         assert (dest / "generated.py").exists()
 
 
@@ -226,20 +226,20 @@ class TestScenario2RegressionMatrix:
         """
 
     def test_parallel_compat_jobs_parsed(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "test_v1") == ["current_code"]
-        assert _needs(p, "test_v2") == ["current_code"]
-        assert _needs(p, "test_v3") == ["current_code"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "test_v1") == ["current_code"]
+        assert needs(p, "test_v2") == ["current_code"]
+        assert needs(p, "test_v3") == ["current_code"]
 
     def test_detect_break_waits_for_all_compat(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert set(_needs(p, "detect_break")) == {"test_v1", "test_v2", "test_v3"}
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert set(needs(p, "detect_break")) == {"test_v1", "test_v2", "test_v3"}
 
     def test_fan_out_fan_in_executes(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         for v in ["v1", "v2", "v3"]:
             assert (tmp_path / f"compat_{v}.txt").exists()
         assert (tmp_path / "break_report.txt").exists()
@@ -266,9 +266,9 @@ class TestScenario2RegressionMatrix:
               script:
                 - echo "should not run" > break_report.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
 
     def test_allow_failure_on_one_version_continues(self, tmp_path):
         ci = """\
@@ -293,8 +293,8 @@ class TestScenario2RegressionMatrix:
               script:
                 - echo "partial results" > break_report.txt
             """
-        _write(tmp_path, ci)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, ci)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "break_report.txt").exists()
 
 
@@ -346,26 +346,26 @@ class TestScenario3ExternalSampling:
         """
 
     def test_linear_etl_dag(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "normalize") == ["fetch_external_data"]
-        assert _needs(p, "analyze") == ["normalize"]
-        assert _needs(p, "publish_report") == ["analyze"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "normalize") == ["fetch_external_data"]
+        assert needs(p, "analyze") == ["normalize"]
+        assert needs(p, "publish_report") == ["analyze"]
 
     def test_pipeline_executes_in_order(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "raw_data.json").exists()
         assert (tmp_path / "normalized.json").exists()
         assert (tmp_path / "analysis.txt").exists()
         assert (tmp_path / "report.md").exists()
 
     def test_artifacts_at_each_stage(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        assert (_artifact_dir(tmp_path, "fetch_external_data") / "raw_data.json").exists()
-        assert (_artifact_dir(tmp_path, "normalize") / "normalized.json").exists()
-        assert (_artifact_dir(tmp_path, "analyze") / "analysis.txt").exists()
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        assert (artifact_dir(tmp_path, "fetch_external_data") / "raw_data.json").exists()
+        assert (artifact_dir(tmp_path, "normalize") / "normalized.json").exists()
+        assert (artifact_dir(tmp_path, "analyze") / "analysis.txt").exists()
 
     def test_fetch_failure_blocks_whole_pipeline(self, tmp_path):
         ci = """\
@@ -379,9 +379,9 @@ class TestScenario3ExternalSampling:
               script:
                 - echo done > report.md
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "report.md").exists()
 
 
@@ -444,24 +444,24 @@ class TestScenario4LifeCI:
         """
 
     def test_three_ingest_sources_no_needs(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "ingest_strava") == []
-        assert _needs(p, "ingest_github") == []
-        assert _needs(p, "ingest_mastodon") == []
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "ingest_strava") == []
+        assert needs(p, "ingest_github") == []
+        assert needs(p, "ingest_mastodon") == []
 
     def test_score_day_waits_for_all_ingests(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert set(_needs(p, "score_day")) == {
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert set(needs(p, "score_day")) == {
             "ingest_strava",
             "ingest_github",
             "ingest_mastodon",
         }
 
     def test_full_life_ci_pipeline(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "strava.txt").exists()
         assert (tmp_path / "github.txt").exists()
         assert (tmp_path / "mastodon.txt").exists()
@@ -485,9 +485,9 @@ class TestScenario4LifeCI:
               script:
                 - echo "should not run" > score.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "score.txt").exists()
 
 
@@ -557,28 +557,28 @@ class TestScenario5MonteCarlo:
         """
 
     def test_all_simulations_depend_on_seed(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
         for sim in ["simulate_1", "simulate_2", "simulate_3"]:
-            assert _needs(p, sim) == ["seed"]
+            assert needs(p, sim) == ["seed"]
 
     def test_aggregate_waits_for_all_sims(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert set(_needs(p, "aggregate")) == {"simulate_1", "simulate_2", "simulate_3"}
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert set(needs(p, "aggregate")) == {"simulate_1", "simulate_2", "simulate_3"}
 
     def test_monte_carlo_pipeline_runs(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         for i in range(1, 4):
             assert (tmp_path / f"sim_{i}.txt").exists()
         assert (tmp_path / "aggregated.txt").exists()
         assert (tmp_path / "decision.txt").exists()
 
     def test_seed_artifact_collected(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        assert (_artifact_dir(tmp_path, "seed") / "seed.txt").exists()
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        assert (artifact_dir(tmp_path, "seed") / "seed.txt").exists()
 
     def test_simulation_failure_blocks_aggregate(self, tmp_path):
         ci = """\
@@ -600,9 +600,9 @@ class TestScenario5MonteCarlo:
               script:
                 - echo "should not run" > aggregated.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "aggregated.txt").exists()
 
     def test_allow_failure_on_outlier_sim(self, tmp_path):
@@ -629,8 +629,8 @@ class TestScenario5MonteCarlo:
               script:
                 - echo done > aggregated.txt
             """
-        _write(tmp_path, ci)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, ci)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "aggregated.txt").exists()
 
 
@@ -712,21 +712,21 @@ class TestScenario6ScientificExperiment:
         """
 
     def test_two_independent_hypothesis_chains(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "experiment_A") == ["hypothesis_A"]
-        assert _needs(p, "experiment_B") == ["hypothesis_B"]
-        assert _needs(p, "results_A") == ["experiment_A"]
-        assert _needs(p, "results_B") == ["experiment_B"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "experiment_A") == ["hypothesis_A"]
+        assert needs(p, "experiment_B") == ["hypothesis_B"]
+        assert needs(p, "results_A") == ["experiment_A"]
+        assert needs(p, "results_B") == ["experiment_B"]
 
     def test_compare_merges_both_chains(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert set(_needs(p, "compare")) == {"results_A", "results_B"}
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert set(needs(p, "compare")) == {"results_A", "results_B"}
 
     def test_full_experiment_pipeline(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "experiment_a.txt").exists()
         assert (tmp_path / "experiment_b.txt").exists()
         assert (tmp_path / "results_a.txt").exists()
@@ -761,9 +761,9 @@ class TestScenario6ScientificExperiment:
               script:
                 - echo "should not run" > comparison.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "comparison.txt").exists()
 
 
@@ -825,16 +825,16 @@ class TestScenario7ConstraintSearch:
         """
 
     def test_linear_search_dag(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "evaluate") == ["generate_candidates"]
-        assert _needs(p, "prune") == ["evaluate"]
-        assert _needs(p, "expand") == ["prune"]
-        assert _needs(p, "converge") == ["expand"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "evaluate") == ["generate_candidates"]
+        assert needs(p, "prune") == ["evaluate"]
+        assert needs(p, "expand") == ["prune"]
+        assert needs(p, "converge") == ["expand"]
 
     def test_search_pipeline_runs(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "candidates.txt").exists()
         assert (tmp_path / "scores.txt").exists()
         assert (tmp_path / "pruned.txt").exists()
@@ -857,21 +857,21 @@ class TestScenario7ConstraintSearch:
               script:
                 - echo "should not run" > best_solution.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "best_solution.txt").exists()
 
     def test_each_stage_artifact_collected(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         for job, file in [
             ("generate_candidates", "candidates.txt"),
             ("evaluate", "scores.txt"),
             ("prune", "pruned.txt"),
             ("expand", "expanded.txt"),
         ]:
-            assert (_artifact_dir(tmp_path, job) / file).exists(), f"missing artifact for {job}"
+            assert (artifact_dir(tmp_path, job) / file).exists(), f"missing artifact for {job}"
 
 
 # ===========================================================================
@@ -915,40 +915,40 @@ class TestScenario8WorkflowEngine:
         """
 
     def test_approval_gate_is_manual(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
         gate = next(j for j in p.jobs if j.name == "approval_gate")
         assert gate.when == "manual"
 
     def test_task_b_is_also_manual(self, tmp_path):
         """task_B is guarded by when:manual so it won't run automatically."""
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
         task_b = next(j for j in p.jobs if j.name == "task_B")
         assert task_b.when == "manual"
 
     def test_task_b_depends_on_approval_gate(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "task_B") == ["approval_gate"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "task_B") == ["approval_gate"]
 
     def test_manual_jobs_not_executed_automatically(self, tmp_path):
         """Both manual jobs are skipped; only task_A runs automatically."""
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "task_a.txt").exists()
         assert not (tmp_path / "approved.txt").exists()
         assert not (tmp_path / "task_b.txt").exists()
 
     def test_task_a_runs_before_gate(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "task_a.txt").exists()
 
     def test_job_filter_to_pre_gate_work(self, tmp_path):
         """Filtering to just task_A confirms the pre-gate job runs cleanly."""
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(
             maximum_degree_of_parallelism=1,
             job_filter=["task_A"],
         )
@@ -1002,15 +1002,15 @@ class TestScenario9DocumentationTruth:
         """
 
     def test_dag_chain(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "generate_docs") == ["extract_api"]
-        assert _needs(p, "validate_examples") == ["generate_docs"]
-        assert _needs(p, "publish") == ["validate_examples"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "generate_docs") == ["extract_api"]
+        assert needs(p, "validate_examples") == ["generate_docs"]
+        assert needs(p, "publish") == ["validate_examples"]
 
     def test_full_docs_pipeline(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "api_spec.yaml").exists()
         assert (tmp_path / "docs.md").exists()
         assert (tmp_path / "validation.txt").exists()
@@ -1036,15 +1036,15 @@ class TestScenario9DocumentationTruth:
               script:
                 - echo "should not run" > published_docs.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "published_docs.txt").exists()
 
     def test_api_artifact_available_to_generate_docs(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        assert (_artifact_dir(tmp_path, "extract_api") / "api_spec.yaml").exists()
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        assert (artifact_dir(tmp_path, "extract_api") / "api_spec.yaml").exists()
 
 
 # ===========================================================================
@@ -1102,16 +1102,16 @@ class TestScenario10SecurityDrift:
         """
 
     def test_security_dag_chain(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "detect_drift") == ["scan"]
-        assert _needs(p, "classify") == ["detect_drift"]
-        assert _needs(p, "auto_remediate") == ["classify"]
-        assert _needs(p, "report") == ["auto_remediate"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "detect_drift") == ["scan"]
+        assert needs(p, "classify") == ["detect_drift"]
+        assert needs(p, "auto_remediate") == ["classify"]
+        assert needs(p, "report") == ["auto_remediate"]
 
     def test_full_security_pipeline(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "scan_results.txt").exists()
         assert (tmp_path / "drift.txt").exists()
         assert (tmp_path / "classification.txt").exists()
@@ -1130,9 +1130,9 @@ class TestScenario10SecurityDrift:
               script:
                 - echo "should not run" > remediation.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "remediation.txt").exists()
 
     def test_report_runs_always_for_audit(self, tmp_path):
@@ -1153,9 +1153,9 @@ class TestScenario10SecurityDrift:
               script:
                 - echo "audit report" > security_report.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         # The always report job still produces output
         assert (tmp_path / "security_report.txt").exists()
 
@@ -1219,16 +1219,16 @@ class TestScenario11ArtifactEvolution:
         """
 
     def test_progressive_refinement_dag(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "transform_to_html") == ["input"]
-        assert _needs(p, "transform_to_pdf") == ["transform_to_html"]
-        assert _needs(p, "transform_to_epub") == ["transform_to_pdf"]
-        assert _needs(p, "compare_outputs") == ["transform_to_epub"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "transform_to_html") == ["input"]
+        assert needs(p, "transform_to_pdf") == ["transform_to_html"]
+        assert needs(p, "transform_to_epub") == ["transform_to_pdf"]
+        assert needs(p, "compare_outputs") == ["transform_to_epub"]
 
     def test_artifact_chain_produces_all_formats(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "doc.md").exists()
         assert (tmp_path / "doc.html").exists()
         assert (tmp_path / "doc.pdf").exists()
@@ -1236,12 +1236,12 @@ class TestScenario11ArtifactEvolution:
         assert (tmp_path / "comparison.txt").exists()
 
     def test_artifacts_stored_at_each_transform(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        assert (_artifact_dir(tmp_path, "input") / "doc.md").exists()
-        assert (_artifact_dir(tmp_path, "transform_to_html") / "doc.html").exists()
-        assert (_artifact_dir(tmp_path, "transform_to_pdf") / "doc.pdf").exists()
-        assert (_artifact_dir(tmp_path, "transform_to_epub") / "doc.epub").exists()
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        assert (artifact_dir(tmp_path, "input") / "doc.md").exists()
+        assert (artifact_dir(tmp_path, "transform_to_html") / "doc.html").exists()
+        assert (artifact_dir(tmp_path, "transform_to_pdf") / "doc.pdf").exists()
+        assert (artifact_dir(tmp_path, "transform_to_epub") / "doc.epub").exists()
 
     def test_mid_chain_failure_blocks_compare(self, tmp_path):
         ci = """\
@@ -1259,9 +1259,9 @@ class TestScenario11ArtifactEvolution:
               script:
                 - echo "should not run" > comparison.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "comparison.txt").exists()
 
 
@@ -1329,19 +1329,19 @@ class TestScenario12LLMEnsemble:
         """
 
     def test_all_models_depend_on_prompt(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
         for model in ["model_A", "model_B", "model_C"]:
-            assert _needs(p, model) == ["prompt"]
+            assert needs(p, model) == ["prompt"]
 
     def test_judge_aggregates_all_models(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert set(_needs(p, "judge")) == {"model_A", "model_B", "model_C"}
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert set(needs(p, "judge")) == {"model_A", "model_B", "model_C"}
 
     def test_ensemble_pipeline_runs(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         for resp in ["response_a.txt", "response_b.txt", "response_c.txt"]:
             assert (tmp_path / resp).exists()
         assert (tmp_path / "verdict.txt").exists()
@@ -1367,9 +1367,9 @@ class TestScenario12LLMEnsemble:
               script:
                 - echo "should not run" > verdict.txt
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "verdict.txt").exists()
 
     def test_degraded_ensemble_with_allow_failure(self, tmp_path):
@@ -1401,8 +1401,8 @@ class TestScenario12LLMEnsemble:
               script:
                 - echo "partial consensus" > verdict.txt
             """
-        _write(tmp_path, ci)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, ci)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "verdict.txt").exists()
 
 
@@ -1479,19 +1479,19 @@ class TestScenario13GeneticAlgorithm:
         """
 
     def test_all_mutants_depend_on_population(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
         for m in ["mutate_1", "mutate_2", "mutate_3"]:
-            assert _needs(p, m) == ["population"]
+            assert needs(p, m) == ["population"]
 
     def test_evaluate_waits_for_all_mutants(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert set(_needs(p, "evaluate")) == {"mutate_1", "mutate_2", "mutate_3"}
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert set(needs(p, "evaluate")) == {"mutate_1", "mutate_2", "mutate_3"}
 
     def test_genetic_pipeline_runs(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         for i in range(1, 4):
             assert (tmp_path / f"mutant_{i}.txt").exists()
         assert (tmp_path / "fitness.txt").exists()
@@ -1499,10 +1499,10 @@ class TestScenario13GeneticAlgorithm:
         assert (tmp_path / "next_gen.txt").exists()
 
     def test_mutant_artifacts_collected(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         for i, f in enumerate(["mutant_1.txt", "mutant_2.txt", "mutant_3.txt"], 1):
-            assert (_artifact_dir(tmp_path, f"mutate_{i}") / f).exists()
+            assert (artifact_dir(tmp_path, f"mutate_{i}") / f).exists()
 
 
 # ===========================================================================
@@ -1550,25 +1550,25 @@ class TestScenario14GitAsDatabase:
         """
 
     def test_git_db_dag(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "compute") == ["read_repo_data"]
-        assert _needs(p, "write_new_state") == ["compute"]
-        assert _needs(p, "commit") == ["write_new_state"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "compute") == ["read_repo_data"]
+        assert needs(p, "write_new_state") == ["compute"]
+        assert needs(p, "commit") == ["write_new_state"]
 
     def test_pipeline_runs_in_order(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "historical.json").exists()
         assert (tmp_path / "new_state.json").exists()
         assert (tmp_path / "updated_history.json").exists()
         assert (tmp_path / "commit.log").exists()
 
     def test_read_artifact_available_downstream(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        assert (_artifact_dir(tmp_path, "read_repo_data") / "historical.json").exists()
-        assert (_artifact_dir(tmp_path, "compute") / "new_state.json").exists()
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        assert (artifact_dir(tmp_path, "read_repo_data") / "historical.json").exists()
+        assert (artifact_dir(tmp_path, "compute") / "new_state.json").exists()
 
     def test_compute_failure_prevents_commit(self, tmp_path):
         ci = """\
@@ -1586,9 +1586,9 @@ class TestScenario14GitAsDatabase:
               script:
                 - echo "should not run" > commit.log
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "commit.log").exists()
 
 
@@ -1638,24 +1638,24 @@ class TestScenario15SelfModifyingPipeline:
         """
 
     def test_self_modifying_dag(self, tmp_path):
-        _write(tmp_path, self.CI)
-        p = _pipeline(tmp_path)
-        assert _needs(p, "generate_new_ci") == ["analyze_pipeline"]
-        assert _needs(p, "validate_new_ci") == ["generate_new_ci"]
-        assert _needs(p, "commit") == ["validate_new_ci"]
+        write(tmp_path, self.CI)
+        p = pipeline(tmp_path)
+        assert needs(p, "generate_new_ci") == ["analyze_pipeline"]
+        assert needs(p, "validate_new_ci") == ["generate_new_ci"]
+        assert needs(p, "commit") == ["validate_new_ci"]
 
     def test_pipeline_runs_and_generates_new_ci(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert (tmp_path / "analysis.txt").exists()
         assert (tmp_path / "new_ci.yml").exists()
         assert (tmp_path / "validation.txt").exists()
         assert (tmp_path / "commit.log").exists()
 
     def test_generated_ci_artifact_stored(self, tmp_path):
-        _write(tmp_path, self.CI)
-        _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
-        assert (_artifact_dir(tmp_path, "generate_new_ci") / "new_ci.yml").exists()
+        write(tmp_path, self.CI)
+        runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+        assert (artifact_dir(tmp_path, "generate_new_ci") / "new_ci.yml").exists()
 
     def test_invalid_generation_blocks_commit(self, tmp_path):
         ci = """\
@@ -1673,7 +1673,7 @@ class TestScenario15SelfModifyingPipeline:
               script:
                 - echo "should not run" > commit.log
             """
-        _write(tmp_path, ci)
+        write(tmp_path, ci)
         with pytest.raises(JobExecutionError):
-            _runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
+            runner(tmp_path).run_pipeline(maximum_degree_of_parallelism=1)
         assert not (tmp_path / "commit.log").exists()
