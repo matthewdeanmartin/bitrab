@@ -384,7 +384,7 @@ class TestTUIOrchestratorControl:
         orch = make_orchestrator(tmp_path)
         orch.cancel_job("nonexistent-job")  # must not raise
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Windows-specific kill path")
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific kill path")
     def test_cancel_job_calls_taskkill_on_windows(self, tmp_path):
         orch = make_orchestrator(tmp_path)
         orch.worker_pids = {"j1": 99999}
