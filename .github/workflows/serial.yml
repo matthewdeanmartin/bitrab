@@ -1,11 +1,14 @@
 name: Build (serial)
+# Half the build minutes, same total duration!
+
 # Serial baseline: every quality check runs sequentially in a single job.
 # This is the apples-to-apples comparison for the bitrab parallel run —
 # same checks, same scripts, one runner, no overlap.
 # Compare wall-clock minutes against build.yml (parallel GHA) and the
 # bitrab quality-gate job to measure the value of parallelism.
 
-on: [push]
+on:
+  workflow_dispatch:
 
 permissions:
   contents: read

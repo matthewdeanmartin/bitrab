@@ -3,8 +3,6 @@ name: Bitrab Self
 # minutes in the Actions tab:
 #
 #   bitrab-parallel  — bitrab runs all jobs multithreaded in one container
-#   gha-parallel     — same checks spread across separate GHA runners (build.yml jobs)
-#   gha-serial       — same checks in sequence in one runner (serial.yml)
 #
 # Expected ordering: bitrab-parallel ≈ gha-parallel < gha-serial
 # The 20 % saving hypothesis: bitrab-parallel avoids per-runner spin-up and

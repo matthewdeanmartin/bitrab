@@ -1,11 +1,14 @@
 name: Build (parallel)
+# Double build minutes, same total duration!
+
 # Steelmanned parallel layout: all independent quality checks run as separate
 # jobs so GitHub can schedule them across runners simultaneously.  pytest
 # waits only for lint (same dependency as the bitrab pipeline), letting
 # mypy and precommit overlap with it.  Total wall-clock time is bounded by
 # the slowest independent path, not the sum of all checks.
 
-on: [push]
+on:
+  workflow_dispatch:
 
 permissions:
   contents: read
