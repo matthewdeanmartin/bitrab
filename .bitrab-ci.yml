@@ -64,7 +64,8 @@ precommit:
 
 pytest:
   stage: test
-  needs: ["lint"]
+  # parallel everywhere.
+  needs: []
   script: >-
     ./scripts/pytest.sh
   artifacts:
