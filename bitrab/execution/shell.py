@@ -279,7 +279,7 @@ def run_bash(
                 if not lines:
                     continue
 
-                for i, line in enumerate(lines):
+                for _i, line in enumerate(lines):
                     pending.append(line)
                     if line.endswith(("\n", "\r")):
                         buf.write(f"{color}{''.join(pending)}{reset}")
