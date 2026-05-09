@@ -1,7 +1,7 @@
-# Simple GitLab pipeline using uv. All bash is inlined; no Makefile logic.
-
-# Stages: test (lint, mypy, pytest), security (bandit), docs (checks & build), build (package), release (manual publish)
-
+# Bitrab quality gate — runs the same checks as the GitHub Actions workflows
+# but inside a single container, multithreaded (parallel backend).
+# All quality jobs run concurrently in the "test" stage; only pytest depends
+# on lint passing first (keeps fast feedback on style errors).
 
 image: python:3.11-slim
 
@@ -10,27 +10,14 @@ variables:
   UV_LINK_MODE: copy
   UV_PROJECT_ENVIRONMENT: .venv
   UV_CACHE_DIR: .uv
-  # Adjust if your package name differs
-
   PACKAGE_DIR: bitrab
 
 stages:
+  - setup
   - test
   - security
   - docs
   - build
-  - release
-
-# Shared setup to avoid duplication
-
-#before_script:
-#  - set -euo pipefail
-#  - apt-get update -y && apt-get install -y --no-install-recommends curl git ca-certificates && rm -rf /var/lib/apt/lists/*
-#  - |
-#    curl -LsSf https://astral.sh/uv/install.sh | sh -s -- -y
-#  - export PATH="$HOME/.local/bin:$PATH"
-#  - uv --version
-#  - uv sync --all-extras --dev
 
 cache:
   key:
@@ -42,12 +29,20 @@ cache:
     - .uv/
     - .cache/
 
-# ------------------------
+# ---------------------------------------------------------------------------
+# SETUP
+# ---------------------------------------------------------------------------
 
-# TEST STAGE
+install:
+  stage: setup
+  rules:
+    - if: "$CI_PIPELINE_SOURCE != 'local'"
+  script: >-
+    uv sync --all-extras
 
-# ------------------------
-
+# ---------------------------------------------------------------------------
+# TEST STAGE  (lint, mypy, precommit run in parallel; pytest waits for lint)
+# ---------------------------------------------------------------------------
 
 lint:
   stage: test
@@ -59,13 +54,17 @@ mypy:
   stage: test
   script: >-
     ./scripts/mypy.sh
+  allow_failure: false
+
 precommit:
   stage: test
   script: >-
     ./scripts/precommit.sh
+  allow_failure: false
+
 pytest:
   stage: test
-  needs: [ "lint" ]
+  needs: ["lint"]
   script: >-
     ./scripts/pytest.sh
   artifacts:
@@ -79,21 +78,26 @@ pytest:
       - htmlcov/
       - coverage.xml
 
-# ------------------------
-
+# ---------------------------------------------------------------------------
 # SECURITY STAGE
-
-# ------------------------
-
+# ---------------------------------------------------------------------------
 
 bandit:
   stage: security
   script: >-
     ./scripts/bandit.sh
+  allow_failure: false
+
+# ---------------------------------------------------------------------------
+# DOCS STAGE
+# ---------------------------------------------------------------------------
+
 check_docs:
   stage: docs
   script: >-
     ./scripts/check_docs.sh
+  allow_failure: false
+
 build_docs:
   stage: docs
   script: >-
@@ -102,12 +106,9 @@ build_docs:
     paths:
       - docs/
 
-# ------------------------
-
+# ---------------------------------------------------------------------------
 # BUILD STAGE
-
-# ------------------------
-
+# ---------------------------------------------------------------------------
 
 build_package:
   stage: build
@@ -116,20 +117,3 @@ build_package:
   artifacts:
     paths:
       - dist/
-
-# ------------------------
-
-# RELEASE STAGE (manual)
-
-# ------------------------
-
-
-publish_pypi:
-  stage: release
-  needs: [ "build_package" ]
-  rules:
-    - if: "$CI_COMMIT_TAG"
-      when: manual
-    - when: never
-  script: >-
-    ./scripts/publish_pypi.sh

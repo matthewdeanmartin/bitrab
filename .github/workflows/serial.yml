@@ -1,0 +1,62 @@
+name: Build (serial)
+# Serial baseline: every quality check runs sequentially in a single job.
+# This is the apples-to-apples comparison for the bitrab parallel run —
+# same checks, same scripts, one runner, no overlap.
+# Compare wall-clock minutes against build.yml (parallel GHA) and the
+# bitrab quality-gate job to measure the value of parallelism.
+
+on: [push]
+
+permissions:
+  contents: read
+
+env:
+  UV_LINK_MODE: copy
+  UV_PROJECT_ENVIRONMENT: .venv
+  UV_CACHE_DIR: .uv
+  PACKAGE_DIR: bitrab
+
+jobs:
+  quality-serial:
+    name: Quality gate (serial)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.14'
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            .venv
+            .uv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
+
+      - name: Lint
+        run: ./scripts/lint.sh
+
+      - name: Mypy
+        run: ./scripts/mypy.sh
+
+      - name: Pre-commit
+        run: ./scripts/precommit.sh
+
+      - name: Pytest
+        run: ./scripts/pytest.sh
+
+      - name: Bandit
+        run: ./scripts/bandit.sh
+
+      - name: Check docs
+        run: ./scripts/check_docs.sh

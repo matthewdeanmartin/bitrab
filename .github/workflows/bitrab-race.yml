@@ -1,0 +1,47 @@
+name: Bitrab race
+# Runs three quality pipelines on every push so you can compare wall-clock
+# minutes in the Actions tab:
+#
+#   bitrab-parallel  — bitrab runs all jobs multithreaded in one container
+#   gha-parallel     — same checks spread across separate GHA runners (build.yml jobs)
+#   gha-serial       — same checks in sequence in one runner (serial.yml)
+#
+# Expected ordering: bitrab-parallel ≈ gha-parallel < gha-serial
+# The 20 % saving hypothesis: bitrab-parallel avoids per-runner spin-up and
+# runs checks concurrently without paying for idle runner minutes.
+
+on: [push]
+
+permissions:
+  contents: read
+
+env:
+  UV_LINK_MODE: copy
+  UV_PROJECT_ENVIRONMENT: .venv
+  UV_CACHE_DIR: .uv
+  PACKAGE_DIR: bitrab
+
+# ---------------------------------------------------------------------------
+# bitrab-parallel: invoke bitrab with the shared .bitrab-ci.yml
+# ---------------------------------------------------------------------------
+jobs:
+  bitrab-parallel:
+    name: Bitrab (parallel, threads)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.14'
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            .venv
+            .uv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+      - run: pip install uv
+      - run: uv sync --all-extras
+      - name: Run bitrab quality gate (parallel)
+        run: uv run bitrab --no-tui --parallel-backend thread --yes
