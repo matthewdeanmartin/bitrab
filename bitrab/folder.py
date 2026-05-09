@@ -77,7 +77,7 @@ def dir_size_bytes(path: Path) -> int:
     return total
 
 
-def _human_size(num_bytes: int) -> str:
+def human_size(num_bytes: int) -> str:
     """Return a human-readable size string (e.g. ``"12.3 MB"``)."""
     value = float(num_bytes)
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -85,6 +85,9 @@ def _human_size(num_bytes: int) -> str:
             return f"{value:.1f} {unit}"
         value /= 1024.0
     return f"{value:.1f} PB"
+
+
+
 
 
 def make_run_id() -> str:
@@ -121,7 +124,7 @@ class RunRecord:
     @property
     def human_size(self) -> str:
         """Human-readable size string."""
-        return _human_size(self.size_bytes)
+        return human_size(self.size_bytes)
 
     @property
     def started_at_iso(self) -> str:
@@ -147,19 +150,19 @@ class FolderSummary:
 
     @property
     def total_human(self) -> str:
-        return _human_size(self.total_size_bytes)
+        return human_size(self.total_size_bytes)
 
     @property
     def logs_human(self) -> str:
-        return _human_size(self.logs_size_bytes)
+        return human_size(self.logs_size_bytes)
 
     @property
     def artifacts_human(self) -> str:
-        return _human_size(self.artifacts_size_bytes)
+        return human_size(self.artifacts_size_bytes)
 
     @property
     def job_dirs_human(self) -> str:
-        return _human_size(self.job_dirs_size_bytes)
+        return human_size(self.job_dirs_size_bytes)
 
     @property
     def is_large(self) -> bool:
@@ -183,7 +186,7 @@ class FolderSummary:
         if self.is_large:
             lines.append("")
             lines.append(
-                f"  ⚠️  Folder is large ({self.total_human} ≥ {_human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean"
+                f"  ⚠️  Folder is large ({self.total_human} ≥ {human_size(self.warn_threshold_bytes)}).  Consider running: bitrab folder clean"
             )
         return "\n".join(lines)
 
@@ -446,5 +449,5 @@ def maybe_warn_size(
     """Return a warning string if ``.bitrab/`` exceeds *warn_threshold_bytes*, else None."""
     summary = scan_folder(project_dir, warn_threshold_bytes=warn_threshold_bytes)
     if summary.is_large:
-        return f"⚠️  .bitrab/ is {summary.total_human} (threshold: {_human_size(warn_threshold_bytes)}). Run 'bitrab folder clean' to free space."
+        return f"⚠️  .bitrab/ is {summary.total_human} (threshold: {human_size(warn_threshold_bytes)}). Run 'bitrab folder clean' to free space."
     return None

@@ -588,9 +588,9 @@ def cmd_clean(args: argparse.Namespace) -> None:
 
         freed += clean_logs(project_dir)
 
-    from bitrab.folder import _human_size  # pylint: disable=import-outside-toplevel
+    from bitrab.folder import human_size  # pylint: disable=import-outside-toplevel
 
-    safe_print(f"🧹 Cleaned {_human_size(freed)} from .bitrab/")
+    safe_print(f"🧹 Cleaned {human_size(freed)} from .bitrab/")
 
 
 def cmd_logs(args: argparse.Namespace) -> None:
@@ -650,10 +650,10 @@ def cmd_logs(args: argparse.Namespace) -> None:
                 safe_print("  Nothing to remove.")
         else:
             # Delete all logs
-            from bitrab.folder import _human_size, clean_logs  # pylint: disable=import-outside-toplevel
+            from bitrab.folder import human_size, clean_logs  # pylint: disable=import-outside-toplevel
 
             freed = clean_logs(project_dir)
-            safe_print(f"🗑️  Removed all run logs ({_human_size(freed)} freed).")
+            safe_print(f"🗑️  Removed all run logs ({human_size(freed)} freed).")
 
 
 def cmd_folder(args: argparse.Namespace) -> None:
