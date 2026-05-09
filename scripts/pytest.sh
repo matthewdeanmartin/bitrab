@@ -6,6 +6,7 @@ fi
 
 export UV_NO_SYNC=true
 uv run --active pytest test -vv \
+-n 5 \
 --cov="$PACKAGE_DIR" --cov-branch \
 --cov-report=xml --cov-report=html \
 --cov-fail-under=70 \

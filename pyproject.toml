@@ -89,6 +89,7 @@ dev = [
     # build
     "vermin",
     "metametameta>=0.1.3; python_version >= '3.9'",
+    "hatch",
     "hatchling",
     "ruff>=0.12.0",
     "pylint",
