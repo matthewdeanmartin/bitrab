@@ -63,3 +63,6 @@ jobs:
 
       - name: Check docs
         run: ./scripts/check_docs.sh
+
+      - name: Hatch build
+        run: ./scripts/build_package.sh
