@@ -1,4 +1,4 @@
-name: Bitrab race
+name: Bitrab Self
 # Runs three quality pipelines on every push so you can compare wall-clock
 # minutes in the Actions tab:
 #
