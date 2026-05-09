@@ -179,14 +179,10 @@ def load_and_process_config(config_path: Path) -> tuple[dict, Any]:
         return raw_config, pipeline_config
     except (BitrabError, GitlabRunnerError) as e:
         safe_print(f"❌ Configuration error: {e}", file=sys.stderr)
-        if DEBUG:
-            raise
-        sys.exit(1)
+        raise
     except Exception as e:
         safe_print(f"❌ Unexpected error loading config: {e}", file=sys.stderr)
-        if DEBUG:
-            raise
-        sys.exit(1)
+        raise
 
 
 def cmd_run(args: argparse.Namespace) -> None:
@@ -258,17 +254,13 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     except (BitrabError, GitlabRunnerError) as e:
         safe_print(f"❌ Execution error: {e}", file=sys.stderr)
-        if DEBUG:
-            raise
-        sys.exit(1)
+        raise
     except KeyboardInterrupt:
         safe_print("\n🛑 Pipeline execution interrupted by user", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
         safe_print(f"❌ Unexpected error: {e}", file=sys.stderr)
-        if DEBUG:
-            raise
-        sys.exit(1)
+        raise
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -955,6 +947,12 @@ def main() -> None:
         args.func(args)
     except AttributeError:
         parser.print_help()
+        sys.exit(1)
+    except (BitrabError, GitlabRunnerError):
+        sys.exit(1)
+    except Exception:
+        if DEBUG:
+            raise
         sys.exit(1)
 
 
