@@ -192,8 +192,8 @@ test_all:
     runner = LocalGitLabRunner(tmp_path)
     runner.run_pipeline(maximum_degree_of_parallelism=2)
 
-    res_a = (tmp_path / ".bitrab" / "build_a" / "result.txt").read_text().strip()
-    res_b = (tmp_path / ".bitrab" / "build_b" / "result.txt").read_text().strip()
+    res_a = (tmp_path / ".bitrab" / "temp" / "build_a" / "result.txt").read_text().strip()
+    res_b = (tmp_path / ".bitrab" / "temp" / "build_b" / "result.txt").read_text().strip()
     assert res_a == "A"
     assert res_b == "B"
     assert (tmp_path / "tested.txt").exists()

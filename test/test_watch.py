@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bitrab.watch import collect_watched_paths, PipelineRerunHandler
+from bitrab.watch import PipelineRerunHandler, collect_watched_paths
 
 
 class TestCollectWatchedPaths:

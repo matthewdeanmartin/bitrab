@@ -33,6 +33,7 @@ from bitrab.execution.artifacts import (
 )
 from bitrab.execution.job import JobExecutor, JobRuntimeContext, RunResult
 from bitrab.execution.shell import TextWriter
+from bitrab.folder import ensure_bitrab_dir
 from bitrab.git_worktree import can_use_worktrees, job_worktree
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 from bitrab.mutation import MutationConfig, MutationSnapshot, ParallelBackendConfig, WorktreeConfig
@@ -354,8 +355,10 @@ class BaseRunner:
         return self.worktrees_available
 
     def make_job_dir(self, job: JobConfig) -> Path:
-        """Create and return the per-job directory."""
-        job_dir = self.job_executor.project_dir / ".bitrab" / sanitize_job_name(job.name)
+        """Create and return the per-job working directory under ``.bitrab/temp/``."""
+        if not self.job_executor.dry_run:
+            ensure_bitrab_dir(self.job_executor.project_dir)
+        job_dir = self.job_executor.project_dir / ".bitrab" / "temp" / sanitize_job_name(job.name)
         if not self.job_executor.dry_run:
             job_dir.mkdir(parents=True, exist_ok=True)
         return job_dir

@@ -214,9 +214,7 @@ class JobExecutor:
 
                 if job.script:
                     job_print("  🚀 Running script...")
-                    self.execute_scripts(
-                        job.script, env, execution_dir, output_writer=output_writer, deadline=deadline
-                    )
+                    self.execute_scripts(job.script, env, execution_dir, output_writer=output_writer, deadline=deadline)
 
                 job_print(f"✅ Job {job.name} completed successfully")
                 return

@@ -135,6 +135,145 @@ def project_identity_from_remote(remote_url: str) -> tuple[str, str, str]:
     return project_namespace, project_path, project_url
 
 
+def derive_github_actions_variables() -> dict[str, str]:
+    """Map GitHub Actions environment variables to their GitLab CI equivalents.
+
+    When running inside a GitHub Actions workflow (``GITHUB_ACTIONS=true``),
+    many GitLab CI variable names are unpopulated because the runner is GitHub,
+    not GitLab.  This function reads the standard ``GITHUB_*`` vars that GitHub
+    injects automatically and returns a dict of GitLab-style ``CI_*`` names so
+    that pipeline scripts written for GitLab work unchanged on GitHub.
+
+    Only variables that are actually set in the environment are mapped; missing
+    GitHub vars produce empty strings (same as GitLab does when a condition is
+    absent, e.g. no tag on a non-tagged push).
+
+    Returns an empty dict when ``GITHUB_ACTIONS`` is not ``"true"``.
+    """
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return {}
+
+    env = os.environ
+
+    sha = env.get("GITHUB_SHA", "")
+    short_sha = sha[:8] if sha else ""
+
+    # GITHUB_REF is "refs/heads/<branch>" or "refs/tags/<tag>"
+    github_ref = env.get("GITHUB_REF", "")
+    github_ref_name = env.get("GITHUB_REF_NAME", "")  # bare name, available since 2021
+    github_ref_type = env.get("GITHUB_REF_TYPE", "")  # "branch" or "tag"
+
+    if github_ref_type == "tag":
+        branch = ""
+        tag = github_ref_name
+    elif github_ref_type == "branch":
+        branch = github_ref_name
+        tag = ""
+    else:
+        # Fallback: parse from GITHUB_REF
+        if github_ref.startswith("refs/tags/"):
+            tag = github_ref[len("refs/tags/") :]
+            branch = ""
+        elif github_ref.startswith("refs/heads/"):
+            branch = github_ref[len("refs/heads/") :]
+            tag = ""
+        else:
+            branch = github_ref_name
+            tag = ""
+
+    ref_name = tag if tag else branch
+    ref_slug = ref_name.replace("/", "-")[:63]
+
+    # GITHUB_REPOSITORY is "owner/repo"
+    github_repo = env.get("GITHUB_REPOSITORY", "")
+    github_server_url = env.get("GITHUB_SERVER_URL", "https://github.com")
+    if github_repo:
+        parts = github_repo.split("/", 1)
+        project_namespace = parts[0] if parts else ""
+        project_path = github_repo
+        project_url = f"{github_server_url.rstrip('/')}/{github_repo}"
+        project_path_slug = project_path.replace("/", "-").lower()
+        project_name = parts[1] if len(parts) > 1 else github_repo
+    else:
+        project_namespace = ""
+        project_path = ""
+        project_url = ""
+        project_path_slug = ""
+        project_name = ""
+
+    # Actor / committer info
+    actor = env.get("GITHUB_ACTOR", "")
+
+    # Pipeline / run identifiers
+    run_id = env.get("GITHUB_RUN_ID", "")
+    run_number = env.get("GITHUB_RUN_NUMBER", "")
+    workflow = env.get("GITHUB_WORKFLOW", "")
+    event_name = env.get("GITHUB_EVENT_NAME", "push")
+
+    # CI_PIPELINE_SOURCE: map GitHub event names to GitLab pipeline source names
+    source_map = {
+        "push": "push",
+        "pull_request": "merge_request_event",
+        "schedule": "schedule",
+        "workflow_dispatch": "web",
+        "workflow_call": "pipeline",
+        "repository_dispatch": "trigger",
+        "release": "push",
+    }
+    pipeline_source = source_map.get(event_name, event_name)
+
+    return {
+        # Core CI flags — keep GITLAB_CI so scripts that check it still work
+        "CI": "true",
+        "GITLAB_CI": "true",
+        "CI_SERVER": "yes",
+        "CI_SERVER_NAME": "GitHub Actions (via bitrab)",
+        # Commit identity
+        "CI_COMMIT_SHA": sha,
+        "CI_COMMIT_SHORT_SHA": short_sha,
+        "CI_COMMIT_BRANCH": branch,
+        "CI_COMMIT_TAG": tag,
+        "CI_COMMIT_REF_NAME": ref_name,
+        "CI_COMMIT_REF_SLUG": ref_slug,
+        # Project identity
+        "CI_PROJECT_NAMESPACE": project_namespace,
+        "CI_PROJECT_PATH": project_path,
+        "CI_PROJECT_URL": project_url,
+        "CI_PROJECT_PATH_SLUG": project_path_slug,
+        "CI_PROJECT_NAME": project_name,
+        # Pipeline / job identifiers
+        "CI_PIPELINE_ID": run_id,
+        "CI_PIPELINE_IID": run_number,
+        "CI_PIPELINE_SOURCE": pipeline_source,
+        "CI_PIPELINE_URL": f"{project_url}/actions/runs/{run_id}" if project_url and run_id else "",
+        # Runner / server info
+        "CI_SERVER_URL": github_server_url,
+        "CI_RUNNER_DESCRIPTION": f"GitHub Actions runner ({env.get('RUNNER_NAME', '')})",
+        "CI_RUNNER_OS": env.get("RUNNER_OS", ""),
+        "CI_RUNNER_ARCH": env.get("RUNNER_ARCH", ""),
+        # Trigger actor
+        "GITLAB_USER_LOGIN": actor,
+        "GITLAB_USER_NAME": actor,
+        "CI_COMMIT_AUTHOR": actor,
+        # Workflow name maps loosely to GitLab's CI_JOB_NAME at the workflow level
+        "CI_PIPELINE_NAME": workflow,
+        # Pass through the raw GitHub vars so scripts can use them directly too
+        "GITHUB_ACTIONS": "true",
+        "GITHUB_SHA": sha,
+        "GITHUB_REF": github_ref,
+        "GITHUB_REF_NAME": github_ref_name,
+        "GITHUB_REF_TYPE": github_ref_type,
+        "GITHUB_REPOSITORY": github_repo,
+        "GITHUB_ACTOR": actor,
+        "GITHUB_RUN_ID": run_id,
+        "GITHUB_RUN_NUMBER": run_number,
+        "GITHUB_WORKFLOW": workflow,
+        "GITHUB_EVENT_NAME": event_name,
+        "GITHUB_SERVER_URL": github_server_url,
+        "GITHUB_WORKSPACE": env.get("GITHUB_WORKSPACE", ""),
+    }
+
+
 def derive_git_variables(project_dir: Path) -> dict[str, str]:
     """
     Populate the GitLab CI_COMMIT_* / CI_PROJECT_* variables that GitLab
@@ -233,16 +372,39 @@ class VariableManager:
         """
         Get GitLab CI built-in variables that we can simulate locally.
 
-        Git-derived variables (CI_COMMIT_SHA, CI_COMMIT_BRANCH, CI_COMMIT_TAG,
-        etc.) are populated by running git commands against the project
-        directory.  All values fall back to empty string when git is
-        unavailable or the directory is not a repo — matching what GitLab
-        itself would expose when those conditions are absent (e.g. no tag on a
-        non-tagged commit).
+        When running inside GitHub Actions (``GITHUB_ACTIONS=true``), the
+        GitHub-provided environment variables are mapped to their GitLab CI
+        equivalents automatically so that pipeline scripts work unchanged.
+
+        Outside GitHub Actions, git-derived variables (CI_COMMIT_SHA,
+        CI_COMMIT_BRANCH, CI_COMMIT_TAG, etc.) are populated by running git
+        commands against the project directory.  All values fall back to empty
+        string when git is unavailable or the directory is not a repo.
         """
+        github_vars = derive_github_actions_variables()
+        if github_vars:
+            # On GitHub Actions: start from the GitHub-mapped vars, then layer
+            # on the filesystem path (GitHub sets GITHUB_WORKSPACE but not
+            # CI_PROJECT_DIR in GitLab's sense).
+            base = github_vars.copy()
+            base["CI_PROJECT_DIR"] = str(self.project_dir)
+            # Per-job values — overwritten in prepare_environment()
+            base.setdefault("CI_JOB_ID", "")
+            base.setdefault("CI_JOB_STAGE", "")
+            base.setdefault("CI_JOB_NAME", "")
+            base.setdefault("CI_JOB_URL", "")
+            # Commit metadata from GitHub env is already set; also run git so
+            # CI_COMMIT_TITLE and CI_COMMIT_MESSAGE are populated (GitHub does
+            # not expose these directly).
+            git_vars = derive_git_variables(self.project_dir)
+            for key in ("CI_COMMIT_TITLE", "CI_COMMIT_MESSAGE", "CI_COMMIT_TIMESTAMP", "CI_COMMIT_AUTHOR"):
+                if git_vars.get(key):
+                    base[key] = git_vars[key]
+            return base
+
         pipeline_id = str(int(time.time()))  # stable within a single run, unique enough locally
 
-        base: dict[str, str] = {
+        base = {
             "CI": "true",
             "GITLAB_CI": "true",
             "CI_SERVER": "yes",

@@ -61,3 +61,30 @@ class TestBitrabCiYmlPreference:
         loader = self._make_loader(tmp_path)
         with pytest.raises(GitlabRunnerError, match="not found"):
             loader.load_config()
+
+    def test_uses_dot_bitrab_dir_when_only_it_exists(self, tmp_path):
+        bitrab_dir = tmp_path / ".bitrab"
+        bitrab_dir.mkdir()
+        (bitrab_dir / ".bitrab-ci.yml").write_text("stages:\n  - dotbitrab\n")
+        loader = self._make_loader(tmp_path)
+        cfg = loader.load_config()
+        assert cfg["stages"] == ["dotbitrab"]
+
+    def test_dot_bitrab_dir_wins_over_root_bitrab_ci(self, tmp_path):
+        bitrab_dir = tmp_path / ".bitrab"
+        bitrab_dir.mkdir()
+        (bitrab_dir / ".bitrab-ci.yml").write_text("stages:\n  - inner\n")
+        (tmp_path / ".bitrab-ci.yml").write_text("stages:\n  - outer\n")
+        loader = self._make_loader(tmp_path)
+        cfg = loader.load_config()
+        assert cfg["stages"] == ["inner"]
+
+    def test_warns_when_all_three_exist(self, tmp_path, caplog):
+        bitrab_dir = tmp_path / ".bitrab"
+        bitrab_dir.mkdir()
+        (bitrab_dir / ".bitrab-ci.yml").write_text("stages:\n  - inner\n")
+        (tmp_path / ".bitrab-ci.yml").write_text("stages:\n  - outer\n")
+        (tmp_path / ".gitlab-ci.yml").write_text("stages:\n  - gitlab\n")
+        loader = self._make_loader(tmp_path)
+        loader.load_config()
+        assert any("Multiple" in m for m in caplog.messages)

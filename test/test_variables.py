@@ -10,9 +10,9 @@ from bitrab.execution.variables import (
     VariableManager,
     derive_git_variables,
     git_head_metadata,
-    project_identity_from_remote,
     load_dotenv_files,
     parse_dotenv,
+    project_identity_from_remote,
 )
 from bitrab.models.pipeline import JobConfig
 

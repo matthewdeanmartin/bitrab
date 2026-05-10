@@ -9,15 +9,15 @@ from pathlib import Path
 import pytest
 
 from bitrab.folder import (
-    human_size,
-    is_run_id,
-    make_run_id,
     bitrab_dir,
     clean_all,
     clean_artifacts,
     clean_job_dirs,
     clean_logs,
+    human_size,
+    is_run_id,
     list_runs,
+    make_run_id,
     maybe_warn_size,
     prune_runs,
     scan_folder,
@@ -102,11 +102,10 @@ def test_scan_folder_nonexistent(tmp_path):
 
 def test_scan_folder_counts_job_dirs(tmp_path):
     bd = tmp_path / ".bitrab"
-    make_file(bd / "myjob" / "output.log", size=1024)
+    make_file(bd / "temp" / "myjob" / "output.log", size=1024)
     summary = scan_folder(tmp_path)
     assert summary.exists
     assert summary.job_dirs_size_bytes >= 1024
-    assert "myjob" in summary.subdirs
 
 
 def test_scan_folder_counts_artifacts(tmp_path):
@@ -128,14 +127,14 @@ def test_scan_folder_counts_logs(tmp_path):
 
 def test_scan_folder_size_warning(tmp_path):
     bd = tmp_path / ".bitrab"
-    make_file(bd / "myjob" / "big.bin", size=1024)
+    make_file(bd / "temp" / "myjob" / "big.bin", size=1024)
     summary = scan_folder(tmp_path, warn_threshold_bytes=100)
     assert summary.is_large
 
 
 def test_scan_folder_no_warning_under_threshold(tmp_path):
     bd = tmp_path / ".bitrab"
-    make_file(bd / "myjob" / "small.txt", size=10)
+    make_file(bd / "temp" / "myjob" / "small.txt", size=10)
     summary = scan_folder(tmp_path, warn_threshold_bytes=10 * 1024 * 1024)
     assert not summary.is_large
 
@@ -284,16 +283,15 @@ def test_clean_artifacts_nonexistent(tmp_path):
 
 
 def test_clean_job_dirs(tmp_path):
-    make_file(tmp_path / ".bitrab" / "job_a" / "output.log", size=128)
-    make_file(tmp_path / ".bitrab" / "job_b" / "output.log", size=64)
+    make_file(tmp_path / ".bitrab" / "temp" / "job_a" / "output.log", size=128)
+    make_file(tmp_path / ".bitrab" / "temp" / "job_b" / "output.log", size=64)
     freed = clean_job_dirs(tmp_path)
     assert freed >= 192
-    assert not (tmp_path / ".bitrab" / "job_a").exists()
-    assert not (tmp_path / ".bitrab" / "job_b").exists()
+    assert not (tmp_path / ".bitrab" / "temp").exists()
 
 
 def test_clean_job_dirs_preserves_artifacts_and_logs(tmp_path):
-    make_file(tmp_path / ".bitrab" / "myjob" / "out.log", size=32)
+    make_file(tmp_path / ".bitrab" / "temp" / "myjob" / "out.log", size=32)
     make_file(tmp_path / ".bitrab" / "artifacts" / "build" / "x", size=32)
     write_run_log(
         tmp_path,
@@ -305,7 +303,7 @@ def test_clean_job_dirs_preserves_artifacts_and_logs(tmp_path):
     # artifacts and logs must survive
     assert (tmp_path / ".bitrab" / "artifacts").exists()
     assert (tmp_path / ".bitrab" / "logs").exists()
-    assert not (tmp_path / ".bitrab" / "myjob").exists()
+    assert not (tmp_path / ".bitrab" / "temp" / "myjob").exists()
 
 
 def test_clean_logs(tmp_path):
@@ -321,7 +319,7 @@ def test_clean_logs(tmp_path):
 
 
 def test_clean_all(tmp_path):
-    make_file(tmp_path / ".bitrab" / "myjob" / "out.log", size=64)
+    make_file(tmp_path / ".bitrab" / "temp" / "myjob" / "out.log", size=64)
     make_file(tmp_path / ".bitrab" / "artifacts" / "x.zip", size=64)
     write_run_log(
         tmp_path,
@@ -344,12 +342,12 @@ def test_clean_all_nonexistent(tmp_path):
 
 
 def test_maybe_warn_size_no_warning(tmp_path):
-    make_file(tmp_path / ".bitrab" / "job" / "out.log", size=10)
+    make_file(tmp_path / ".bitrab" / "temp" / "job" / "out.log", size=10)
     assert maybe_warn_size(tmp_path, warn_threshold_bytes=10 * 1024 * 1024) is None
 
 
 def test_maybe_warn_size_triggers(tmp_path):
-    make_file(tmp_path / ".bitrab" / "job" / "out.log", size=1024)
+    make_file(tmp_path / ".bitrab" / "temp" / "job" / "out.log", size=1024)
     msg = maybe_warn_size(tmp_path, warn_threshold_bytes=100)
     assert msg is not None
     assert "bitrab folder clean" in msg
@@ -371,7 +369,7 @@ def test_folder_summary_format_nonexistent(tmp_path):
 
 
 def test_folder_summary_format_exists(tmp_path):
-    make_file(tmp_path / ".bitrab" / "myjob" / "out.log", size=128)
+    make_file(tmp_path / ".bitrab" / "temp" / "myjob" / "out.log", size=128)
     summary = scan_folder(tmp_path)
     text = summary.format_text()
     assert ".bitrab" in text

@@ -140,12 +140,17 @@ def setup_logging(verbose: bool, quiet: bool) -> None:
 
 
 def resolve_config_path(explicit_config: str | None) -> Path:
-    """Resolve the config file path, preferring .bitrab-ci.yml over .gitlab-ci.yml.
+    """Resolve the config file path from up to three candidate locations.
 
     When the user supplies an explicit path, use it as-is.  When no path is
-    given, check for .bitrab-ci.yml first; fall back to .gitlab-ci.yml.  A
-    warning is printed only when *both* files coexist and the caller did not
-    specify a path, so the user knows which file was chosen.
+    given, search in priority order:
+
+      1. ``.bitrab/.bitrab-ci.yml``  — project-local bitrab config folder
+      2. ``.bitrab-ci.yml``          — root-level bitrab override
+      3. ``.gitlab-ci.yml``          — standard GitLab CI file (fallback)
+
+    A warning is logged whenever more than one candidate exists so the user
+    knows which file was chosen.
 
     This is intentionally centralised here so that every command (run, validate,
     list, graph, debug, watch) follows the exact same resolution rule and the
@@ -154,15 +159,24 @@ def resolve_config_path(explicit_config: str | None) -> Path:
     if explicit_config:
         return Path(explicit_config)
 
-    bitrab_ci = Path(".bitrab-ci.yml")
+    dot_bitrab_dir = Path(".bitrab") / ".bitrab-ci.yml"
+    root_bitrab = Path(".bitrab-ci.yml")
     gitlab_ci = Path(".gitlab-ci.yml")
 
-    if bitrab_ci.exists():
-        if gitlab_ci.exists():
-            logger.warning(
-                "Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — pass -c .gitlab-ci.yml explicitly to use the other one."
-            )
-        return bitrab_ci
+    candidates = [p for p in (dot_bitrab_dir, root_bitrab, gitlab_ci) if p.exists()]
+
+    if len(candidates) > 1:
+        names = ", ".join(str(p) for p in candidates)
+        chosen = candidates[0]
+        logger.warning(
+            "Multiple CI config files found (%s). Using %s — pass -c <path> explicitly to use a different one.",
+            names,
+            chosen,
+        )
+        return chosen
+
+    if candidates:
+        return candidates[0]
 
     return gitlab_ci
 
@@ -638,7 +652,7 @@ def cmd_logs(args: argparse.Namespace) -> None:
                 safe_print("  Nothing to remove.")
         else:
             # Delete all logs
-            from bitrab.folder import human_size, clean_logs  # pylint: disable=import-outside-toplevel
+            from bitrab.folder import clean_logs, human_size  # pylint: disable=import-outside-toplevel
 
             freed = clean_logs(project_dir)
             safe_print(f"🗑️  Removed all run logs ({human_size(freed)} freed).")

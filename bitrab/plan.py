@@ -411,9 +411,7 @@ class PipelineProcessor:
             # users don't think their deploy gate is doing anything.
             start_in = job_data.get("start_in")
             extra = f" (start_in={start_in!r})" if start_in else ""
-            safe_print(
-                f"⚠️  Job '{name}' uses when: delayed{extra} — bitrab ignores start_in and runs it immediately."
-            )
+            safe_print(f"⚠️  Job '{name}' uses when: delayed{extra} — bitrab ignores start_in and runs it immediately.")
 
         return JobConfig(
             name=name,

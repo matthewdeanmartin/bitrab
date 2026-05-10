@@ -14,9 +14,9 @@ from bitrab.execution.stage_runner import JobOutcome
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig, PipelineConfig
 from bitrab.tui.orchestrator import (
+    CIFileCallbacks,
     QueueWriter,
     TUIOrchestrator,
-    CIFileCallbacks,
     run_single_job_file,
     run_single_job_queued,
 )

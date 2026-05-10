@@ -160,8 +160,8 @@ job2:
     runner = LocalGitLabRunner(tmp_path)
     runner.run_pipeline(maximum_degree_of_parallelism=2)
 
-    res1 = (tmp_path / ".bitrab" / "job1" / "result.txt").read_text().strip()
-    res2 = (tmp_path / ".bitrab" / "job2" / "result.txt").read_text().strip()
+    res1 = (tmp_path / ".bitrab" / "temp" / "job1" / "result.txt").read_text().strip()
+    res2 = (tmp_path / ".bitrab" / "temp" / "job2" / "result.txt").read_text().strip()
 
     assert res1 == "JOB1"
     assert res2 == "JOB2"

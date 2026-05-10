@@ -15,6 +15,41 @@ from bitrab.exceptions import GitlabRunnerError
 logger = logging.getLogger(__name__)
 
 
+def _resolve_config_auto(base_path: Path) -> Path:
+    """Auto-detect the config file from three candidate locations.
+
+    Priority (first found wins):
+      1. ``.bitrab/.bitrab-ci.yml``
+      2. ``.bitrab-ci.yml``
+      3. ``.gitlab-ci.yml``
+
+    A warning is logged whenever more than one candidate exists so the user
+    knows which file was chosen.
+    """
+    dot_bitrab_dir = base_path / ".bitrab" / ".bitrab-ci.yml"
+    root_bitrab = base_path / ".bitrab-ci.yml"
+    gitlab = base_path / ".gitlab-ci.yml"
+
+    candidates = [p for p in (dot_bitrab_dir, root_bitrab, gitlab) if p.exists()]
+
+    if len(candidates) > 1:
+        names = ", ".join(str(p.relative_to(base_path)) for p in candidates)
+        chosen = candidates[0]
+        logger.warning(
+            "Multiple CI config files found (%s). Using %s — pass -c <path> explicitly to use a different one.",
+            names,
+            chosen.relative_to(base_path),
+        )
+        return chosen
+
+    if candidates:
+        return candidates[0]
+
+    # Default to .gitlab-ci.yml even if it doesn't exist; the caller will
+    # produce a clear "file not found" error.
+    return gitlab
+
+
 class ConfigurationLoader:
     """
     Loads and processes GitLab CI configuration files.
@@ -35,10 +70,12 @@ class ConfigurationLoader:
         """
         Load the main configuration file and process includes.
 
-        When *config_path* is not supplied (or equals the default
-        ``.gitlab-ci.yml``), the loader first checks whether a
-        ``.bitrab-ci.yml`` file exists in the same directory.  If both files
-        are present a warning is printed and ``.bitrab-ci.yml`` is used.
+        When *config_path* is not supplied the loader searches three locations
+        in priority order and warns when more than one candidate exists:
+
+        1. ``.bitrab/.bitrab-ci.yml``  — project-local bitrab config folder
+        2. ``.bitrab-ci.yml``          — root-level bitrab override
+        3. ``.gitlab-ci.yml``          — standard GitLab CI file (fallback)
 
         Args:
             config_path: Path to the configuration file.
@@ -47,21 +84,10 @@ class ConfigurationLoader:
             The loaded and processed configuration.
 
         Raises:
-            GitLabCIError: If the configuration file is not found or fails to load.
+            GitlabRunnerError: If the configuration file is not found or fails to load.
         """
-        default_gitlab = self.base_path / ".gitlab-ci.yml"
-        default_bitrab = self.base_path / ".bitrab-ci.yml"
-
         if config_path is None:
-            # Auto-detect: prefer .bitrab-ci.yml when available
-            if default_bitrab.exists():
-                if default_gitlab.exists():
-                    logger.warning(
-                        "Both .bitrab-ci.yml and .gitlab-ci.yml exist. Using .bitrab-ci.yml — remove .gitlab-ci.yml or pass -c .gitlab-ci.yml explicitly to suppress this warning."
-                    )
-                config_path = default_bitrab
-            else:
-                config_path = default_gitlab
+            config_path = _resolve_config_auto(self.base_path)
 
         if not config_path.exists():
             raise GitlabRunnerError(f"Configuration file not found: {config_path}")
