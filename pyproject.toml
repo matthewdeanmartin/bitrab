@@ -123,7 +123,6 @@ dev = [
 
 [tool.uv]
 default-groups = "all"
-universal = true
 
 [tool.uv.sources]
 bitrab = { workspace = true }
@@ -133,6 +132,8 @@ members = ["./",
     # App plugins
 ]
 
+[tool.uv.pip]
+universal = true
 [project.scripts]
 bitrab = "bitrab.cli:main"
 
