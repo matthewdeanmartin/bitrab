@@ -43,7 +43,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 
@@ -68,6 +67,11 @@ all = [
 
 [dependency-groups]
 dev = [
+    "jiggle-version>=2.1.0",
+    "troml-dev-status>=0.6.0",
+    "dont-be-lazy>=0.1.2",
+    "pydoc-fork>=3.0.0",
+
     "black>25.11.0",
     "aiohttp>3.13.2",
     "pip-audit",

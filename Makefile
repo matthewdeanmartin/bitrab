@@ -459,3 +459,22 @@ clean-bitrab-dry:
 bitrab-logs:
 	@echo "Recent pipeline runs:"
 	$(VENV) bitrab logs
+
+# ── Dogfooding targets (independent, not wired into check) ───────────────────
+
+.PHONY: dev-status
+dev-status:
+	@uv run troml-dev-status validate .
+
+.PHONY: prerelease-check
+prerelease-check: version-check dev-status
+	@echo "Pre-release checks passed."
+
+.PHONY: dont-be-lazy
+dont-be-lazy:
+	@uv run dont_be_lazy --root . --no-color summary
+	@uv run dont_be_lazy --root . --no-color scan bitrab --no-config-suppressions || true
+
+.PHONY: pydoc-docs
+pydoc-docs:
+	@uv run pydoc_fork bitrab -o ./pydoc/
