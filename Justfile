@@ -241,7 +241,7 @@ check-human:
 check: check-human
 
 # Run the CI-safe non-mutating build workflow.
-check-ci: fix-ci fast-verify check-all-docs
+check-ci: fast-verify check-all-docs
 
 # Run the widest non-mutating verification flow.
 full-verify: verify check-all-docs
