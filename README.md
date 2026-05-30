@@ -87,11 +87,19 @@ The docs call these differences out explicitly instead of pretending full compat
 
 ## Docs
 
-- [Quick start](docs/quickstart.md)
-- [Installation](docs/installation.md)
-- [Running pipelines](docs/running.md)
-- [Key concepts](docs/concepts.md)
-- [Local vs GitLab differences](docs/differences.md)
-- [CLI reference](docs/cli.md)
+- [Quick start](https://github.com/matthewdeanmartin/bitrab/blob/main/docs/quickstart.md)
+- [Installation](https://github.com/matthewdeanmartin/bitrab/blob/main/docs/installation.md)
+- [Running pipelines](https://github.com/matthewdeanmartin/bitrab/blob/main/docs/running.md)
+- [Key concepts](https://github.com/matthewdeanmartin/bitrab/blob/main/docs/concepts.md)
+- [Local vs GitLab differences](https://github.com/matthewdeanmartin/bitrab/blob/main/docs/differences.md)
+- [CLI reference](https://github.com/matthewdeanmartin/bitrab/blob/main/docs/cli.md)
 
 GITLAB is a trademark of GitLab Inc. Bitrab is not affiliated with, endorsed by, or approved by GitLab Inc.
+
+## Project Links
+
+- [GitHub](https://github.com/matthewdeanmartin/bitrab)
+- [PyPI](https://pypi.org/project/bitrab/)
+- [Documentation](https://bitrab.readthedocs.io/en/latest/)
+- [Bug Tracker](https://github.com/matthewdeanmartin/bitrab/issues)
+- [Change Log](https://github.com/matthewdeanmartin/bitrab/blob/main/CHANGELOG.md)
