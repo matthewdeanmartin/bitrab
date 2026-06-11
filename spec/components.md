@@ -154,6 +154,8 @@ Non-goals:
 
 ## Phase 1: Multi-Document YAML and `spec:` Header Parsing
 
+Status: implemented.
+
 Goal: teach the loader to understand "YAML header plus pipeline body" without changing execution.
 
 Deliverables:
@@ -180,6 +182,8 @@ Implementation notes:
 - do not yet interpolate values in this phase
 
 ## Phase 2: Input Model and Binding
+
+Status: implemented.
 
 Goal: represent input definitions and resolve concrete input values deterministically.
 
@@ -215,6 +219,8 @@ Initial type policy:
 
 ## Phase 3: `$[[ inputs.* ]]` Interpolation Preprocessor
 
+Status: implemented.
+
 Goal: apply input values to included component bodies before normal config merging.
 
 Deliverables:
@@ -244,6 +250,8 @@ Design rule:
 - this is only GitLab config interpolation for supported `$[[ inputs.* ]]` expressions
 
 ## Phase 4: Local Component Includes
+
+Status: implemented.
 
 Goal: make component-like reuse work locally before remote registry support.
 
@@ -279,6 +287,8 @@ Collision policy:
 - consider adding diagnostics for duplicate job names in a later phase
 
 ## Phase 5: Pipeline-Level Inputs and CLI Prompting
+
+Status: implemented.
 
 Goal: support user-provided pipeline inputs as a sibling to component inputs, using the same input model.
 
@@ -436,11 +446,11 @@ Docs should keep a clear table:
 
 | Feature | Phase | Status |
 | --- | --- | --- |
-| multi-document `spec:` header | 1 | planned |
-| local `include:inputs` | 2-4 | planned |
-| `$[[ inputs.* ]]` interpolation | 3 | planned |
-| root pipeline inputs | 5 | planned |
-| interactive input prompting | 5 | planned |
+| multi-document `spec:` header | 1 | implemented |
+| local `include:inputs` | 2-4 | implemented for local and remote includes |
+| `$[[ inputs.* ]]` interpolation | 3 | implemented |
+| root pipeline inputs | 5 | implemented |
+| interactive input prompting | 5 | implemented with `--prompt-inputs` |
 | cached `include:component` | 6 | planned |
 | remote component fetch | 6+ | planned, opt-in |
 
@@ -472,4 +482,3 @@ This feature area is working when Bitrab can:
 - run the resulting jobs locally
 - explain the compiled result when users debug it
 - clearly reject unsupported component features before execution
-

@@ -181,13 +181,56 @@ def resolve_config_path(explicit_config: str | None) -> Path:
     return gitlab_ci
 
 
-def load_and_process_config(config_path: Path) -> tuple[dict, Any]:
+def parse_input_args(values: list[str] | None) -> dict[str, str]:
+    """Parse repeated ``--input KEY=VALUE`` CLI arguments."""
+    parsed: dict[str, str] = {}
+    for raw in values or []:
+        if "=" not in raw:
+            raise GitlabRunnerError(f"Invalid --input value {raw!r}; expected KEY=VALUE")
+        key, _, value = raw.partition("=")
+        key = key.strip()
+        if not key:
+            raise GitlabRunnerError(f"Invalid --input value {raw!r}; key cannot be empty")
+        parsed[key] = value
+    return parsed
+
+
+def input_prompt_enabled(args: argparse.Namespace) -> bool:
+    """Return True when the command may prompt for missing root inputs."""
+    return bool(getattr(args, "prompt_inputs", False) and sys.stdin.isatty())
+
+
+def add_input_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add root pipeline input options to a subcommand parser."""
+    parser.add_argument(
+        "--input",
+        dest="inputs",
+        action="append",
+        metavar="KEY=VALUE",
+        help="Set a root pipeline input declared with spec:inputs. May be repeated.",
+    )
+    parser.add_argument(
+        "--prompt-inputs",
+        action="store_true",
+        help="Prompt interactively for missing required root pipeline inputs.",
+    )
+
+
+def load_and_process_config(
+    config_path: Path,
+    input_values: dict[str, str] | None = None,
+    prompt_missing_inputs: bool = False,
+) -> tuple[dict, Any]:
     """Load and process configuration, returning raw config and pipeline config."""
     try:
         loader = _get_configuration_loader()()
         processor = _get_pipeline_processor()()
 
-        raw_config = loader.load_config(config_path)
+        raw_config = loader.load_config_with_inputs(
+            config_path,
+            input_values=input_values,
+            prompt_missing_inputs=prompt_missing_inputs,
+        )
         pipeline_config = processor.process_config(raw_config)
 
         return raw_config, pipeline_config
@@ -264,6 +307,8 @@ def cmd_run(args: argparse.Namespace) -> None:
             serial=serial,
             use_worktrees=use_worktrees,
             exit_on_completion=getattr(args, "exit_on_completion", False),
+            input_values=parse_input_args(getattr(args, "inputs", None)),
+            prompt_missing_inputs=input_prompt_enabled(args),
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -285,7 +330,11 @@ def cmd_list(args: argparse.Namespace) -> None:
         safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
-    raw_config, pipeline_config = load_and_process_config(config_path)
+    raw_config, pipeline_config = load_and_process_config(
+        config_path,
+        input_values=parse_input_args(getattr(args, "inputs", None)),
+        prompt_missing_inputs=input_prompt_enabled(args),
+    )
 
     safe_print("📋 Pipeline Jobs:")
     safe_print(f"   Stages: {', '.join(pipeline_config.stages)}")
@@ -373,7 +422,10 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 def cmd_validate(args: argparse.Namespace) -> None:
     """Validate the pipeline configuration."""
+    import io
     import json
+
+    from ruamel.yaml import YAML
 
     config_path = resolve_config_path(args.config)
 
@@ -387,10 +439,21 @@ def cmd_validate(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
-        # 1. Official Schema Validation
+        # 1. Bitrab config compilation. This handles local includes, spec:inputs
+        # headers, and input interpolation before GitLab schema validation sees
+        # the executable pipeline document.
+        raw_config, pipeline_config = load_and_process_config(
+            config_path,
+            input_values=parse_input_args(getattr(args, "inputs", None)),
+            prompt_missing_inputs=input_prompt_enabled(args),
+        )
+
+        # 2. Official Schema Validation
         safe_print(f"🔍 Validating {config_path} against GitLab CI schema...", file=human_out)
         validator = _get_gitlab_ci_validator()()
-        yaml_content = config_path.read_text(encoding="utf-8")
+        yaml_buffer = io.StringIO()
+        YAML().dump(raw_config, yaml_buffer)
+        yaml_content = yaml_buffer.getvalue()
         is_valid, schema_errors = validator.validate_ci_config(yaml_content)
 
         if not is_valid:
@@ -399,7 +462,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
                 safe_print(f"   • {error}", file=sys.stderr)
             sys.exit(1)
 
-        # 2. Capability validation — informational notes only.
+        # 3. Capability validation — informational notes only.
         #
         # ERROR-level diagnostics (include:component, inputs:, trigger:) are
         # enforced by the loader via GitlabRunnerError *before* this point, so
@@ -410,8 +473,6 @@ def cmd_validate(args: argparse.Namespace) -> None:
         # the user knows what will differ locally — but we do NOT fail validation
         # for them.  The whole point is to run one .gitlab-ci.yml both locally
         # and in GitLab without needing a second file.
-        raw_config, pipeline_config = load_and_process_config(config_path)
-
         cap_diags = _get_check_capabilities()(raw_config)
         if cap_diags:
             safe_print(
@@ -421,7 +482,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
             for d in cap_diags:
                 safe_print(f"   • {d}", file=human_out)
 
-        # 3. Structural/Semantic Validation
+        # 4. Structural/Semantic Validation
         errors = []
         warnings = []
 
@@ -514,6 +575,8 @@ def cmd_watch(args: argparse.Namespace) -> None:
         "parallel_backend": getattr(args, "parallel_backend", None),
         "serial": True if getattr(args, "serial", False) else None,
         "use_worktrees": False if getattr(args, "no_worktrees", False) else None,
+        "input_values": parse_input_args(getattr(args, "inputs", None)),
+        "prompt_missing_inputs": input_prompt_enabled(args),
     }
 
     run_watch(config_path.resolve(), runner_kwargs)
@@ -529,7 +592,11 @@ def cmd_graph(args: argparse.Namespace) -> None:
         safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
-    _, pipeline_config = load_and_process_config(config_path)
+    _, pipeline_config = load_and_process_config(
+        config_path,
+        input_values=parse_input_args(getattr(args, "inputs", None)),
+        prompt_missing_inputs=input_prompt_enabled(args),
+    )
 
     fmt = getattr(args, "format", "text") or "text"
     output = render_pipeline_graph(pipeline_config, fmt=fmt)
@@ -546,10 +613,21 @@ def cmd_debug(args: argparse.Namespace) -> None:
     safe_print(f"   Working directory: {Path.cwd()}")
 
     if config_path.exists():
-        _, pipeline_config = load_and_process_config(config_path)
+        loader = _get_configuration_loader()()
+        processor = _get_pipeline_processor()()
+        raw_config = loader.load_config_with_inputs(
+            config_path,
+            input_values=parse_input_args(getattr(args, "inputs", None)),
+            prompt_missing_inputs=input_prompt_enabled(args),
+        )
+        pipeline_config = processor.process_config(raw_config)
+        resolved_inputs = getattr(loader, "last_resolved_root_inputs", {})
         safe_print(f"   Jobs found: {len(pipeline_config.jobs)}")
         safe_print(f"   Stages: {pipeline_config.stages}")
         safe_print(f"   Global variables: {len(pipeline_config.variables)}")
+        if resolved_inputs:
+            input_names = ", ".join(sorted(resolved_inputs))
+            safe_print(f"   Root inputs: {len(resolved_inputs)} ({input_names})")
 
 
 def cmd_clean(args: argparse.Namespace) -> None:
@@ -727,6 +805,7 @@ Version: {__version__}
     run_parser = subparsers.add_parser(
         "run", help="Execute the pipeline", description="Execute GitLab CI pipeline locally"
     )
+    add_input_arguments(run_parser)
     run_parser.add_argument("--dry-run", action="store_true", help="Show what would be executed without running")
     run_parser.add_argument(
         "--parallel",
@@ -786,6 +865,7 @@ Version: {__version__}
             "Watch .gitlab-ci.yml and local include files for changes, re-running the pipeline automatically on each save."
         ),
     )
+    add_input_arguments(watch_parser)
     watch_parser.add_argument("--dry-run", action="store_true", help="Use dry-run mode on each triggered run")
     watch_parser.add_argument("--parallel", "-j", type=int, metavar="N", help="Number of parallel jobs per stage")
     watch_parser.add_argument("--jobs", nargs="*", metavar="JOB", help="Run only specified jobs")
@@ -812,6 +892,7 @@ Version: {__version__}
     list_parser = subparsers.add_parser(
         "list", help="List all jobs in the pipeline", description="Display all jobs organized by stages"
     )
+    add_input_arguments(list_parser)
     list_parser.set_defaults(func=cmd_list)
 
     # Validate command
@@ -820,6 +901,7 @@ Version: {__version__}
         help="Validate pipeline configuration",
         description="Check pipeline configuration for errors and warnings",
     )
+    add_input_arguments(validate_parser)
     validate_parser.add_argument(
         "--json", dest="output_json", action="store_true", help="Output validated pipeline configuration as JSON"
     )
@@ -839,6 +921,7 @@ Version: {__version__}
         help="Generate pipeline dependency graph",
         description="Render a visual representation of pipeline stages and job dependencies.",
     )
+    add_input_arguments(graph_parser)
     graph_parser.add_argument(
         "--format",
         choices=["text", "dot"],
@@ -853,6 +936,7 @@ Version: {__version__}
         help="Debug pipeline configuration",
         description="Show debug information about pipeline and environment",
     )
+    add_input_arguments(debug_parser)
     debug_parser.set_defaults(func=cmd_debug)
 
     # Clean command
@@ -955,6 +1039,8 @@ def main() -> None:
         args.no_worktrees = False
         args.exit_on_completion = False
         args.yes = False
+        args.inputs = None
+        args.prompt_inputs = False
 
     # Execute the command
     try:

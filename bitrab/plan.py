@@ -634,6 +634,8 @@ class LocalGitLabRunner:
         serial: bool | None = None,
         use_worktrees: bool | None = None,
         exit_on_completion: bool = False,
+        input_values: dict[str, Any] | None = None,
+        prompt_missing_inputs: bool = False,
     ) -> None:
         """
         Run the complete pipeline.
@@ -650,13 +652,19 @@ class LocalGitLabRunner:
             serial: Run jobs one at a time, safe for mutating jobs.
             use_worktrees: Use git to run all jobs in parallel even if some of them mutate the file system
             exit_on_completion: Close TUI automatically when the pipeline finishes.
+            input_values: Root pipeline input values for ``spec:inputs``.
+            prompt_missing_inputs: Prompt interactively for missing required root inputs.
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
             Exception: For unexpected errors.
         """
         # Load and process configuration
-        raw_config = self.loader.load_config(config_path)
+        raw_config = self.loader.load_config_with_inputs(
+            config_path=config_path,
+            input_values=input_values,
+            prompt_missing_inputs=prompt_missing_inputs,
+        )
         pipeline = self.processor.process_config(raw_config)
 
         # Apply job/stage filters with warnings for unknown names
