@@ -119,7 +119,7 @@ dev = [
     "linkcheckmd>=1.4.0",
     "codespell>=2.2.6",
     "pyenchant>=3.2.2",
-    "keepachangelog-manager-fork>=6.1.1,<7",
+    "keepachangelog-manager-fork[all]>=6.5.0",
 ]
 
 [tool.uv]
