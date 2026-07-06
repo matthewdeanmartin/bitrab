@@ -38,7 +38,7 @@ That changes the economics and the tradeoffs:
 | `parallel: matrix:`                                  | Matrix expansion              | Supported                                |
 | `extends:`                                           | Template inheritance          | Supported                                |
 | `include: local`                                     | Merge local config            | Supported                                |
-| `include: remote` / `include: url`                   | Fetch remote config           | Supported                                |
+| `include: remote` / `include: url`                   | Fetch remote config           | Supported; vendor snapshots available    |
 | `include: template`                                  | GitLab template catalog       | Warned and skipped                       |
 | `include: project`                                   | Cross-project config reuse    | Warned and skipped                       |
 | `include: component`                                 | CI component includes         | Error                                    |
@@ -60,6 +60,8 @@ This is one place where "GitLab-like" and "GitLab-identical" are different:
 
 - bitrab supports local includes
 - bitrab can also fetch remote URL includes
+- `bitrab vendor` locks remote includes locally; `--offline` changes resolution semantics by forbidding network fetches
+  and requiring every remote URL to have a hash-valid snapshot
 - GitLab-managed include types such as `template`, `project`, and `component` are not available in the same way
   locally[^loader][^capabilities]
 

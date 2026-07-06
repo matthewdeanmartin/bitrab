@@ -28,6 +28,7 @@ bitrab run [options]
 | `--parallel-backend {thread,process}` | Override the configured parallel executor backend               |
 | `--serial`                            | Run one job at a time in the project root and disable worktrees |
 | `--no-worktrees`                      | Disable per-job git worktree isolation for parallel runs        |
+| `--offline`                           | Resolve remote includes only from the locked vendor snapshot    |
 
 Running plain `bitrab` is equivalent to `bitrab run`.[^cli]
 
@@ -57,9 +58,21 @@ Validate the configuration.
 ```bash
 bitrab validate
 bitrab validate --json
+bitrab validate --offline
 ```
 
 This performs schema validation, capability checks, and semantic checks.[^cli][^validate]
+
+## `bitrab vendor`
+
+Snapshot the recursive remote include graph for reproducible and network-free use.
+
+```bash
+bitrab vendor
+bitrab vendor --check
+```
+
+See [Vendoring and offline mode](vendoring.md) for the lockfile and payload contract.
 
 ## `bitrab graph`
 

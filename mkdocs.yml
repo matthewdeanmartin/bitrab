@@ -23,6 +23,7 @@ nav:
   - Quick start: quickstart.md
   - Installation: installation.md
   - Running pipelines: running.md
+  - Vendoring and offline mode: vendoring.md
   - CLI reference: cli.md
   - Key concepts: concepts.md
   - Local vs GitLab: differences.md

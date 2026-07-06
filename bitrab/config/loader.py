@@ -14,6 +14,7 @@ from ruamel.yaml import YAML
 from bitrab.config.interpolate import interpolate_inputs
 from bitrab.config.inputs import InputDefinition, parse_input_definitions, resolve_inputs
 from bitrab.exceptions import GitlabRunnerError
+from bitrab.vendor import read_vendored
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +73,12 @@ class ConfigurationLoader:
         yaml: YAML parser instance.
     """
 
-    def __init__(self, base_path: Path | None = None):
+    def __init__(self, base_path: Path | None = None, offline: bool = False):
         if not base_path:
             self.base_path = Path.cwd()
         else:
             self.base_path = base_path
+        self.offline = offline
         self.yaml = YAML(typ="safe")
         self.last_resolved_root_inputs: dict[str, str] = {}
 
@@ -142,6 +144,19 @@ class ConfigurationLoader:
             GitlabRunnerError: On network errors or non-200 responses or YAML
                 parse failures.
         """
+        vendored = read_vendored(self.base_path, url)
+        if vendored is not None:
+            try:
+                return self._load_yaml_documents(io.BytesIO(vendored), url)
+            except Exception as exc:
+                raise GitlabRunnerError(f"Failed to parse YAML from vendored include {url!r}: {exc}") from exc
+
+        if self.offline:
+            raise GitlabRunnerError(
+                f"Remote include {url!r} is not vendored and cannot be loaded in offline mode; "
+                "run 'bitrab vendor' while network access is available"
+            )
+
         try:
             http = urllib3.PoolManager(ca_certs=certifi.where())
             response = http.request("GET", url, timeout=urllib3.Timeout(connect=10, read=30))

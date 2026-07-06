@@ -210,4 +210,5 @@ __marimo__/
 /bitrab.flat.md
 /junit.xml
 /SOURCE.md
-/.bitrab/
+/.bitrab/*
+!/.bitrab/vendor.lock

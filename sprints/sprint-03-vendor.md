@@ -1,6 +1,6 @@
 # Sprint 03 — `bitrab vendor` and `--offline`
 
-**Status:** delegated to subagent (2026-07-06)
+**Status:** core command, checks, and offline loading implemented (2026-07-06); optional `--rewrite` deferred
 **Delegable:** yes, once the lockfile format below is agreed — mechanical after that.
 
 ## Goal

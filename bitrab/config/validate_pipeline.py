@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import jsonschema
+import jsonschema  # type: ignore[import-untyped]
 import ruamel.yaml
 
 from bitrab.json_backend import dumps as json_dumps
@@ -37,17 +37,19 @@ else:
 class GitLabCIValidator:
     """Validates GitLab CI YAML files against the official schema."""
 
-    def __init__(self, cache_dir: str | None = None):
+    def __init__(self, cache_dir: str | None = None, offline: bool = False):
         """
         Initialize the validator.
 
         Args:
             cache_dir: Directory to cache the schema file. If None, uses system temp directory.
+            offline: Never fetch the schema over the network; use cache or bundled schema only.
         """
         self.schema_url = (
             "https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json"
         )
         self.cache_dir = Path(cache_dir) if cache_dir else Path(tempfile.gettempdir())
+        self.offline = offline
         self.cache_file = self.cache_dir / "gitlab_ci_schema.json"
         self.fallback_schema_path = "schemas/gitlab_ci_schema.json"  # Package resource path
         self.yaml = ruamel.yaml.YAML(typ="rt")
@@ -166,7 +168,7 @@ class GitLabCIValidator:
             return schema
 
         # Fall back to fetching from URL
-        schema = self.fetch_schema_from_url()
+        schema = None if self.offline else self.fetch_schema_from_url()
         if schema:
             logger.debug("Using schema from URL")
             self.save_schema_to_cache(schema)

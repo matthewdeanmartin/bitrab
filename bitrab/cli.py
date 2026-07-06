@@ -218,10 +218,11 @@ def load_and_process_config(
     config_path: Path,
     input_values: dict[str, str] | None = None,
     prompt_missing_inputs: bool = False,
+    offline: bool = False,
 ) -> tuple[dict, Any]:
     """Load and process configuration, returning raw config and pipeline config."""
     try:
-        loader = _get_configuration_loader()()
+        loader = _get_configuration_loader()(base_path=config_path.parent, offline=offline)
         processor = _get_pipeline_processor()()
 
         raw_config = loader.load_config_with_inputs(
@@ -310,6 +311,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             no_cache=getattr(args, "no_cache", False),
             incremental=getattr(args, "incremental", False),
             refresh=getattr(args, "refresh", False),
+            offline=getattr(args, "offline", False),
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -447,11 +449,12 @@ def cmd_validate(args: argparse.Namespace) -> None:
             config_path,
             input_values=parse_input_args(getattr(args, "inputs", None)),
             prompt_missing_inputs=input_prompt_enabled(args),
+            offline=getattr(args, "offline", False),
         )
 
         # 2. Official Schema Validation
         safe_print(f"🔍 Validating {config_path} against GitLab CI schema...", file=human_out)
-        validator = _get_gitlab_ci_validator()()
+        validator = _get_gitlab_ci_validator()(offline=getattr(args, "offline", False))
         yaml_buffer = io.StringIO()
         YAML().dump(raw_config, yaml_buffer)
         yaml_content = yaml_buffer.getvalue()
@@ -555,6 +558,41 @@ def cmd_lint(_args: argparse.Namespace) -> None:
     safe_print("   This would validate your .gitlab-ci.yml against GitLab's official linter")
     safe_print("   For now, use 'bitrab validate' for basic local validation")
     sys.exit(1)
+
+
+def cmd_vendor(args: argparse.Namespace) -> None:
+    """Snapshot or verify every remote include in the pipeline."""
+    from bitrab.vendor import check_vendor, load_lock, vendor
+
+    config_path = resolve_config_path(args.config)
+    if not config_path.exists():
+        safe_print(f"❌ Configuration file not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    if args.check:
+        errors = check_vendor(config_path)
+        if errors:
+            safe_print("❌ Vendor snapshot check failed:", file=sys.stderr)
+            for error in errors:
+                safe_print(f"   • {error}", file=sys.stderr)
+            sys.exit(1)
+        safe_print("✅ Vendor snapshot matches vendor.lock and covers every remote include")
+        return
+
+    previous = load_lock(config_path.parent)
+    result = vendor(config_path)
+    current = {entry.url: entry for entry in result.entries}
+    for url in result.added:
+        safe_print(f"➕ Vendored {url} ({current[url].sha256})")
+    for url in result.changed:
+        safe_print(
+            f"⚠️  UPSTREAM INCLUDE CHANGED: {url}\n" f"   {previous[url].sha256} -> {current[url].sha256}",
+            file=sys.stderr,
+        )
+    safe_print(
+        f"✅ Vendor snapshot refreshed: {len(result.entries)} include(s), "
+        f"{len(result.changed)} changed, {len(result.unchanged)} unchanged"
+    )
 
 
 def cmd_watch(args: argparse.Namespace) -> None:
@@ -886,6 +924,11 @@ Version: {__version__}
         action="store_true",
         help="With --incremental: run every job anyway but record fresh fingerprints (implies --incremental).",
     )
+    run_parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Disable network access and resolve remote includes only from .bitrab/vendor.lock.",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
@@ -936,7 +979,24 @@ Version: {__version__}
     validate_parser.add_argument(
         "--json", dest="output_json", action="store_true", help="Output validated pipeline configuration as JSON"
     )
+    validate_parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Disable network access and resolve remote includes only from .bitrab/vendor.lock.",
+    )
     validate_parser.set_defaults(func=cmd_validate)
+
+    vendor_parser = subparsers.add_parser(
+        "vendor",
+        help="Snapshot remote includes for reproducible offline use",
+        description="Download the complete remote include graph into .bitrab/vendor/ and write vendor.lock.",
+    )
+    vendor_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check lock hashes and ensure every remote include is vendored without using the network.",
+    )
+    vendor_parser.set_defaults(func=cmd_vendor)
 
     # Lint command
     lint_parser = subparsers.add_parser(
@@ -1072,6 +1132,7 @@ def main() -> None:
         args.yes = False
         args.inputs = None
         args.prompt_inputs = False
+        args.offline = False
 
     # Execute the command
     try:

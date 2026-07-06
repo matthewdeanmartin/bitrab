@@ -737,6 +737,7 @@ class LocalGitLabRunner:
         no_cache: bool = False,
         incremental: bool = False,
         refresh: bool = False,
+        offline: bool = False,
     ) -> None:
         """
         Run the complete pipeline.
@@ -760,12 +761,14 @@ class LocalGitLabRunner:
                 success (fingerprint memoization).
             refresh: With *incremental*: run every job anyway but record
                 fresh fingerprints.  Implies *incremental*.
+            offline: Resolve remote includes only from the vendor snapshot.
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
             Exception: For unexpected errors.
         """
         # Load and process configuration
+        self.loader.offline = offline
         raw_config = self.loader.load_config_with_inputs(
             config_path=config_path,
             input_values=input_values,
