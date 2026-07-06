@@ -136,6 +136,32 @@ def test_validate_gitlab_ci_yaml_convenience(tmp_path, mock_schema):
 
 
 def test_load_fallback_schema(validator, mock_schema):
-    # Verify load_fallback_schema doesn't crash and returns None when file is absent
+    # The bundled schema at bitrab/schemas/gitlab_ci_schema.json must always load.
     result = validator.load_fallback_schema()
-    assert result is None or isinstance(result, dict)
+    assert result is not None, "Bundled fallback schema must be loadable without network access"
+    assert isinstance(result, dict)
+    # Sanity-check that we got a real JSON Schema object
+    assert "$schema" in result or "properties" in result or "definitions" in result
+
+
+def test_fallback_used_when_url_returns_429(validator):
+    """When the network returns 429 (rate-limit), get_schema() must fall back to the bundle."""
+    from unittest.mock import patch
+    from urllib.error import HTTPError
+
+    from bitrab.config.validate_pipeline import clear_get_schema_cache
+
+    clear_get_schema_cache()
+
+    def raise_429(*args, **kwargs):
+        raise HTTPError(url="", code=429, msg="Too Many Requests", hdrs=None, fp=None)  # type: ignore[arg-type]
+
+    with patch("urllib.request.urlopen", side_effect=raise_429):
+        # Use a fresh validator with no disk cache so only the bundle can satisfy the request
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            v = validator.__class__(cache_dir=tmpdir)
+            schema = v.get_schema()
+            assert schema is not None
+            assert isinstance(schema, dict)

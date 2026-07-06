@@ -51,7 +51,7 @@ class GitLabCIValidator:
         self.cache_dir = Path(cache_dir) if cache_dir else Path(tempfile.gettempdir())
         self.offline = offline
         self.cache_file = self.cache_dir / "gitlab_ci_schema.json"
-        self.fallback_schema_path = "schemas/gitlab_ci_schema.json"  # Package resource path
+        self.fallback_schema_path = "gitlab_ci_schema.json"  # Filename inside bitrab/schemas/
         self.yaml = ruamel.yaml.YAML(typ="rt")
 
     def fetch_schema_from_url(self) -> dict[str, Any] | None:
@@ -113,21 +113,21 @@ class GitLabCIValidator:
             Schema dictionary if successful, None otherwise.
         """
         try:
-            # Try modern importlib.resources approach (Python 3.9+) or importlib_resources backport
+            # Modern importlib.resources approach (Python 3.9+) or backport.
+            # The schema lives in the `bitrab.schemas` package, not `bitrab.config`.
             if files is not None:
                 try:
-                    package_files = files(__package__ or __name__.split(".", maxsplit=1)[0])
-                    schema_file = package_files / self.fallback_schema_path
+                    schema_file = files("bitrab.schemas") / self.fallback_schema_path
                     if schema_file.is_file():
                         schema_data = schema_file.read_text(encoding="utf-8")
                         return json_loads(schema_data)
-                except (FileNotFoundError, AttributeError, TypeError):
+                except (FileNotFoundError, AttributeError, TypeError, ModuleNotFoundError):
                     pass
 
-            # Fallback: try to load from relative path
+            # Direct path fallback: walk up from bitrab/config/ to bitrab/, then into schemas/.
             try:
-                current_dir = Path(__file__).parent if "__file__" in globals() else Path.cwd()
-                fallback_file = current_dir / self.fallback_schema_path
+                schemas_dir = Path(__file__).parent.parent / "schemas"
+                fallback_file = schemas_dir / self.fallback_schema_path
                 if fallback_file.exists():
                     with open(fallback_file, encoding="utf-8") as f:
                         return json_loads(f.read())
