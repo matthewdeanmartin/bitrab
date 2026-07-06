@@ -127,8 +127,6 @@ def _get_check_capabilities() -> Callable[[dict[str, Any]], list[Any]]:
 
 def setup_logging(verbose: bool, quiet: bool) -> None:
     """Configure logging based on verbosity flags."""
-    import logging
-
     if quiet:
         level = logging.ERROR
     elif verbose:
