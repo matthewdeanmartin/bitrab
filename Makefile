@@ -333,7 +333,7 @@ check_spelling:
 check-spelling: check_spelling
 
 check_changelog:
-	$(NO_COLOR_ENV) $(VENV) changelogmanager validate
+	$(NO_COLOR_ENV) $(VENV) kaclm validate
 
 .PHONY: check-changelog
 check-changelog: check_changelog

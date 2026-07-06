@@ -28,6 +28,7 @@ from bitrab.cli import (
     create_parser,
     load_and_process_config,
     main,
+    parse_input_args,
     resolve_config_path,
     setup_logging,
 )
@@ -70,6 +71,15 @@ def test_load_and_process_config_error(tmp_path):
         load_and_process_config(config_file)
 
 
+def test_parse_input_args_parses_repeated_values():
+    assert parse_input_args(["name=lint", "stage=test"]) == {"name": "lint", "stage": "test"}
+
+
+def test_parse_input_args_rejects_missing_equals():
+    with pytest.raises(GitlabRunnerError, match="expected KEY=VALUE"):
+        parse_input_args(["bad"])
+
+
 def test_cmd_run_config_not_found(capsys):
     args = argparse.Namespace(config="nonexistent.yml", jobs=None)
     with pytest.raises(SystemExit) as e:
@@ -96,6 +106,36 @@ def test_cmd_run_success(mock_get_runner, tmp_path):
         with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
             cmd_run(args)
             assert mock_runner.run_pipeline.called
+
+
+@patch("bitrab.cli._get_local_gitlab_runner")
+def test_cmd_run_passes_pipeline_inputs(mock_get_runner, tmp_path):
+    config_file = tmp_path / ".gitlab-ci.yml"
+    config_file.write_text("stages: [test]")
+
+    args = argparse.Namespace(
+        config=str(config_file),
+        jobs=None,
+        stage=None,
+        parallel=None,
+        dry_run=False,
+        verbose=False,
+        quiet=False,
+        inputs=["job-name=lint"],
+        prompt_inputs=True,
+    )
+
+    mock_runner = MagicMock()
+    mock_get_runner.return_value = MagicMock(return_value=mock_runner)
+
+    with patch("bitrab.tui.ci_mode.is_ci_mode", return_value=False):
+        with patch("bitrab.tui.ci_mode.should_use_tui", return_value=False):
+            with patch("sys.stdin.isatty", return_value=True):
+                cmd_run(args)
+
+    kwargs = mock_runner.run_pipeline.call_args.kwargs
+    assert kwargs["input_values"] == {"job-name": "lint"}
+    assert kwargs["prompt_missing_inputs"] is True
 
 
 @patch("bitrab.cli._get_local_gitlab_runner")
@@ -128,6 +168,15 @@ def test_create_parser_parses_run_dry_run_flag():
     assert args.command == "run"
     assert args.dry_run is True
     assert args.func is cmd_run
+
+
+def test_create_parser_parses_run_input_flags():
+    parser = create_parser()
+
+    args = parser.parse_args(["run", "--input", "job-name=lint", "--prompt-inputs"])
+
+    assert args.inputs == ["job-name=lint"]
+    assert args.prompt_inputs is True
 
 
 def test_create_parser_parses_graph_format_flag():
@@ -293,7 +342,7 @@ def test_load_and_process_config_bitrab_error(tmp_path):
 
     with patch("bitrab.cli._get_configuration_loader") as mock_get:
         mock_loader = MagicMock()
-        mock_loader.return_value.load_config.side_effect = BitrabError("boom")
+        mock_loader.return_value.load_config_with_inputs.side_effect = BitrabError("boom")
         mock_get.return_value = mock_loader
         with pytest.raises(BitrabError):
             load_and_process_config(config_file)
@@ -305,7 +354,7 @@ def test_load_and_process_config_unexpected_error(tmp_path):
 
     with patch("bitrab.cli._get_configuration_loader") as mock_get:
         mock_loader = MagicMock()
-        mock_loader.return_value.load_config.side_effect = RuntimeError("oops")
+        mock_loader.return_value.load_config_with_inputs.side_effect = RuntimeError("oops")
         mock_get.return_value = mock_loader
         with pytest.raises(RuntimeError):
             load_and_process_config(config_file)
@@ -632,6 +681,27 @@ def test_cmd_debug_config_exists(capsys, tmp_path):
     out = capsys.readouterr().out
     assert "Config file" in out
     assert "Jobs found" in out
+
+
+def test_cmd_debug_shows_root_input_names(capsys, tmp_path):
+    ci_file = tmp_path / ".gitlab-ci.yml"
+    ci_file.write_text(
+        "spec:\n"
+        "  inputs:\n"
+        "    job-name:\n"
+        "      default: generated\n"
+        "---\n"
+        "$[[ inputs.job-name ]]:\n"
+        "  script:\n"
+        "    - echo hi\n"
+    )
+    args = argparse.Namespace(config=str(ci_file), inputs=None, prompt_inputs=False)
+
+    cmd_debug(args)
+
+    out = capsys.readouterr().out
+    assert "Root inputs: 1 (job-name)" in out
+    assert "generated" not in out
 
 
 def test_cmd_debug_config_missing(capsys, tmp_path):

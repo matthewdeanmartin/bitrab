@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import io
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -10,9 +11,21 @@ import certifi
 import urllib3
 from ruamel.yaml import YAML
 
+from bitrab.config.interpolate import interpolate_inputs
+from bitrab.config.inputs import InputDefinition, parse_input_definitions, resolve_inputs
 from bitrab.exceptions import GitlabRunnerError
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ConfigDocument:
+    """Loaded YAML document set split into GitLab ``spec:`` metadata and body."""
+
+    body: dict[str, Any]
+    source: str
+    spec: dict[str, Any] = field(default_factory=dict)
+    inputs: dict[str, InputDefinition] = field(default_factory=dict)
 
 
 def _resolve_config_auto(base_path: Path) -> Path:
@@ -65,6 +78,7 @@ class ConfigurationLoader:
         else:
             self.base_path = base_path
         self.yaml = YAML(typ="safe")
+        self.last_resolved_root_inputs: dict[str, str] = {}
 
     def load_config(self, config_path: Path | None = None) -> dict[str, Any]:
         """
@@ -86,18 +100,36 @@ class ConfigurationLoader:
         Raises:
             GitlabRunnerError: If the configuration file is not found or fails to load.
         """
+        return self.load_config_with_inputs(config_path=config_path)
+
+    def load_config_with_inputs(
+        self,
+        config_path: Path | None = None,
+        input_values: dict[str, Any] | None = None,
+        prompt_missing_inputs: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Load the main configuration file with optional root pipeline inputs.
+
+        Root inputs are compile-time values from the root ``spec:inputs`` header.
+        They are resolved and interpolated before includes are processed so they
+        can affect include inputs, job names, stages, scripts, and variables.
+        """
         if config_path is None:
             config_path = _resolve_config_auto(self.base_path)
 
         if not config_path.exists():
             raise GitlabRunnerError(f"Configuration file not found: {config_path}")
 
-        config = self._load_yaml_file(config_path)
+        config_doc = self._load_yaml_file(config_path)
+        resolved_inputs = self._resolve_root_inputs(config_doc, input_values, prompt_missing_inputs)
+        self.last_resolved_root_inputs = resolved_inputs
+        config = interpolate_inputs(config_doc.body, resolved_inputs, config_doc.source)
         config = self._process_includes(config, config_path.parent)
 
         return config
 
-    def _fetch_remote_yaml(self, url: str) -> dict[str, Any]:
+    def _fetch_remote_yaml(self, url: str) -> ConfigDocument:
         """Fetch and parse a remote YAML file over HTTP/HTTPS.
 
         Args:
@@ -120,11 +152,11 @@ class ConfigurationLoader:
             raise GitlabRunnerError(f"Remote include {url!r} returned HTTP {response.status}")
 
         try:
-            return self.yaml.load(io.BytesIO(response.data)) or {}
+            return self._load_yaml_documents(io.BytesIO(response.data), url)
         except Exception as exc:
             raise GitlabRunnerError(f"Failed to parse YAML from remote include {url!r}: {exc}") from exc
 
-    def _load_yaml_file(self, file_path: Path) -> dict[str, Any]:
+    def _load_yaml_file(self, file_path: Path) -> ConfigDocument:
         """
         Load a single YAML file.
 
@@ -139,12 +171,45 @@ class ConfigurationLoader:
         """
         try:
             with open(file_path, encoding="utf-8") as f:
-                return self.yaml.load(f) or {}
+                return self._load_yaml_documents(f, str(file_path))
         except Exception as e:
             raise GitlabRunnerError(f"Failed to load YAML file {file_path}: {e}") from e
 
+    def _load_yaml_documents(self, stream: Any, source: str) -> ConfigDocument:
+        """Load one GitLab config source, preserving optional ``spec:`` metadata."""
+        documents = list(self.yaml.load_all(stream))
+        documents = [{} if doc is None else doc for doc in documents]
+
+        if not documents:
+            return ConfigDocument(body={}, source=source)
+        if not all(isinstance(doc, dict) for doc in documents):
+            raise GitlabRunnerError(f"{source}: each YAML document must be a mapping")
+
+        if len(documents) == 1:
+            return ConfigDocument(body=documents[0], source=source)
+        if len(documents) != 2:
+            raise GitlabRunnerError(f"{source}: expected at most two YAML documents: a spec header and a pipeline body")
+
+        header = documents[0]
+        body = documents[1]
+        if set(header) - {"spec"}:
+            raise GitlabRunnerError(f"{source}: the first YAML document may only contain a spec: header")
+
+        spec = header.get("spec", {})
+        if spec in (None, {}):
+            spec = {}
+        if not isinstance(spec, dict):
+            raise GitlabRunnerError(f"{source}: spec must be a mapping")
+
+        return ConfigDocument(
+            body=body,
+            source=source,
+            spec=spec,
+            inputs=parse_input_definitions(spec, source),
+        )
+
     def _process_includes(
-        self, config: dict[str, Any], base_dir: Path, seen_files: set[Path] | None = None
+        self, config: dict[str, Any], base_dir: Path, seen_includes: set[str] | None = None
     ) -> dict[str, Any]:
         """
         Recursively process 'include' directives from a GitLab-style YAML config.
@@ -152,12 +217,12 @@ class ConfigurationLoader:
         Args:
             config: The configuration dictionary to process.
             base_dir: The base path to resolve relative includes.
-            seen_files: Tracks already-included files to avoid infinite recursion.
+            seen_includes: Tracks already-processed include signatures to avoid recursion.
 
         Returns:
             The merged configuration.
         """
-        seen_files = seen_files or set()
+        seen_includes = seen_includes or set()
 
         config = copy.deepcopy(config)
         includes = config.pop("include", [])
@@ -165,9 +230,6 @@ class ConfigurationLoader:
             includes = [includes]
 
         merged_config: dict[str, Any] = {}
-
-        # Sentinel prefix for remote URLs stored in the seen_files path set
-        _REMOTE_SENTINEL = "__remote__:"
 
         for include in includes:
             remote_url: str | None = None
@@ -196,23 +258,27 @@ class ConfigurationLoader:
                 continue
 
             if remote_url is not None:
-                sentinel = Path(_REMOTE_SENTINEL + remote_url)
-                if sentinel in seen_files:
+                raw_signature = self._include_signature("remote", remote_url, self._raw_include_inputs(include))
+                if raw_signature in seen_includes:
                     continue
-                seen_files.add(sentinel)
-                included_config = self._fetch_remote_yaml(remote_url)
-                included_config = self._process_includes(included_config, base_dir, seen_files)
+                seen_includes.add(raw_signature)
+                included_doc = self._fetch_remote_yaml(remote_url)
+                resolved_inputs = self._resolve_include_inputs(included_doc, include)
+                included_body = interpolate_inputs(included_doc.body, resolved_inputs, included_doc.source)
+                included_config = self._process_includes(included_body, base_dir, seen_includes)
                 merged_config = self._merge_configs(merged_config, included_config)
                 continue
 
             if include_path is None:
                 raise GitlabRunnerError("include_path is None")
-            if include_path in seen_files:
-                continue  # Skip already processed files to prevent recursion
-
-            seen_files.add(include_path)
-            included_config = self._load_yaml_file(include_path)
-            included_config = self._process_includes(included_config, include_path.parent, seen_files)
+            included_doc = self._load_yaml_file(include_path)
+            resolved_inputs = self._resolve_include_inputs(included_doc, include)
+            signature = self._include_signature("local", str(include_path), resolved_inputs)
+            if signature in seen_includes:
+                continue  # Skip identical include expansions to prevent recursion
+            seen_includes.add(signature)
+            included_body = interpolate_inputs(included_doc.body, resolved_inputs, included_doc.source)
+            included_config = self._process_includes(included_body, include_path.parent, seen_includes)
             merged_config = self._merge_configs(merged_config, included_config)
 
         # The current config overrides any previously merged includes
@@ -241,7 +307,7 @@ class ConfigurationLoader:
     def _collect_local_includes(self, file_path: Path, seen: set[Path]) -> None:
         """Recursively collect local include paths into *seen*."""
         try:
-            raw = self._load_yaml_file(file_path)
+            raw = self._load_yaml_file(file_path).body
         except Exception:
             return
 
@@ -278,3 +344,37 @@ class ConfigurationLoader:
             else:
                 result[key] = value
         return result
+
+    def _resolve_include_inputs(self, included_doc: ConfigDocument, include: Any) -> dict[str, str]:
+        provided = include.get("inputs") if isinstance(include, dict) else None
+        if provided is None:
+            provided = {}
+        return resolve_inputs(included_doc.inputs, provided, included_doc.source)
+
+    def _resolve_root_inputs(
+        self,
+        config_doc: ConfigDocument,
+        input_values: dict[str, Any] | None,
+        prompt_missing_inputs: bool,
+    ) -> dict[str, str]:
+        provided = dict(input_values or {})
+        if prompt_missing_inputs:
+            for name, definition in config_doc.inputs.items():
+                if name in provided or definition.default is not None:
+                    continue
+                prompt = f"Input {name}"
+                if definition.description:
+                    prompt += f" ({definition.description})"
+                provided[name] = input(f"{prompt}: ")
+        return resolve_inputs(config_doc.inputs, provided, config_doc.source)
+
+    @staticmethod
+    def _include_signature(kind: str, location: str, inputs: dict[str, str]) -> str:
+        input_part = ",".join(f"{key}={value!r}" for key, value in sorted(inputs.items()))
+        return f"{kind}:{location}:{input_part}"
+
+    @staticmethod
+    def _raw_include_inputs(include: Any) -> dict[str, str]:
+        if not isinstance(include, dict) or not isinstance(include.get("inputs"), dict):
+            return {}
+        return {str(key): repr(value) for key, value in include["inputs"].items()}
