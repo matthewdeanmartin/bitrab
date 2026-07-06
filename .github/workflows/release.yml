@@ -52,13 +52,13 @@ jobs:
           export VERSION="${RELEASE_VERSION#v}"
           # --json is a global flag, so it must precede the `release-bump`
           # subcommand (argparse rejects it if placed after).
-          uvx kaclm --json release-bump \
+          uvx --from "keepachangelog-manager-fork[all]" kaclm --json release-bump \
             --version "$VERSION" \
             --base "$BASE_BRANCH" \
             --release-id "$RELEASE_ID" \
             --repository "$REPO" \
             --open-pr \
-            --title "chore: release ${VERSION}" \
+            --title "chore: release ${VERSION} [skip ci]" \
             --body "Automated release PR for ${VERSION}. Merge once the PyPI publish succeeds." \
             --yes > release-bump.json
           echo "version=$(python -c "import json;print(json.load(open('release-bump.json'))['version'])")" >> "$GITHUB_OUTPUT"
