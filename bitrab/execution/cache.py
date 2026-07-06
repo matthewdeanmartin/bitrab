@@ -39,8 +39,8 @@ import re
 import shutil
 import time
 import uuid
-from pathlib import Path
 from collections.abc import Mapping
+from pathlib import Path
 
 from bitrab.models.pipeline import CacheConfig, JobConfig
 from bitrab.utils.filelock import FileLock, FileLockTimeout

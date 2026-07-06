@@ -73,9 +73,7 @@ def _atomic_write(path: Path, content: str) -> None:
 
 def _is_shell_hook(content: str) -> bool:
     first_line = content.splitlines()[0] if content.splitlines() else ""
-    return first_line.startswith("#!") and bool(
-        re.search(r"(?:^|[/\s])(?:ba|da|k|z)?sh(?:\s|$)", first_line.lower())
-    )
+    return first_line.startswith("#!") and bool(re.search(r"(?:^|[/\s])(?:ba|da|k|z)?sh(?:\s|$)", first_line.lower()))
 
 
 def install_pre_push_hook(project_dir: Path) -> HookResult:

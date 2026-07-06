@@ -108,6 +108,4 @@ def _coerce_scalar(value: Any, source: str, input_name: str, field_name: str) ->
         return value
     if isinstance(value, (bool, int, float)):
         return str(value)
-    raise GitlabRunnerError(
-        f"{source}: input {input_name!r} {field_name} must be a scalar string, boolean, or number"
-    )
+    raise GitlabRunnerError(f"{source}: input {input_name!r} {field_name} must be a scalar string, boolean, or number")

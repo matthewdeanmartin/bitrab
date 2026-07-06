@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bitrab.config.loader import MAX_REMOTE_INCLUDE_BYTES, ConfigurationLoader
 from bitrab.cli import create_parser
+from bitrab.config.loader import MAX_REMOTE_INCLUDE_BYTES, ConfigurationLoader
 from bitrab.exceptions import GitlabRunnerError
 from bitrab.include_cache import payload_path, write_cached
 

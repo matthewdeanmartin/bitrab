@@ -29,7 +29,7 @@ jobs:
         with:
           enable-cache: false
       - name: Sync dependencies
-        run: uv sync --frozen --group dev
+        run: uv tool install "keepachangelog-manager-fork[all]"
       - name: Configure git author
         run: |
           git config user.name "github-actions[bot]"
@@ -49,10 +49,10 @@ jobs:
           # --force-with-lease push, and open the release PR. The [skip ci]
           # decision follows [defaults].skip_ci (default true).
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
-          VERSION="${RELEASE_VERSION#v}"
+          export VERSION="${RELEASE_VERSION#v}"
           # --json is a global flag, so it must precede the `release-bump`
           # subcommand (argparse rejects it if placed after).
-          uv run kaclm --json release-bump \
+          uvx run kaclm --json release-bump \
             --version "$VERSION" \
             --base "$BASE_BRANCH" \
             --release-id "$RELEASE_ID" \

@@ -11,8 +11,8 @@ import certifi
 import urllib3
 from ruamel.yaml import YAML
 
-from bitrab.config.interpolate import interpolate_inputs
 from bitrab.config.inputs import InputDefinition, parse_input_definitions, resolve_inputs
+from bitrab.config.interpolate import interpolate_inputs
 from bitrab.exceptions import GitlabRunnerError
 from bitrab.include_cache import DEFAULT_TTL_SECONDS, discard_cached, read_cached, write_cached
 from bitrab.vendor import read_vendored

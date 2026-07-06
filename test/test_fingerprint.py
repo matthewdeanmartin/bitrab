@@ -35,7 +35,9 @@ def make_job(name: str = "myjob", **kwargs) -> JobConfig:
     return JobConfig(name=name, **kwargs)
 
 
-def make_manager(tmp_path: Path, jobs: list[JobConfig], stages: list[str] | None = None, **kwargs) -> FingerprintManager:
+def make_manager(
+    tmp_path: Path, jobs: list[JobConfig], stages: list[str] | None = None, **kwargs
+) -> FingerprintManager:
     manager = FingerprintManager(tmp_path, **kwargs)
     manager.prepare(PipelineConfig(stages=stages or ["test"], jobs=jobs))
     return manager
