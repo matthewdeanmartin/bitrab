@@ -29,4 +29,4 @@ jobs:
       - name: Creating Draft release
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: uv tool run kaclm github-release --repository ${{ github.repository }}
+        run: uvx --from "keepachangelog-manager-fork[all]" kaclm github-release --repository ${{ github.repository }}

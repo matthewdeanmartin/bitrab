@@ -230,7 +230,7 @@ class TestSafeCopy2:
     """
 
     def test_overwrites_existing_file_with_correct_content(self, tmp_path):
-        import os
+        pass
 
         src = tmp_path / "src.bin"
         dest = tmp_path / "dest.bin"
@@ -510,7 +510,7 @@ def test_e2e_no_cache_flag_bypasses_restore(tmp_path):
     from bitrab.execution.job import JobExecutor
     from bitrab.execution.variables import VariableManager
 
-    store = make_store(tmp_path)
+    make_store(tmp_path)
     seed_cache(tmp_path, "k", "cached/data.txt", "hello")
 
     # Executor with in_worktree=True but cache_enabled=False (--no-cache)
