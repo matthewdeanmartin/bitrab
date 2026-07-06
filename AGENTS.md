@@ -60,3 +60,5 @@ just check-human
 - `fast-verify` runs read-only checks in parallel with grouped logs
 - `bugs` is the bug-finding oriented workflow
 - `repro` runs serial verification for easier debugging
+
+# Create no branches. Do not commit. That is the human's job.

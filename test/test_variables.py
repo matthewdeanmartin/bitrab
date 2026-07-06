@@ -353,7 +353,9 @@ class TestVariableManager:
         vm = VariableManager()
         assert vm.project_dir == Path.cwd()
 
-    def test_project_name_matches_dir_name(self, tmp_path):
+    def test_project_name_matches_dir_name(self, tmp_path, monkeypatch):
+        # Exercise local derivation even when the suite itself is hosted on GHA.
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         vm = VariableManager(project_dir=tmp_path)
         env = vm.prepare_environment(self.make_job())
         assert env["CI_PROJECT_NAME"] == tmp_path.name
@@ -365,7 +367,8 @@ class TestVariableManager:
         # The shared base should not contain the job variable
         assert "MUTATE_CHECK" not in vm.shared_base_env
 
-    def test_ci_pipeline_id_is_numeric_string(self, tmp_path):
+    def test_ci_pipeline_id_is_numeric_string(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         vm = VariableManager(project_dir=tmp_path)
         env = vm.prepare_environment(self.make_job())
         assert env["CI_PIPELINE_ID"].isdigit()

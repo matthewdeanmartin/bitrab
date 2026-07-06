@@ -169,7 +169,10 @@ class TestVariableManager:
         env = vm.prepare_environment(job)
         assert env["FOO"] == "job"
 
-    def test_ci_project_name_derived_from_dir(self, tmp_path):
+    def test_ci_project_name_derived_from_dir(self, tmp_path, monkeypatch):
+        # This scenario exercises local git-derived metadata, independent of the
+        # CI provider hosting the test suite.
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         project_dir = tmp_path / "my_project"
         project_dir.mkdir()
         vm = VariableManager(project_dir=project_dir)
@@ -178,6 +181,8 @@ class TestVariableManager:
         assert env["CI_PROJECT_NAME"] == "my_project"
 
     def test_git_variables_batched_for_repo_metadata(self, tmp_path, monkeypatch):
+        # The temporary repository, not the outer GHA checkout, is the subject.
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         commands: list[tuple[str, ...]] = []
         real_run = subprocess.run
 
