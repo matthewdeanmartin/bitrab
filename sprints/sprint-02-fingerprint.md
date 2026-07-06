@@ -1,6 +1,6 @@
 # Sprint 02 — Job fingerprint memoization (`--incremental`)
 
-**Status:** delegated to subagent (2026-07-06)
+**Status:** complete (2026-07-06) — implemented by subagent, verified (961 passed, 3 skipped). Source landed in commit "cache and more"; docs/CHANGELOG deltas and test_fingerprint.py still uncommitted. Follow-ups: `watch --incremental` not exposed; sprint 04 must wire `rules: changes:` patterns into the fingerprint input-file precedence.
 **Delegable:** partially — the hashing/store layer is bot-friendly; the "what goes
 into the fingerprint" policy decisions should be reviewed by a human before wiring in.
 

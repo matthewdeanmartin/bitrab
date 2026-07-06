@@ -89,6 +89,15 @@ parallel worktree jobs). Supported subset:
 Not supported (ignored with a validation warning): `untracked:`, `unprotect:`, `fallback_keys:`. A
 cross-runner distributed cache is meaningless locally.
 
+## Fingerprint memoization is a bitrab-only feature
+
+GitLab always re-runs every job in a pipeline. `bitrab run --incremental` skips jobs whose inputs — resolved
+scripts, variables, declared environment salt, input files, and upstream job fingerprints — have not changed
+since their last successful local run, reporting them with a distinct `cached` status. The fingerprint cannot
+see outside-world changes (network resources, system packages, tool upgrades); `--refresh` and
+`bitrab clean --what fingerprints` are the escape hatches, and the feature is strictly opt-in. See
+[Incremental runs](running.md#incremental-runs---incremental) for the full contract.
+
 ## Artifacts are local, not uploaded
 
 Bitrab stores artifacts in `.bitrab/artifacts/<job_name>/` and copies them between local jobs. It does not upload them

@@ -80,6 +80,59 @@ That lets one container or VM execute several pipeline jobs in parallel, which c
 environment setup compared with splitting every small task into a separate remote CI job. It is not identical to native
 GitLab fan-out, but it can save build minutes when isolation is unnecessary.[^stage][^plan]
 
+## Incremental runs (`--incremental`)
+
+```bash
+bitrab run --incremental
+```
+
+With `--incremental`, bitrab skips any job whose *fingerprint* matches its last successful run — a
+Turborepo-style memoization for pipelines, with no containers. Skipped jobs are reported with a distinct
+`cached` status and counted separately in the summary. Memoized jobs still satisfy `needs:` and their
+previously collected artifacts under `.bitrab/artifacts/<job>/` are still injected into downstream jobs; if
+that artifact directory is gone, the job runs again. This is always opt-in — without the flag, nothing
+changes.[^fingerprint]
+
+### What the fingerprint sees
+
+A job's fingerprint is a SHA-256 digest over:
+
+1. The resolved `before_script`, `script`, and `after_script`.
+2. The job's `variables:` (resolved values).
+3. The values of environment variables you declare in `pyproject.toml`:
+
+   ```toml
+   [tool.bitrab]
+   fingerprint_env = ["CC", "TOOLCHAIN_HOME"]
+   ```
+
+   This is an explicit salt for shared-environment inputs (toolchain paths, compiler versions) that scripts
+   read but bitrab cannot infer.
+4. A content digest of the job's input files. Precedence:
+   - `variables: BITRAB_FINGERPRINT_PATHS: "src/**,pyproject.toml"` (comma-separated globs) — explicit wins;
+   - `cache: key: files:` entries;
+   - fallback: all **git-tracked** files, using git's own blob hashes (`git ls-files -s`) plus a hash of
+     `git diff` for dirty working-tree state — nothing is re-hashed. Outside a git repository the fallback is
+     inert: only scripts, variables, and explicitly declared paths are fingerprinted.
+5. The fingerprints of every job this one `needs:`/depends on — an upstream change transitively re-runs
+   downstream jobs.
+6. The bitrab version and a schema version, so upgrades invalidate cleanly.
+
+### What the fingerprint does NOT see
+
+The outside world. Network resources, system package upgrades, tool installs, database state — none of these
+change the fingerprint, so a "cached" job may be stale if its behaviour depends on them. Escape hatches:
+
+- `bitrab run --incremental --refresh` — run everything, record fresh fingerprints;
+- `bitrab clean --what fingerprints` — drop the store entirely.
+
+Untracked files are also invisible to the git fallback; declare them via `BITRAB_FINGERPRINT_PATHS` if a job
+depends on them.
+
+Only successful jobs record a fingerprint; failed jobs (and jobs flagged by mutation detection) always re-run.
+`bitrab run --dry-run --incremental` reports which jobs *would* be memoized without touching the store. The
+store lives at `.bitrab/fingerprints/` under the project root and is safe against concurrent runs.
+
 ## Watch mode
 
 ```bash
@@ -109,5 +162,7 @@ Source: [bitrab/execution/stage_runner.py](https://github.com/matthewdeanmartin/
 Source: [bitrab/tui/orchestrator.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/tui/orchestrator.py)
 and [bitrab/tui/ci_mode.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/tui/ci_mode.py)
 [^watch]: Source: [bitrab/watch.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/watch.py)
+[^fingerprint]:
+Source: [bitrab/execution/fingerprint.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/execution/fingerprint.py)
 [^graph]: Source: [bitrab/graph.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/graph.py)
 and [bitrab/folder.py](https://github.com/matthewdeanmartin/bitrab/blob/main/bitrab/folder.py)

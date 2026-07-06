@@ -1,6 +1,6 @@
 # Sprint 03 — `bitrab vendor` and `--offline`
 
-**Status:** planned
+**Status:** delegated to subagent (2026-07-06)
 **Delegable:** yes, once the lockfile format below is agreed — mechanical after that.
 
 ## Goal
