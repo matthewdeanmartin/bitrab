@@ -6,9 +6,13 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
+import subprocess
+
 from bitrab.execution.variables import (
     VariableManager,
     derive_git_variables,
+    derive_github_actions_variables,
+    git,
     git_head_metadata,
     load_dotenv_files,
     parse_dotenv,
@@ -365,3 +369,61 @@ class TestVariableManager:
         vm = VariableManager(project_dir=tmp_path)
         env = vm.prepare_environment(self.make_job())
         assert env["CI_PIPELINE_ID"].isdigit()
+
+
+def _init_repo_with_commit(path: Path) -> None:
+    """Create a git repo at ``path`` with a single committed file."""
+    subprocess.run(["git", "init"], cwd=path, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=path, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=path, capture_output=True, check=True)
+    (path / "file.txt").write_text("hello", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=path, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "initial commit"], cwd=path, capture_output=True, check=True)
+
+
+class TestGitHelper:
+    """Happy-path and failure behaviour of the low-level ``git`` helper."""
+
+    def test_returns_stdout_on_success(self, tmp_path):
+        _init_repo_with_commit(tmp_path)
+        sha = git(["rev-parse", "HEAD"], tmp_path)
+        assert len(sha) == 40
+        assert all(c in "0123456789abcdef" for c in sha)
+
+    def test_output_is_stripped(self, tmp_path):
+        _init_repo_with_commit(tmp_path)
+        title = git(["log", "-1", "--pretty=%s"], tmp_path)
+        assert title == "initial commit"
+        assert not title.endswith("\n")
+
+    def test_nonzero_exit_returns_empty_string(self, tmp_path):
+        _init_repo_with_commit(tmp_path)
+        # rev-parse on a bogus ref exits non-zero; helper swallows it.
+        assert git(["rev-parse", "does-not-exist"], tmp_path) == ""
+
+    def test_non_repo_returns_empty_string(self, tmp_path):
+        assert git(["rev-parse", "HEAD"], tmp_path) == ""
+
+
+class TestDeriveGithubActionsVariables:
+    """Mapping of GITHUB_* env vars to GitLab-style CI_* names."""
+
+    def test_returns_empty_when_not_on_github(self):
+        with patch.dict(os.environ, {}, clear=True):
+            assert derive_github_actions_variables() == {}
+
+    def test_returns_empty_when_github_actions_not_true(self):
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}, clear=True):
+            assert derive_github_actions_variables() == {}
+
+    def test_maps_known_github_vars(self):
+        env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_SHA": "abc123",
+            "GITHUB_REPOSITORY": "owner/repo",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            result = derive_github_actions_variables()
+        assert isinstance(result, dict)
+        # SHA should surface through one of the CI_* commit variables.
+        assert "abc123" in result.values()

@@ -839,8 +839,6 @@ def persist_run_log(
 
         warn = maybe_warn_size(project_dir)
         if warn:
-            from bitrab.console import safe_print
-
             safe_print(warn)
     except Exception as exc:  # pylint: disable=broad-except
         logging.debug("Failed to persist run log: %s", exc)

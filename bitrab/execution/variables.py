@@ -89,6 +89,7 @@ def git(args: list[str], cwd: Path) -> str:
             text=True,
             cwd=cwd,
             timeout=5,
+            check=False,
         )
         return result.stdout.strip() if result.returncode == 0 else ""
     except Exception:
