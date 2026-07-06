@@ -31,6 +31,7 @@ from bitrab.execution.artifacts import (
     inject_dependencies,
     load_dotenv_reports,
 )
+from bitrab.execution.fingerprint import FingerprintManager
 from bitrab.execution.job import JobExecutor, JobRuntimeContext, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.folder import ensure_bitrab_dir
@@ -55,6 +56,7 @@ class JobOutcome:
     error: BaseException | None = None
     history: list[RunResult] = field(default_factory=list)
     allowed_failure: bool = False  # True if job failed but allow_failure was set
+    memoized: bool = False  # True if the job was skipped via --incremental fingerprint match
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +327,7 @@ class BaseRunner:
         mutation_config: MutationConfig | None = None,
         parallel_backend: ParallelBackendConfig | None = None,
         worktree_config: WorktreeConfig | None = None,
+        fingerprints: FingerprintManager | None = None,
     ) -> None:
         self.job_executor = job_executor
         self.callbacks = callbacks or PipelineCallbacks()
@@ -343,6 +346,8 @@ class BaseRunner:
         self.worktrees_available: bool | None = None
         # Tracks names of all jobs that have completed (for artifact injection)
         self.completed_jobs: list[str] = []
+        # --incremental fingerprint memoization; None when the feature is off.
+        self.fingerprints = fingerprints
 
     def use_worktrees(self) -> bool:
         """Return True if we should create per-job worktrees for parallel jobs."""
@@ -362,6 +367,41 @@ class BaseRunner:
         if not self.job_executor.dry_run:
             job_dir.mkdir(parents=True, exist_ok=True)
         return job_dir
+
+    def check_memoized(self, job: JobConfig) -> JobOutcome | None:
+        """Return a memoized :class:`JobOutcome` if *job* can be skipped, else None.
+
+        Only active under ``--incremental``.  A hit means the recorded
+        fingerprint matches the freshly computed one *and* the job's previous
+        outputs are still present in the artifact store, so downstream
+        ``dependencies:`` injection keeps working without re-running the job.
+        ``--refresh`` and any fingerprint mismatch fall through to a real run.
+        """
+        if self.fingerprints is None:
+            return None
+        decision = self.fingerprints.check(job)
+        if not decision.hit:
+            return None
+        return JobOutcome(job=job, success=True, memoized=True)
+
+    def record_fingerprint(self, job: JobConfig, succeeded: bool, mutations: list[str] | None = None) -> None:
+        """Record *job*'s fingerprint after a genuine, trustworthy success.
+
+        Never records for failed jobs, dry runs, or jobs that tripped mutation
+        detection (their outputs are untrustworthy).
+        """
+        if self.fingerprints is None or self.job_executor.dry_run:
+            return
+        if not succeeded or mutations:
+            return
+        self.fingerprints.record(job)
+
+    def complete_memoized(self, outcome: JobOutcome) -> None:
+        """Emit callbacks and bookkeeping for a memoized (skipped) job."""
+        cb = self.callbacks
+        cb.on_job_start(outcome.job)
+        self.completed_jobs.append(outcome.job.name)
+        cb.on_job_complete(outcome)
 
     def make_pool(self, max_workers: int):
         """Create the appropriate executor pool based on backend config."""
@@ -389,6 +429,12 @@ class BaseRunner:
         outcomes: list[JobOutcome] = []
 
         for job in jobs:
+            memoized = self.check_memoized(job)
+            if memoized is not None:
+                self.complete_memoized(memoized)
+                outcomes.append(memoized)
+                continue
+
             job_dir = self.make_job_dir(job)
             cb.on_job_start(job)
             dotenv_vars: dict[str, str] = {}
@@ -429,8 +475,12 @@ class BaseRunner:
                     collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
                 self.completed_jobs.append(job.name)
 
+            mutations: list[str] = []
             if snap is not None:
-                report_mutations(job.name, snap, writer)
+                mutations = snap.mutations()
+                report_mutations(job.name, mutations, writer)
+
+            self.record_fingerprint(job, succeeded, mutations)
 
             outcomes.append(outcome)
             cb.on_job_complete(outcome)
@@ -457,6 +507,12 @@ class BaseRunner:
         with self.make_pool(pool_size) as pool:
             futures: dict[Any, JobConfig] = {}
             for job in jobs:
+                memoized = self.check_memoized(job)
+                if memoized is not None:
+                    self.complete_memoized(memoized)
+                    outcomes.append(memoized)
+                    continue
+
                 job_dir = self.make_job_dir(job)
                 cb.on_job_start(job)
                 if not self.job_executor.dry_run and not use_worktrees:
@@ -523,6 +579,7 @@ class BaseRunner:
                         # the worktree down, including the failure path.
                         collect_artifacts(job, self.job_executor.project_dir, succeeded)
                         collect_dotenv_report(job, self.job_executor.project_dir, succeeded)
+                    self.record_fingerprint(job, succeeded)
                     self.completed_jobs.append(job.name)
 
                     outcomes.append(outcome)
@@ -554,11 +611,14 @@ class StagePipelineRunner(BaseRunner):
                 mutation_config=self.mutation_config,
                 parallel_backend=self.parallel_backend,
                 worktree_config=self.worktree_config,
+                fingerprints=self.fingerprints,
             )
             dag_runner.execute_pipeline(pipeline)
             return
 
         cb = self.callbacks
+        if self.fingerprints is not None:
+            self.fingerprints.prepare(pipeline)
         cb.on_pipeline_start(pipeline, self.maximum_degree_of_parallelism)
 
         jobs_by_stage = organize_jobs_by_stage(pipeline)
@@ -676,11 +736,10 @@ def build_dag(pipeline: PipelineConfig) -> TopologicalSorter:
 # ---------------------------------------------------------------------------
 
 
-def report_mutations(job_name: str, snap: MutationSnapshot, writer: Any) -> None:
+def report_mutations(job_name: str, changed: list[str], writer: Any) -> None:
     """Emit a warning for each unexpected mutation detected after a job ran."""
     from bitrab.console import safe_print
 
-    changed = snap.mutations()
     if changed:
         printer = (lambda msg: safe_print(msg, file=writer)) if writer else safe_print
         printer(f"⚠️  [mutation] Job '{job_name}' modified {len(changed)} unexpected file(s):")
@@ -700,6 +759,8 @@ class DagPipelineRunner(BaseRunner):
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:
         """Run all jobs respecting DAG dependencies."""
         cb = self.callbacks
+        if self.fingerprints is not None:
+            self.fingerprints.prepare(pipeline)
         cb.on_pipeline_start(pipeline, self.maximum_degree_of_parallelism)
 
         # Build the DAG (raises CycleError if cyclic)

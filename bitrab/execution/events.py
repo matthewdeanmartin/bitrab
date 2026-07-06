@@ -176,7 +176,12 @@ class EventCollector(PipelineCallbacks):
         self.inner.on_job_start(job)
 
     def on_job_complete(self, outcome: JobOutcome) -> None:
-        status = "allowed_failure" if outcome.allowed_failure else ("success" if outcome.success else "failed")
+        if outcome.memoized:
+            status = "cached"
+        elif outcome.allowed_failure:
+            status = "allowed_failure"
+        else:
+            status = "success" if outcome.success else "failed"
         self.emit(
             EventType.JOB_COMPLETE,
             stage=outcome.job.stage,
@@ -184,6 +189,7 @@ class EventCollector(PipelineCallbacks):
             data={
                 "success": outcome.success,
                 "allowed_failure": outcome.allowed_failure,
+                "memoized": outcome.memoized,
                 "status": status,
                 "error": repr(outcome.error) if outcome.error else None,
             },
@@ -228,7 +234,7 @@ class JobTiming:
 
     name: str
     stage: str
-    status: str  # "success" | "failed" | "allowed_failure"
+    status: str  # "success" | "failed" | "allowed_failure" | "cached"
     duration_s: float  # seconds between JOB_START and JOB_COMPLETE
     error: str | None = None
 
@@ -362,11 +368,18 @@ class PipelineSummary:
                     mark = "pass"
                 elif jt.status == "allowed_failure":
                     mark = "warn"
+                elif jt.status == "cached":
+                    mark = "cach"
                 else:
                     mark = "FAIL"
                 lines.append(f"    [{mark:>4}] {jt.name} ({jt.duration_s:.1f}s)")
                 if jt.error:
                     lines.append(f"           {jt.error}")
+
+            cached_count = sum(1 for jt in self.jobs if jt.status == "cached")
+            if cached_count:
+                lines.append("")
+                lines.append(f"  {cached_count} job(s) skipped (cached — fingerprint unchanged).")
 
         if self.awaiting_manual:
             lines.append("")

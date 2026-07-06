@@ -17,6 +17,8 @@ Public API
 - :func:`list_runs` – return :class:`RunRecord` objects for every persisted run
 - :func:`prune_runs` – delete the oldest runs, keeping *keep* most recent
 - :func:`clean_artifacts` – delete all artifact directories
+- :func:`clean_cache` – delete the shared cache store
+- :func:`clean_fingerprints` – delete the fingerprint store
 - :func:`clean_job_dirs` – delete all job working directories (not logs/artifacts)
 - :func:`clean_all` – delete everything under ``.bitrab/``
 
@@ -51,6 +53,8 @@ LOGS_DIR = "logs"
 ARTIFACTS_DIR = "artifacts"
 WORKTREES_DIR = "worktrees"
 TEMP_DIR = "temp"
+CACHE_DIR = "cache"
+FINGERPRINTS_DIR = "fingerprints"
 SIZE_WARN_BYTES_DEFAULT = 500 * 1024 * 1024  # 500 MB
 
 # ---------------------------------------------------------------------------
@@ -65,6 +69,8 @@ temp/
 logs/
 artifacts/
 worktrees/
+cache/
+fingerprints/
 
 # Local secret overrides — never commit these
 .bitrab.env
@@ -179,7 +185,9 @@ class FolderSummary:
     logs_size_bytes: int
     artifacts_size_bytes: int
     job_dirs_size_bytes: int
+    cache_size_bytes: int
     run_count: int
+    fingerprints_size_bytes: int = 0
     warn_threshold_bytes: int = SIZE_WARN_BYTES_DEFAULT
     subdirs: list[str] = field(default_factory=list)
 
@@ -200,6 +208,14 @@ class FolderSummary:
         return human_size(self.job_dirs_size_bytes)
 
     @property
+    def cache_human(self) -> str:
+        return human_size(self.cache_size_bytes)
+
+    @property
+    def fingerprints_human(self) -> str:
+        return human_size(self.fingerprints_size_bytes)
+
+    @property
     def is_large(self) -> bool:
         """True when the folder exceeds the warning threshold."""
         return self.total_size_bytes >= self.warn_threshold_bytes
@@ -216,6 +232,8 @@ class FolderSummary:
         lines.append(f"  Logs     : {self.logs_human}  ({self.run_count} run(s))")
         lines.append(f"  Artifacts: {self.artifacts_human}")
         lines.append(f"  Job dirs : {self.job_dirs_human}")
+        lines.append(f"  Cache    : {self.cache_human}")
+        lines.append(f"  Fingerprints: {self.fingerprints_human}")
         if self.subdirs:
             lines.append(f"  Contents : {', '.join(self.subdirs)}")
         if self.is_large:
@@ -249,6 +267,7 @@ def scan_folder(
             logs_size_bytes=0,
             artifacts_size_bytes=0,
             job_dirs_size_bytes=0,
+            cache_size_bytes=0,
             run_count=0,
             warn_threshold_bytes=warn_threshold_bytes,
         )
@@ -262,15 +281,26 @@ def scan_folder(
     # Job dirs live under .bitrab/temp/<job_name>/.
     temp_path = bd / TEMP_DIR
     job_bytes = dir_size_bytes(temp_path) if temp_path.exists() else 0
+    cache_path = bd / CACHE_DIR
+    cache_bytes = dir_size_bytes(cache_path) if cache_path.exists() else 0
+    fingerprints_path = bd / FINGERPRINTS_DIR
+    fingerprint_bytes = dir_size_bytes(fingerprints_path) if fingerprints_path.exists() else 0
     subdirs: list[str] = []
     try:
         for entry in os.scandir(bd):
-            if entry.is_dir() and entry.name not in (LOGS_DIR, ARTIFACTS_DIR, WORKTREES_DIR, TEMP_DIR):
+            if entry.is_dir() and entry.name not in (
+                LOGS_DIR,
+                ARTIFACTS_DIR,
+                WORKTREES_DIR,
+                TEMP_DIR,
+                CACHE_DIR,
+                FINGERPRINTS_DIR,
+            ):
                 subdirs.append(entry.name)
     except OSError:
         pass
 
-    total = logs_bytes + artifact_bytes + job_bytes
+    total = logs_bytes + artifact_bytes + job_bytes + cache_bytes + fingerprint_bytes
 
     # Count run dirs
     run_count = 0
@@ -287,7 +317,9 @@ def scan_folder(
         logs_size_bytes=logs_bytes,
         artifacts_size_bytes=artifact_bytes,
         job_dirs_size_bytes=job_bytes,
+        cache_size_bytes=cache_bytes,
         run_count=run_count,
+        fingerprints_size_bytes=fingerprint_bytes,
         warn_threshold_bytes=warn_threshold_bytes,
         subdirs=sorted(subdirs),
     )
@@ -371,6 +403,26 @@ def clean_job_dirs(project_dir: Path) -> int:
         return 0
     freed = dir_size_bytes(temp_path)
     shutil.rmtree(temp_path)
+    return freed
+
+
+def clean_cache(project_dir: Path) -> int:
+    """Delete ``.bitrab/cache/``. Returns bytes freed."""
+    cache_path = bitrab_dir(project_dir) / CACHE_DIR
+    if not cache_path.exists():
+        return 0
+    freed = dir_size_bytes(cache_path)
+    shutil.rmtree(cache_path)
+    return freed
+
+
+def clean_fingerprints(project_dir: Path) -> int:
+    """Delete ``.bitrab/fingerprints/``. Returns bytes freed."""
+    fingerprints_path = bitrab_dir(project_dir) / FINGERPRINTS_DIR
+    if not fingerprints_path.exists():
+        return 0
+    freed = dir_size_bytes(fingerprints_path)
+    shutil.rmtree(fingerprints_path)
     return freed
 
 

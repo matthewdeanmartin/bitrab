@@ -15,7 +15,7 @@ from bitrab.exceptions import GitlabRunnerError
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.scheduler import StageOrchestrator
 from bitrab.execution.variables import VariableManager
-from bitrab.models.pipeline import DefaultConfig, JobConfig, PipelineConfig, RuleConfig
+from bitrab.models.pipeline import CacheConfig, DefaultConfig, JobConfig, PipelineConfig, RuleConfig
 
 DURATION_RE = re.compile(
     r"""
@@ -137,11 +137,20 @@ class PipelineProcessor:
         global_variables = raw_config.get("variables", {})
         default_config = self.process_default_config(raw_config.get("default", {}))
 
+        # Default cache: `default: cache:` wins over the (older) top-level
+        # `cache:` alias; both act as the per-job default that a job-level
+        # `cache:` overrides wholesale.
+        raw_default = raw_config.get("default", {})
+        raw_cache = raw_default.get("cache") if isinstance(raw_default, dict) and "cache" in raw_default else None
+        if raw_cache is None:
+            raw_cache = raw_config.get("cache")
+        global_cache = self.parse_cache_entries(raw_cache)
+
         # Process jobs — skip reserved keywords and hidden templates (`.name`)
         jobs = []
         for name, job_data in raw_config.items():
             if name not in self.RESERVED_KEYWORDS and not name.startswith(".") and isinstance(job_data, dict):
-                job = self.process_job(name, job_data, default_config, global_variables)
+                job = self.process_job(name, job_data, default_config, global_variables, global_cache=global_cache)
                 jobs.append(job)
 
         # Expand parallel: N and parallel: matrix: directives
@@ -249,12 +258,91 @@ class PipelineProcessor:
             variables=default_data.get("variables", {}),
         )
 
+    # GitLab allows at most 4 cache entries per job and 2 files per key.
+    MAX_CACHE_ENTRIES = 4
+    MAX_CACHE_KEY_FILES = 2
+
+    @classmethod
+    def parse_cache_entries(cls, raw: Any) -> list[CacheConfig]:
+        """Parse a raw ``cache:`` block into a list of :class:`CacheConfig`.
+
+        Accepts a single mapping or a list of mappings (GitLab caps the list
+        at four entries; extras are dropped).  ``cache: []`` / ``cache: {}``
+        disable caching and yield an empty list.  Entries without ``paths:``
+        are skipped — there is nothing to cache.  Unsupported sub-keys such
+        as ``untracked:`` or ``fallback_keys:`` are ignored here; the
+        capability checker surfaces a WARNING for them.
+        """
+        if isinstance(raw, dict):
+            entries: list[Any] = [raw]
+        elif isinstance(raw, list):
+            if len(raw) > cls.MAX_CACHE_ENTRIES:
+                safe_print(
+                    f"⚠️  cache: defines {len(raw)} entries but GitLab allows at most "
+                    f"{cls.MAX_CACHE_ENTRIES} — extra entries are ignored."
+                )
+            entries = raw[: cls.MAX_CACHE_ENTRIES]
+        else:
+            return []
+
+        result: list[CacheConfig] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            paths_val = entry.get("paths", [])
+            paths = [str(p) for p in paths_val if isinstance(p, str)] if isinstance(paths_val, list) else []
+            if not paths:
+                continue
+
+            key: str | None = None
+            key_files: list[str] = []
+            key_prefix = ""
+            key_raw = entry.get("key")
+            if isinstance(key_raw, str):
+                key = key_raw
+            elif isinstance(key_raw, (int, float)):
+                key = str(key_raw)
+            elif isinstance(key_raw, dict):
+                files_val = key_raw.get("files", [])
+                if isinstance(files_val, list):
+                    files = [str(f) for f in files_val if isinstance(f, str)]
+                    if len(files) > cls.MAX_CACHE_KEY_FILES:
+                        safe_print(
+                            f"⚠️  cache: key: files: lists {len(files)} files but GitLab allows at most "
+                            f"{cls.MAX_CACHE_KEY_FILES} — extra files are ignored."
+                        )
+                    key_files = files[: cls.MAX_CACHE_KEY_FILES]
+                prefix_val = key_raw.get("prefix")
+                if isinstance(prefix_val, str):
+                    key_prefix = prefix_val
+
+            policy = entry.get("policy", "pull-push")
+            if policy not in {"pull-push", "pull", "push"}:
+                policy = "pull-push"
+
+            when = entry.get("when", "on_success")
+            if when not in {"on_success", "on_failure", "always"}:
+                when = "on_success"
+
+            result.append(
+                CacheConfig(
+                    paths=paths,
+                    key=key,
+                    key_files=key_files,
+                    key_prefix=key_prefix,
+                    policy=policy,
+                    when=when,
+                )
+            )
+        return result
+
     def process_job(
         self,
         name: str,
         job_data: dict[str, Any],
         default: DefaultConfig,
         global_vars: dict[str, str],
+        global_cache: list[CacheConfig] | None = None,
     ) -> JobConfig:
         """
         Process a single job configuration.
@@ -264,6 +352,8 @@ class PipelineProcessor:
             job_data: The job configuration dictionary.
             default: The default configuration.
             global_vars: Global environment variables.
+            global_cache: Parsed top-level/default ``cache:`` entries used
+                when the job does not define its own ``cache:`` key.
 
         Returns:
             A JobConfig object.
@@ -356,6 +446,13 @@ class PipelineProcessor:
                     # GitLab accepts a list; we take the first entry
                     artifacts_dotenv = str(dotenv_val[0])
 
+        # cache: job-level cache overrides the top-level default wholesale
+        # (no merge, matching GitLab); cache: [] / cache: {} disables.
+        if "cache" in job_data:
+            cache = self.parse_cache_entries(job_data.get("cache"))
+        else:
+            cache = list(global_cache) if global_cache else []
+
         # dependencies: None means "inherit all" (GitLab default)
         dependencies: list[str] | None = None
         deps_raw = job_data.get("dependencies")
@@ -433,6 +530,7 @@ class PipelineProcessor:
             artifacts_when=artifacts_when,
             artifacts_dotenv=artifacts_dotenv,
             dependencies=dependencies,
+            cache=cache,
         )
 
     def expand_parallel_jobs(
@@ -636,6 +734,9 @@ class LocalGitLabRunner:
         exit_on_completion: bool = False,
         input_values: dict[str, Any] | None = None,
         prompt_missing_inputs: bool = False,
+        no_cache: bool = False,
+        incremental: bool = False,
+        refresh: bool = False,
     ) -> None:
         """
         Run the complete pipeline.
@@ -654,6 +755,11 @@ class LocalGitLabRunner:
             exit_on_completion: Close TUI automatically when the pipeline finishes.
             input_values: Root pipeline input values for ``spec:inputs``.
             prompt_missing_inputs: Prompt interactively for missing required root inputs.
+            no_cache: Bypass ``cache:`` restore and save for this run.
+            incremental: Skip jobs whose fingerprint matches a recorded
+                success (fingerprint memoization).
+            refresh: With *incremental*: run every job anyway but record
+                fresh fingerprints.  Implies *incremental*.
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
@@ -696,7 +802,17 @@ class LocalGitLabRunner:
         for job in pipeline.jobs:
             evaluate_rules(job, base_env, project_dir=self.base_path)
 
-        self.job_executor = JobExecutor(variable_manager, dry_run=dry_run, project_dir=self.base_path)
+        self.job_executor = JobExecutor(
+            variable_manager, dry_run=dry_run, project_dir=self.base_path, cache_enabled=not no_cache
+        )
+
+        # --incremental fingerprint memoization.  --refresh implies the
+        # machinery is active (fingerprints are recorded) but every job runs.
+        fingerprints = None
+        if incremental or refresh:
+            from bitrab.execution.fingerprint import FingerprintManager
+
+            fingerprints = FingerprintManager(self.base_path, refresh=refresh)
 
         from bitrab.mutation import (
             WorktreeConfig,
@@ -746,6 +862,7 @@ class LocalGitLabRunner:
                 mutation_config=mutation_config,
                 parallel_backend=parallel_config,
                 worktree_config=worktree_config,
+                fingerprints=fingerprints,
             )
             if use_tui:
                 from bitrab.tui.app import PipelineApp
@@ -765,6 +882,7 @@ class LocalGitLabRunner:
                 mutation_config=mutation_config,
                 parallel_backend=parallel_config,
                 worktree_config=worktree_config,
+                fingerprints=fingerprints,
             )
             self.orchestrator.execute_pipeline(pipeline)
             event_collector = getattr(self.orchestrator, "event_collector", None)

@@ -48,7 +48,7 @@ class JobOutput(Message):
 class JobStatusChanged(Message):
     """Signals a job status transition."""
 
-    # status values: "running" | "success" | "failed" | "cancelled"
+    # status values: "running" | "success" | "failed" | "warned" | "cached" | "cancelled"
     def __init__(self, job_name: str, status: str) -> None:
         super().__init__()
         self.job_name = job_name
@@ -118,6 +118,7 @@ STATUS_ICONS = {
     "warned": "⚠️",
     "pending": "🔲",
     "cancelled": "🚫",
+    "cached": "↷",
 }
 
 APP_CSS = """

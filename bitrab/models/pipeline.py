@@ -25,6 +25,36 @@ class RuleConfig:
 
 
 @dataclass
+class CacheConfig:
+    """
+    Configuration for a single ``cache:`` entry on a job.
+
+    GitLab allows a job to declare up to four cache entries; each entry has
+    its own key, paths, policy, and when-condition.
+
+    Attributes:
+        paths: Glob patterns (relative to the project dir) to cache.
+        key: Literal cache key; may contain ``$VAR`` / ``${VAR}`` references
+            expanded against the job's environment. ``None`` when the key is
+            derived from ``key_files`` or left as GitLab's ``default``.
+        key_files: ``key: files:`` — the key is a SHA of these files'
+            contents (GitLab allows at most two files).
+        key_prefix: ``key: prefix:`` — prepended to the computed file hash.
+        policy: ``pull-push`` (default), ``pull`` (restore only), or
+            ``push`` (save only).
+        when: ``on_success`` (default), ``on_failure``, or ``always`` —
+            controls whether the cache is saved after the job.
+    """
+
+    paths: list[str] = field(default_factory=list)
+    key: str | None = None
+    key_files: list[str] = field(default_factory=list)
+    key_prefix: str = ""
+    policy: str = "pull-push"  # pull-push | pull | push
+    when: str = "on_success"  # on_success | on_failure | always
+
+
+@dataclass
 class JobConfig:
     """
     Configuration for a single job.
@@ -76,6 +106,11 @@ class JobConfig:
     # dependencies: named jobs whose artifacts to copy before this job runs
     # None = inherit all (GitLab default); [] = no artifacts
     dependencies: list[str] | None = None
+
+    # cache: entries restored before before_script and saved after scripts.
+    # Job-level cache: overrides the top-level default wholesale (no merge);
+    # an empty list means caching is disabled for this job.
+    cache: list[CacheConfig] = field(default_factory=list)
 
     # parallel: job duplication / matrix expansion
     # parallel_total: total number of parallel instances (set by parallel: N or matrix expansion)

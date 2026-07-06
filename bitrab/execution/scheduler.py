@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from bitrab.console import safe_print
 from bitrab.execution.events import EventCollector
+from bitrab.execution.fingerprint import FingerprintManager
 from bitrab.execution.job import JobExecutor
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner
 from bitrab.models.pipeline import JobConfig, PipelineConfig
@@ -39,7 +40,12 @@ class StreamingCallbacks(PipelineCallbacks):
         safe_print(f"⏭️  Skipping empty stage: {stage}")
 
     def on_job_complete(self, outcome: JobOutcome) -> None:
-        if outcome.allowed_failure:
+        if outcome.memoized:
+            if self.dry_run:
+                safe_print(f"↷ Job would be cached (fingerprint match): {outcome.job.name}")
+            else:
+                safe_print(f"↷ Job cached (fingerprint match, skipped): {outcome.job.name}")
+        elif outcome.allowed_failure:
             safe_print(f"⚠️  Job warned (allow_failure): {outcome.job.name}")
         elif outcome.success:
             safe_print(f"✅ Job completed: {outcome.job.name}")
@@ -67,6 +73,7 @@ class StageOrchestrator:
         mutation_config: MutationConfig | None = None,
         parallel_backend: ParallelBackendConfig | None = None,
         worktree_config: WorktreeConfig | None = None,
+        fingerprints: FingerprintManager | None = None,
     ) -> None:
         self.job_executor = job_executor
         self.event_collector = EventCollector(inner=StreamingCallbacks(dry_run=dry_run))
@@ -77,6 +84,7 @@ class StageOrchestrator:
             mutation_config=mutation_config,
             parallel_backend=parallel_backend,
             worktree_config=worktree_config,
+            fingerprints=fingerprints,
         )
 
     def execute_pipeline(self, pipeline: PipelineConfig) -> None:

@@ -44,7 +44,7 @@ That changes the economics and the tradeoffs:
 | `include: component`                                 | CI component includes         | Error                                    |
 | `image:`                                             | Pull and run container image  | Ignored                                  |
 | `services:`                                          | Sidecar containers            | Ignored                                  |
-| `cache:`                                             | Shared cache semantics        | Parsed by schema, not executed by bitrab |
+| `cache:`                                             | Shared cache semantics        | Supported locally (subset; see Cache)    |
 | `workflow:`                                          | Pipeline-level creation rules | Ignored                                  |
 | `trigger:`                                           | Child or downstream pipelines | Error                                    |
 | `resource_group:`                                    | Cross-run mutex               | Ignored                                  |
@@ -71,6 +71,23 @@ machine.[^rules][^vars]
 
 `only:` and `except:` are not enforced, so do not depend on them to protect a local run from deployment-style
 jobs.[^plan]
+
+## Cache
+
+Bitrab executes `cache:` locally: matched paths are restored into the job's working directory before
+`before_script` and saved back after scripts, into `.bitrab/cache/<key>/` under the project root (shared by
+parallel worktree jobs). Supported subset:
+
+- `paths:` (glob patterns), `key:` (literal, with `$VAR` expansion), `key: files:` (max 2 files) with
+  `prefix:`, `policy:` (`pull-push`/`pull`/`push`), `when:` (`on_success`/`on_failure`/`always`), a list of up
+  to 4 cache entries, and job-level wholesale override of the top-level/default `cache:` (with `cache: []` /
+  `cache: {}` disabling caching for a job).
+- Saves are atomic (staged writes published via a generation pointer) and guarded by per-key advisory locks;
+  a lock timeout skips the cache step with a warning instead of failing the job.
+- `bitrab run --no-cache` bypasses restore and save; `bitrab clean --what cache` deletes the store.
+
+Not supported (ignored with a validation warning): `untracked:`, `unprotect:`, `fallback_keys:`. A
+cross-runner distributed cache is meaningless locally.
 
 ## Artifacts are local, not uploaded
 

@@ -28,8 +28,9 @@ class DiagnosticLevel(str, Enum):
     # any job runs regardless of which command the user invoked.
     #
     # WARNING: the feature is ignored locally and its absence may surprise the
-    # user — e.g. cache: skipped, services: not started, resource_group not
-    # enforced.  Reported as informational notes; validation still passes.
+    # user — e.g. services: not started, resource_group not enforced,
+    # cache: untracked: ignored.  Reported as informational notes;
+    # validation still passes.
     #
     # INFO: the feature is ignored locally but the divergence is well-known and
     # almost always intentional (image: — bitrab is by design container-free).
@@ -80,6 +81,32 @@ _TOP_LEVEL_NON_JOBS = {
 _SUPPORTED_RULES_KEYS = {"if", "when", "allow_failure", "variables", "exists", "needs"}
 _UNIMPLEMENTED_RULES_KEYS: set[str] = set()
 _UNSUPPORTED_RULES_KEYS = {"changes"}
+
+# cache: is executed locally (restore before before_script, save after
+# scripts) — only these sub-keys are ignored, each earning a WARNING.
+_UNSUPPORTED_CACHE_KEYS = {"untracked", "unprotect", "fallback_keys"}
+
+
+def check_cache_block(owner: str, raw: Any, diags: list[CapabilityDiagnostic]) -> None:
+    """Append WARNING diagnostics for unsupported ``cache:`` sub-keys.
+
+    *owner* is a human-readable prefix such as ``"Top-level"`` or
+    ``"Job 'build'"``.  The cache block itself is supported (executed
+    locally); only the sub-keys in :data:`_UNSUPPORTED_CACHE_KEYS` are
+    ignored.
+    """
+    entries = raw if isinstance(raw, list) else [raw]
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        for key in sorted(_UNSUPPORTED_CACHE_KEYS & entry.keys()):
+            diags.append(
+                CapabilityDiagnostic(
+                    level=DiagnosticLevel.WARNING,
+                    feature=f"cache:{key}",
+                    message=f"{owner}: 'cache: {key}:' is not supported locally and will be ignored.",
+                )
+            )
 
 
 def iter_jobs(raw_config: dict[str, Any]):
@@ -179,15 +206,13 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
             )
         )
 
-    # Top-level cache: — bitrab does not implement save/restore between jobs.
+    # Top-level cache: is executed locally — warn only on unsupported sub-keys
+    # (untracked, unprotect, fallback_keys).
     if "cache" in raw_config:
-        diags.append(
-            CapabilityDiagnostic(
-                level=DiagnosticLevel.WARNING,
-                feature="cache",
-                message="Top-level 'cache:' is defined but bitrab does not implement save/restore between jobs.",
-            )
-        )
+        check_cache_block("Top-level", raw_config["cache"], diags)
+    default_block = raw_config.get("default")
+    if isinstance(default_block, dict) and "cache" in default_block:
+        check_cache_block("default", default_block["cache"], diags)
 
     # workflow: rules — not emulated
     if "workflow" in raw_config:
@@ -224,9 +249,9 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                 )
             )
 
-        # image / services / cache — image: is INFO (intentional), the others
-        # are WARNING because a missing service or skipped cache changes runtime
-        # behaviour in non-obvious ways.
+        # image / services — image: is INFO (intentional), services: is
+        # WARNING because a missing service changes runtime behaviour in
+        # non-obvious ways.
         if "image" in job_data:
             diags.append(
                 CapabilityDiagnostic(
@@ -243,16 +268,9 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
                     message=f"Job '{job_name}': 'services:' will be ignored (no container execution).",
                 )
             )
+        # cache: is executed locally — warn only on unsupported sub-keys.
         if "cache" in job_data:
-            diags.append(
-                CapabilityDiagnostic(
-                    level=DiagnosticLevel.WARNING,
-                    feature="cache",
-                    message=(
-                        f"Job '{job_name}': 'cache:' is defined but bitrab does not implement save/restore between jobs."
-                    ),
-                )
-            )
+            check_cache_block(f"Job '{job_name}'", job_data["cache"], diags)
 
         # resource_group — no mutual exclusion enforced locally
         if "resource_group" in job_data:

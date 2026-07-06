@@ -307,6 +307,9 @@ def cmd_run(args: argparse.Namespace) -> None:
             exit_on_completion=getattr(args, "exit_on_completion", False),
             input_values=parse_input_args(getattr(args, "inputs", None)),
             prompt_missing_inputs=input_prompt_enabled(args),
+            no_cache=getattr(args, "no_cache", False),
+            incremental=getattr(args, "incremental", False),
+            refresh=getattr(args, "refresh", False),
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -630,7 +633,14 @@ def cmd_debug(args: argparse.Namespace) -> None:
 
 def cmd_clean(args: argparse.Namespace) -> None:
     """Clean up artifacts and temporary files in .bitrab/."""
-    from bitrab.folder import clean_artifacts, clean_job_dirs, clean_worktrees, scan_folder
+    from bitrab.folder import (
+        clean_artifacts,
+        clean_cache,
+        clean_fingerprints,
+        clean_job_dirs,
+        clean_worktrees,
+        scan_folder,
+    )
 
     project_dir = Path(args.config).parent if getattr(args, "config", None) else Path.cwd()
     dry_run = getattr(args, "dry_run", False)
@@ -649,6 +659,10 @@ def cmd_clean(args: argparse.Namespace) -> None:
             safe_print(f"   job dirs   {summary.job_dirs_human}")
         if what in ("all", "worktrees"):
             safe_print("   worktrees  (git worktree prune + .bitrab/worktrees/)")
+        if what in ("all", "cache"):
+            safe_print(f"   cache      {summary.cache_human}")
+        if what in ("all", "fingerprints"):
+            safe_print(f"   fingerprints {summary.fingerprints_human}")
         if what == "all":
             safe_print(f"   logs       {summary.logs_human}  ({summary.run_count} run(s))")
         safe_print(f"   total      {summary.total_human}")
@@ -661,6 +675,10 @@ def cmd_clean(args: argparse.Namespace) -> None:
         freed += clean_job_dirs(project_dir)
     if what in ("all", "worktrees"):
         freed += clean_worktrees(project_dir)
+    if what in ("all", "cache"):
+        freed += clean_cache(project_dir)
+    if what in ("all", "fingerprints"):
+        freed += clean_fingerprints(project_dir)
     if what == "all":
         from bitrab.folder import clean_logs
 
@@ -853,6 +871,21 @@ Version: {__version__}
         action="store_true",
         help="Skip interactive prompts (e.g. dirty-worktree warning) and continue with parallel execution.",
     )
+    run_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Bypass cache: restore and save for this run (the stored cache is left untouched).",
+    )
+    run_parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Skip jobs whose fingerprint (scripts, variables, input files, dependencies) matches the last successful run. Opt-in memoization; cannot see outside-world changes.",
+    )
+    run_parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="With --incremental: run every job anyway but record fresh fingerprints (implies --incremental).",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
@@ -948,9 +981,9 @@ Version: {__version__}
     )
     clean_parser.add_argument(
         "--what",
-        choices=["all", "artifacts", "jobs", "worktrees"],
+        choices=["all", "artifacts", "jobs", "worktrees", "cache", "fingerprints"],
         default="all",
-        help="What to clean: all (default), artifacts only, job dirs only, or worktrees only",
+        help="What to clean: all (default), artifacts only, job dirs only, worktrees only, cache only, or fingerprints only",
     )
     clean_parser.set_defaults(func=cmd_clean)
 
@@ -998,9 +1031,9 @@ Version: {__version__}
     folder_clean.add_argument("--dry-run", action="store_true", help="Preview what would be removed")
     folder_clean.add_argument(
         "--what",
-        choices=["all", "artifacts", "jobs", "worktrees"],
+        choices=["all", "artifacts", "jobs", "worktrees", "cache", "fingerprints"],
         default="all",
-        help="What to clean: all (default), artifacts only, job dirs only, or worktrees only",
+        help="What to clean: all (default), artifacts only, job dirs only, worktrees only, cache only, or fingerprints only",
     )
     folder_clean.set_defaults(func=cmd_folder, folder_cmd="clean")
 

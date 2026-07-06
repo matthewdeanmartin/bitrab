@@ -9,6 +9,7 @@ from typing import Any
 
 from bitrab.console import safe_print
 from bitrab.exceptions import BitrabError, JobExecutionError, JobTimeoutError
+from bitrab.execution.cache import cache_root, restore_caches, save_caches
 from bitrab.execution.shell import RunResult, TextWriter, run_bash
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
@@ -46,11 +47,23 @@ class JobExecutor:
         variable_manager: The VariableManager instance for managing variables.
     """
 
-    def __init__(self, variable_manager: VariableManager, dry_run: bool = False, project_dir: Path | None = None):
+    def __init__(
+        self,
+        variable_manager: VariableManager,
+        dry_run: bool = False,
+        project_dir: Path | None = None,
+        cache_enabled: bool = True,
+    ):
         self.variable_manager = variable_manager
         self.job_history: list[RunResult] = []
         self.dry_run = dry_run
         self.project_dir = project_dir or Path.cwd()
+        # Cache store anchored to the *original* project root.  When the
+        # stage runner scopes a copy of this executor to a worktree it
+        # rebinds project_dir but leaves cache_store_dir alone, so parallel
+        # worktree jobs share one cache under <project>/.bitrab/cache/.
+        self.cache_enabled = cache_enabled
+        self.cache_store_dir: Path = cache_root(self.project_dir)
 
     # ---- retry helpers ----
 
@@ -191,6 +204,13 @@ class JobExecutor:
         job_timeout = ctx.timeout
         deadline: float | None = (time.monotonic() + job_timeout) if job_timeout is not None else None
 
+        # cache: restore (pull) before before_script; save (push) after
+        # scripts.  Skipped entirely under --dry-run and --no-cache.
+        use_cache = bool(job.cache) and self.cache_enabled and not self.dry_run
+        if use_cache:
+            job_print("  📦 Restoring cache...")
+            restore_caches(job, self.cache_store_dir, execution_dir, env)
+
         max_attempts = 1 + max(0, int(job.retry_max))
         attempt = 0
         last_exc: BaseException | None = None
@@ -217,10 +237,15 @@ class JobExecutor:
                     self.execute_scripts(job.script, env, execution_dir, output_writer=output_writer, deadline=deadline)
 
                 job_print(f"✅ Job {job.name} completed successfully")
+                if use_cache:
+                    job_print("  📦 Saving cache...")
+                    save_caches(job, self.cache_store_dir, execution_dir, env, succeeded=True)
                 return
 
             except JobTimeoutError:
                 job_print(f"  ⏱️ Job {job.name} timed out after {job_timeout}s")
+                if use_cache:
+                    save_caches(job, self.cache_store_dir, execution_dir, env, succeeded=False)
                 raise
             except subprocess.CalledProcessError as e:
                 last_exc = e
@@ -259,6 +284,8 @@ class JobExecutor:
             job_print("  🔄 Retrying job...")
 
         # out of attempts
+        if use_cache:
+            save_caches(job, self.cache_store_dir, execution_dir, env, succeeded=False)
         if isinstance(last_exc, subprocess.CalledProcessError):
             raise JobExecutionError(
                 f"Job {job.name} failed after {attempt} attempt(s) with exit code {last_exc.returncode}"

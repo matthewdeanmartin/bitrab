@@ -131,13 +131,22 @@ def test_top_level_services_is_warning():
     assert any(d.feature == "services" for d in warnings(diags))
 
 
-def test_top_level_cache_is_warning():
+def test_top_level_cache_is_supported_no_warning():
     raw = {
         "cache": {"paths": ["node_modules/"]},
         "job": {"script": ["npm test"]},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "cache" for d in warnings(diags))
+    assert not any(d.feature.startswith("cache") for d in diags)
+
+
+def test_top_level_cache_untracked_is_warning():
+    raw = {
+        "cache": {"paths": ["node_modules/"], "untracked": True},
+        "job": {"script": ["npm test"]},
+    }
+    diags = check_capabilities(raw)
+    assert any(d.feature == "cache:untracked" for d in warnings(diags))
 
 
 def test_job_level_image_is_info():
@@ -157,12 +166,23 @@ def test_job_level_services_is_warning():
     assert any(d.feature == "services" for d in warnings(diags))
 
 
-def test_job_level_cache_is_warning():
+def test_job_level_cache_is_supported_no_warning():
     raw = {
         "job": {"cache": {"paths": [".pip-cache"]}, "script": ["pip install -e ."]},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "cache" for d in warnings(diags))
+    assert not any(d.feature.startswith("cache") for d in diags)
+
+
+def test_job_level_cache_fallback_keys_is_warning():
+    raw = {
+        "job": {
+            "cache": [{"paths": [".pip-cache"], "fallback_keys": ["main"]}],
+            "script": ["pip install -e ."],
+        },
+    }
+    diags = check_capabilities(raw)
+    assert any(d.feature == "cache:fallback_keys" for d in warnings(diags))
 
 
 # ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ from queue import Empty
 from typing import TYPE_CHECKING, Any
 
 from bitrab.execution.events import EventCollector
+from bitrab.execution.fingerprint import FingerprintManager
 from bitrab.execution.job import JobExecutor, RunResult
 from bitrab.execution.shell import TextWriter
 from bitrab.execution.stage_runner import JobOutcome, PipelineCallbacks, StagePipelineRunner, sanitize_job_name
@@ -173,7 +174,9 @@ class TUICallbacks(PipelineCallbacks):
         from bitrab.tui.app import JobStatusChanged
 
         self.stop_serial_drain()
-        if outcome.allowed_failure:
+        if outcome.memoized:
+            status = "cached"
+        elif outcome.allowed_failure:
             status = "warned"
         elif outcome.success:
             status = "success"
@@ -286,13 +289,21 @@ class CIFileCallbacks(PipelineCallbacks):
                 pass
 
         failures = {o.job.name for o in outcomes if not o.success}
+        cached = {o.job.name for o in outcomes if o.memoized}
         for job in self.current_stage_jobs:
             log_path = self.log_paths.get(job.name)
-            status = "❌" if job.name in failures else "✅"
+            if job.name in cached:
+                status = "↷"
+            elif job.name in failures:
+                status = "❌"
+            else:
+                status = "✅"
             print(f"\n{'=' * 60}")
             print(f"{status} Job: {job.name} (stage: {stage})")
             print(f"{'=' * 60}")
-            if log_path and log_path.exists():
+            if job.name in cached:
+                print("(cached — fingerprint unchanged, execution skipped)")
+            elif log_path and log_path.exists():
                 print(log_path.read_text(encoding="utf-8"))
             else:
                 print("(no output)")
@@ -338,8 +349,10 @@ class TUIOrchestrator:
         mutation_config: MutationConfig | None = None,
         parallel_backend: ParallelBackendConfig | None = None,
         worktree_config: WorktreeConfig | None = None,
+        fingerprints: FingerprintManager | None = None,
     ) -> None:
         self.job_executor = job_executor
+        self.fingerprints = fingerprints
         cpu_cnt = os.cpu_count() or 1
         self.maximum_degree_of_parallelism = (
             cpu_cnt if maximum_degree_of_parallelism is None else max(1, maximum_degree_of_parallelism)
@@ -462,6 +475,7 @@ class TUIOrchestrator:
                 mutation_config=self.mutation_config,
                 parallel_backend=self.parallel_backend,
                 worktree_config=self.worktree_config,
+                fingerprints=self.fingerprints,
             )
             runner.execute_pipeline(pipeline)
         finally:
@@ -480,6 +494,7 @@ class TUIOrchestrator:
             mutation_config=self.mutation_config,
             parallel_backend=self.parallel_backend,
             worktree_config=self.worktree_config,
+            fingerprints=self.fingerprints,
         )
         runner.execute_pipeline(pipeline)
         summary = self.event_collector_instance.summary()

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Local execution of `cache:`. Cached paths are restored before `before_script` and saved after scripts into `.bitrab/cache/<key>/` under the project root (shared across parallel worktree jobs). Supports `paths:`, `key:` (with `$VAR` expansion), `key: files:` (max 2) + `prefix:`, `policy:` (`pull-push`/`pull`/`push`), `when:` (`on_success`/`on_failure`/`always`), lists of up to 4 cache entries, and job-level wholesale override of the top-level/default `cache:` (`cache: []` disables). Saves stage to a temp directory and publish atomically via a generation directory plus a `latest` pointer rewritten with `os.replace`, guarded by per-key advisory file locks (`msvcrt` on Windows, `fcntl` on POSIX) so readers never see a partially written cache; on lock timeout the cache step is skipped with a warning instead of failing the job. Unsupported sub-keys (`untracked:`, `unprotect:`, `fallback_keys:`) are ignored with a capability warning; the blanket "cache is not executed" warning is gone.
+- `bitrab run --no-cache` to bypass cache restore and save for a run.
+- `bitrab clean --what cache` / `bitrab folder clean --what cache`, and cache size reporting in `bitrab folder status`.
+- Cross-platform advisory file lock helper `bitrab.utils.filelock.FileLock` with timeout (reused by upcoming fingerprint/vendor stores).
+
 ## [0.4.0] - 2026-04-26
 
 ### Added
