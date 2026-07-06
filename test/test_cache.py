@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import sys
 import threading
 from pathlib import Path
+
+import pytest
 
 from bitrab.config.capabilities import DiagnosticLevel, check_capabilities
 from bitrab.execution.cache import (
     DEFAULT_CACHE_KEY,
+    _safe_copy2,
     expand_variables,
     read_latest_generation,
     resolve_cache_key,
@@ -211,9 +215,63 @@ class TestSanitizeKey:
 
 
 # ---------------------------------------------------------------------------
-# Save / restore behaviour: policy and when
+# _safe_copy2: atomic rename avoids ETXTBSY on executing binaries
 # ---------------------------------------------------------------------------
 
+
+class TestSafeCopy2:
+    """Verify that _safe_copy2 replaces destination atomically (no in-place truncation).
+
+    On Linux, ``shutil.copy2`` raises ETXTBSY (errno 26) when the destination
+    is an executing binary.  _safe_copy2 writes to a sibling temp file first
+    then calls ``os.replace``, creating a new inode without touching the live one.
+    We can't trigger ETXTBSY portably in a unit test, so we validate the functional
+    contract instead.
+    """
+
+    def test_overwrites_existing_file_with_correct_content(self, tmp_path):
+        import os
+
+        src = tmp_path / "src.bin"
+        dest = tmp_path / "dest.bin"
+        src.write_bytes(b"new content")
+        dest.write_bytes(b"old content")
+        _safe_copy2(src, dest)
+        assert dest.read_bytes() == b"new content"
+
+    def test_creates_dest_when_absent(self, tmp_path):
+        src = tmp_path / "src.bin"
+        dest = tmp_path / "dest.bin"
+        src.write_text("hello")
+        _safe_copy2(src, dest)
+        assert dest.read_text() == "hello"
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX chmod not meaningful on Windows")
+    def test_preserves_executable_bit(self, tmp_path):
+        import os
+        import stat
+
+        src = tmp_path / "script.sh"
+        dest = tmp_path / "script_dest.sh"
+        src.write_text("#!/bin/sh\necho hi\n")
+        os.chmod(src, 0o755)
+        _safe_copy2(src, dest)
+        mode = stat.S_IMODE(os.stat(dest).st_mode)
+        assert mode & 0o111, f"Expected executable bit; got mode {oct(mode)}"
+
+
+    def test_no_leftover_temp_file_on_success(self, tmp_path):
+        src = tmp_path / "s.txt"
+        dest = tmp_path / "d.txt"
+        src.write_text("data")
+        _safe_copy2(src, dest)
+        leftovers = [p for p in tmp_path.iterdir() if p != dest and p != src]
+        assert leftovers == [], f"Unexpected temp files left behind: {leftovers}"
+
+
+# ---------------------------------------------------------------------------
+# Save / restore behaviour: policy and when
+# ---------------------------------------------------------------------------
 
 class TestPolicyAndWhen:
     def test_save_and_restore_roundtrip(self, tmp_path):

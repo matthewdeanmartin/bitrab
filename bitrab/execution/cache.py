@@ -37,6 +37,8 @@ import logging
 import os
 import re
 import shutil
+import stat
+import tempfile
 import time
 import uuid
 from collections.abc import Mapping
@@ -194,6 +196,31 @@ def publish_generation(root: Path, sanitized_key: str, staged_dir: Path) -> Path
     return gen_dir
 
 
+def _safe_copy2(src: Path, dest: Path) -> None:
+    """Copy *src* to *dest* without truncating the destination inode in-place.
+
+    ``shutil.copy2`` opens *dest* for writing, which raises ``ETXTBSY``
+    (errno 26, Text file busy) on Linux when *dest* is a currently-executing
+    binary (e.g. ``.venv/bin/python``).  Writing to a sibling temp file then
+    atomically renaming it over *dest* creates a fresh inode so the running
+    process's reference to the old inode is left undisturbed.
+    """
+    fd, tmp_path_str = tempfile.mkstemp(dir=dest.parent)
+    try:
+        os.close(fd)
+        shutil.copy2(src, tmp_path_str)
+        # Preserve executable bits so venv scripts remain runnable.
+        src_mode = stat.S_IMODE(os.stat(src).st_mode)
+        os.chmod(tmp_path_str, src_mode)
+        os.replace(tmp_path_str, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp_path_str)
+        except OSError:
+            pass
+        raise
+
+
 def copy_tree_into(src_root: Path, target_dir: Path) -> int:
     """Copy every file under *src_root* into *target_dir*, preserving relative paths.
 
@@ -208,7 +235,7 @@ def copy_tree_into(src_root: Path, target_dir: Path) -> int:
             src = Path(dirpath) / fname
             dest = target_dir / rel_dir / fname
             dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dest)
+            _safe_copy2(src, dest)
             copied += 1
     return copied
 
