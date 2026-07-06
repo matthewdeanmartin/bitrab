@@ -80,6 +80,21 @@ That lets one container or VM execute several pipeline jobs in parallel, which c
 environment setup compared with splitting every small task into a separate remote CI job. It is not identical to native
 GitLab fan-out, but it can save build minutes when isolation is unnecessary.[^stage][^plan]
 
+## Changed jobs (`--changed`)
+
+```bash
+bitrab run --changed
+bitrab run --changed --incremental --no-tui
+bitrab run --changed --changes-base origin/develop
+```
+
+Changed-job selection uses the same committed-plus-working-tree baseline described in
+[Local vs GitLab](differences.md#baseline-selection-for-rules-changes). Jobs with matching fingerprint or
+`rules:changes` patterns run, as do jobs without declared inputs and transitive `needs:` dependents. Combining it with
+`--incremental` lets unchanged fingerprints skip even within that conservative selection.
+
+Install that fast path before every push with `bitrab install-hook`.
+
 ## Incremental runs (`--incremental`)
 
 ```bash

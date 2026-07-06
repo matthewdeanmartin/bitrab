@@ -14,6 +14,8 @@ class RuleConfig:
         allow_failure: Override allow_failure if rule matches.
         variables: Variables to inject if rule matches.
         needs: Override needs if rule matches.
+        changes: Project-relative patterns matched against the local git change set.
+        compare_to: Optional git ref overriding the local changes baseline for this rule.
     """
 
     if_expr: str | None = None
@@ -22,6 +24,8 @@ class RuleConfig:
     variables: dict[str, str] = field(default_factory=dict)
     needs: list[str] | None = None
     exists: list[str] | None = None
+    changes: list[str] | None = None
+    compare_to: str | None = None
 
 
 @dataclass

@@ -73,7 +73,8 @@ Bitrab supports a practical local subset of `rules:`:
 - `needs`
 
 Rules are evaluated in order, and the first match wins. If no rule matches, the job becomes `when: never`.
-`rules: changes` is not evaluated locally.[^rules][^capabilities]
+`rules: changes` is evaluated against bitrab's documented local git baseline, including committed, staged, unstaged,
+and untracked non-ignored files.[^rules][^capabilities]
 
 ## `when:` and `allow_failure`
 

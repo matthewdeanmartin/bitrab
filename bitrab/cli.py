@@ -312,6 +312,8 @@ def cmd_run(args: argparse.Namespace) -> None:
             incremental=getattr(args, "incremental", False),
             refresh=getattr(args, "refresh", False),
             offline=getattr(args, "offline", False),
+            changed=getattr(args, "changed", False),
+            changes_base=getattr(args, "changes_base", None),
         )
 
     except (BitrabError, GitlabRunnerError) as e:
@@ -593,6 +595,22 @@ def cmd_vendor(args: argparse.Namespace) -> None:
         f"✅ Vendor snapshot refreshed: {len(result.entries)} include(s), "
         f"{len(result.changed)} changed, {len(result.unchanged)} unchanged"
     )
+
+
+def cmd_install_hook(args: argparse.Namespace) -> None:
+    """Install or remove bitrab's managed pre-push hook block."""
+    from bitrab.hooks import install_pre_push_hook, uninstall_pre_push_hook
+
+    result = uninstall_pre_push_hook(Path.cwd()) if args.uninstall else install_pre_push_hook(Path.cwd())
+    messages = {
+        "installed": "✅ Installed bitrab pre-push hook",
+        "chained": "✅ Added bitrab to the existing pre-push shell hook",
+        "unchanged": "✅ Bitrab pre-push hook is already installed",
+        "removed": "✅ Removed bitrab pre-push hook",
+        "unchained": "✅ Removed bitrab block and preserved the existing hook",
+        "absent": "ℹ️  No bitrab pre-push hook is installed",
+    }
+    safe_print(f"{messages[result.action]}: {result.path}")
 
 
 def cmd_watch(args: argparse.Namespace) -> None:
@@ -929,6 +947,16 @@ Version: {__version__}
         action="store_true",
         help="Disable network access and resolve remote includes only from .bitrab/vendor.lock.",
     )
+    run_parser.add_argument(
+        "--changed",
+        action="store_true",
+        help="Run jobs affected by committed, staged, unstaged, or untracked changes, plus needs dependents.",
+    )
+    run_parser.add_argument(
+        "--changes-base",
+        metavar="REF",
+        help="Compare changes against REF instead of the detected default-branch merge-base.",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
@@ -997,6 +1025,18 @@ Version: {__version__}
         help="Check lock hashes and ensure every remote include is vendored without using the network.",
     )
     vendor_parser.set_defaults(func=cmd_vendor)
+
+    hook_parser = subparsers.add_parser(
+        "install-hook",
+        help="Install the changed-jobs quality gate as a git pre-push hook",
+        description="Install or remove bitrab's managed block in .git/hooks/pre-push.",
+    )
+    hook_parser.add_argument(
+        "--uninstall",
+        action="store_true",
+        help="Remove only the bitrab-managed hook block.",
+    )
+    hook_parser.set_defaults(func=cmd_install_hook)
 
     # Lint command
     lint_parser = subparsers.add_parser(
@@ -1133,6 +1173,8 @@ def main() -> None:
         args.inputs = None
         args.prompt_inputs = False
         args.offline = False
+        args.changed = False
+        args.changes_base = None
 
     # Execute the command
     try:

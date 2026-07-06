@@ -78,9 +78,9 @@ _TOP_LEVEL_NON_JOBS = {
 # Helpers
 # ---------------------------------------------------------------------------
 
-_SUPPORTED_RULES_KEYS = {"if", "when", "allow_failure", "variables", "exists", "needs"}
+_SUPPORTED_RULES_KEYS = {"if", "when", "allow_failure", "variables", "exists", "needs", "changes"}
 _UNIMPLEMENTED_RULES_KEYS: set[str] = set()
-_UNSUPPORTED_RULES_KEYS = {"changes"}
+_UNSUPPORTED_RULES_KEYS: set[str] = set()
 
 # cache: is executed locally (restore before before_script, save after
 # scripts) — only these sub-keys are ignored, each earning a WARNING.

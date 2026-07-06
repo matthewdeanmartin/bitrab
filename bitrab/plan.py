@@ -487,6 +487,22 @@ class PipelineProcessor:
                         elif isinstance(rule_exists_raw, str):
                             rule_exists = [rule_exists_raw]
 
+                    rule_changes: list[str] | None = None
+                    rule_compare_to: str | None = None
+                    if "changes" in r:
+                        rule_changes_raw = r["changes"]
+                        if isinstance(rule_changes_raw, list):
+                            rule_changes = [str(p) for p in rule_changes_raw]
+                        elif isinstance(rule_changes_raw, dict):
+                            paths_raw = rule_changes_raw.get("paths", [])
+                            if isinstance(paths_raw, list):
+                                rule_changes = [str(p) for p in paths_raw]
+                            elif isinstance(paths_raw, str):
+                                rule_changes = [paths_raw]
+                            compare_raw = rule_changes_raw.get("compare_to")
+                            if compare_raw is not None:
+                                rule_compare_to = str(compare_raw)
+
                     rules.append(
                         RuleConfig(
                             if_expr=r.get("if"),
@@ -495,6 +511,8 @@ class PipelineProcessor:
                             variables=r.get("variables", {}),
                             needs=rule_needs,
                             exists=rule_exists,
+                            changes=rule_changes,
+                            compare_to=rule_compare_to,
                         )
                     )
 
@@ -738,6 +756,8 @@ class LocalGitLabRunner:
         incremental: bool = False,
         refresh: bool = False,
         offline: bool = False,
+        changed: bool = False,
+        changes_base: str | None = None,
     ) -> None:
         """
         Run the complete pipeline.
@@ -762,6 +782,8 @@ class LocalGitLabRunner:
             refresh: With *incremental*: run every job anyway but record
                 fresh fingerprints.  Implies *incremental*.
             offline: Resolve remote includes only from the vendor snapshot.
+            changed: Run jobs affected by the local changed-file set.
+            changes_base: Explicit git ref used as the local changes baseline.
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
@@ -775,6 +797,17 @@ class LocalGitLabRunner:
             prompt_missing_inputs=prompt_missing_inputs,
         )
         pipeline = self.processor.process_config(raw_config)
+
+        from bitrab.changes import ChangeResolver, select_changed_jobs
+
+        change_resolver = ChangeResolver(self.base_path, changes_base)
+        if changed:
+            changed_names = select_changed_jobs(pipeline, change_resolver.resolve())
+            pipeline = filter_pipeline(pipeline, jobs=sorted(changed_names))
+            if not pipeline.jobs:
+                safe_print("✅ No jobs are affected by the changed-file set.")
+                return
+            safe_print(f"🧭 Changed-file selection kept {len(pipeline.jobs)} job(s).")
 
         # Apply job/stage filters with warnings for unknown names
         if job_filter is not None or stage_filter is not None:
@@ -803,7 +836,7 @@ class LocalGitLabRunner:
         base_env.update(variable_manager.base_variables)
 
         for job in pipeline.jobs:
-            evaluate_rules(job, base_env, project_dir=self.base_path)
+            evaluate_rules(job, base_env, project_dir=self.base_path, change_resolver=change_resolver)
 
         self.job_executor = JobExecutor(
             variable_manager, dry_run=dry_run, project_dir=self.base_path, cache_enabled=not no_cache

@@ -29,6 +29,8 @@ bitrab run [options]
 | `--serial`                            | Run one job at a time in the project root and disable worktrees |
 | `--no-worktrees`                      | Disable per-job git worktree isolation for parallel runs        |
 | `--offline`                           | Resolve remote includes only from the locked vendor snapshot    |
+| `--changed`                           | Run affected jobs, unknown-input jobs, and `needs:` dependents   |
+| `--changes-base REF`                  | Override the local git comparison baseline                      |
 
 Running plain `bitrab` is equivalent to `bitrab run`.[^cli]
 
@@ -73,6 +75,18 @@ bitrab vendor --check
 ```
 
 See [Vendoring and offline mode](vendoring.md) for the lockfile and payload contract.
+
+## `bitrab install-hook`
+
+Install the changed-job fast path as a managed git pre-push hook:
+
+```bash
+bitrab install-hook
+bitrab install-hook --uninstall
+```
+
+The hook runs `bitrab run --changed --incremental --no-tui`. Skip it once with `git push --no-verify`, or set
+`BITRAB_SKIP_HOOK=1`. Existing shell hooks are preserved and chained; non-shell hooks are never overwritten.
 
 ## `bitrab graph`
 

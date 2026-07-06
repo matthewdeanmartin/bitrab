@@ -11,6 +11,7 @@ everything bitrab can see that feeds the job:
 4. A content digest of the job's input files.  Sources, in order of preference:
    - ``variables: BITRAB_FINGERPRINT_PATHS`` (comma-separated globs);
    - ``cache: key: files:`` entries;
+   - ``rules: changes:`` patterns;
    - fallback: all git-tracked files via ``git ls-files -s`` (git's own blob
      hashes — no re-hashing of file contents) plus a hash of ``git diff`` to
      capture dirty working-tree state.  Outside a git repo the file input is a
@@ -251,6 +252,25 @@ def load_fingerprint_env_names(project_dir: Path) -> list[str]:
     return [str(name) for name in raw]
 
 
+def declared_input_patterns(job: JobConfig) -> list[str]:
+    """Return the job's explicit fingerprint patterns using documented precedence."""
+    paths_var = job.variables.get(FINGERPRINT_PATHS_VARIABLE, "")
+    patterns = [pattern.strip() for pattern in paths_var.split(",") if pattern.strip()]
+    if patterns:
+        return patterns
+    key_files = [relative for cache in job.cache for relative in cache.key_files]
+    if key_files:
+        return key_files
+    return [pattern for rule in job.rules for pattern in (rule.changes or [])]
+
+
+def selection_input_patterns(job: JobConfig) -> list[str]:
+    """Return all patterns that can identify a job for ``run --changed``."""
+    declared = declared_input_patterns(job)
+    changes = [pattern for rule in job.rules for pattern in (rule.changes or [])]
+    return list(dict.fromkeys([*declared, *changes]))
+
+
 # ---------------------------------------------------------------------------
 # Manager
 # ---------------------------------------------------------------------------
@@ -327,13 +347,17 @@ class FingerprintManager:
     def files_digest(self, job: JobConfig) -> str:
         """Return the input-file digest for *job* (rule 4 precedence)."""
         paths_var = job.variables.get(FINGERPRINT_PATHS_VARIABLE, "")
-        patterns = [p.strip() for p in paths_var.split(",") if p.strip()]
+        patterns = [pattern.strip() for pattern in paths_var.split(",") if pattern.strip()]
         if patterns:
             return hash_path_globs(self.project_dir, patterns)
 
-        key_files = [rel for cache in job.cache for rel in cache.key_files]
+        key_files = [relative for cache in job.cache for relative in cache.key_files]
         if key_files:
             return hash_listed_files(self.project_dir, key_files)
+
+        patterns = [pattern for rule in job.rules for pattern in (rule.changes or [])]
+        if patterns:
+            return hash_path_globs(self.project_dir, patterns)
 
         if self.git_digest is None:
             self.git_digest = git_tree_digest(self.project_dir)

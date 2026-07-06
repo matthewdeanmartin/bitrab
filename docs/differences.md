@@ -27,7 +27,7 @@ That changes the economics and the tradeoffs:
 | `rules: if`                                          | Conditional evaluation        | Supported                                |
 | `rules: exists`                                      | File existence rules          | Supported                                |
 | `rules: when`, `allow_failure`, `variables`, `needs` | Rule-side overrides           | Supported                                |
-| `rules: changes`                                     | Git-diff based evaluation     | Not implemented locally                  |
+| `rules: changes`                                     | Event-specific git comparison | Supported with local baseline semantics  |
 | `when:`                                              | Scheduling behavior           | Supported for local scheduling           |
 | `allow_failure:`                                     | Non-blocking failures         | Supported                                |
 | `retry:`                                             | Retry policy                  | Supported                                |
@@ -73,6 +73,24 @@ machine.[^rules][^vars]
 
 `only:` and `except:` are not enforced, so do not depend on them to protect a local run from deployment-style
 jobs.[^plan]
+
+### Baseline selection for `rules: changes`
+
+GitLab chooses a comparison ref from the pipeline event type. A local run has no push or merge-request event, so bitrab
+uses an explicit, conservative ladder:
+
+1. `--changes-base <ref>` wins, followed by `[tool.bitrab] changes_base` in `pyproject.toml`. A rule's
+   `changes:compare_to` overrides the run default for that rule.
+2. Otherwise bitrab computes `git merge-base HEAD <default-branch>`. It detects the default branch from `origin/HEAD`,
+   then tries `origin/main`, `origin/master`, and local `main`.
+3. The changed set unions committed differences from that baseline, staged and unstaged edits, and untracked
+   non-ignored files. This deliberately catches files you forgot to commit before pushing.
+4. Outside a git repository, or when no baseline resolves, `changes:` matches with a warning. Running extra jobs is
+   safer than silently skipping a necessary one.
+
+Patterns are relative to the project root. `*` does not cross `/`; `**` does. `bitrab run --changed` applies the same
+change set independently of `rules:`, selecting jobs whose declared fingerprint or `changes:` patterns intersect it,
+jobs with unknown inputs, and transitive `needs:` dependents.
 
 ## Cache
 

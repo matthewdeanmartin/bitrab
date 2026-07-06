@@ -5,6 +5,7 @@ import logging
 import re
 from pathlib import Path
 
+from bitrab.changes import ChangeResolver, changes_match
 from bitrab.models.pipeline import JobConfig, RuleConfig
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,12 @@ RE_OR = re.compile(r"\s*\|\|\s*")
 PATTERN_CACHE: dict[str, re.Pattern[str]] = {}
 
 
-def evaluate_rules(job: JobConfig, env: dict[str, str], project_dir: Path | None = None) -> None:
+def evaluate_rules(
+    job: JobConfig,
+    env: dict[str, str],
+    project_dir: Path | None = None,
+    change_resolver: ChangeResolver | None = None,
+) -> None:
     """
     Evaluate rules for a job and update its configuration accordingly.
 
@@ -39,7 +45,7 @@ def evaluate_rules(job: JobConfig, env: dict[str, str], project_dir: Path | None
 
     matched_rule = None
     for rule in job.rules:
-        if rule_matches(rule, env, project_dir):
+        if rule_matches(rule, env, project_dir, change_resolver):
             matched_rule = rule
             break
 
@@ -61,10 +67,15 @@ def evaluate_rules(job: JobConfig, env: dict[str, str], project_dir: Path | None
         job.when = "never"
 
 
-def rule_matches(rule: RuleConfig, env: dict[str, str], project_dir: Path | None = None) -> bool:
+def rule_matches(
+    rule: RuleConfig,
+    env: dict[str, str],
+    project_dir: Path | None = None,
+    change_resolver: ChangeResolver | None = None,
+) -> bool:
     """Check if a single rule matches the current environment.
 
-    Both ``if_expr`` and ``exists`` must pass (AND semantics) when both are present.
+    Every declared condition must pass (AND semantics).
     """
     if rule.if_expr is not None:
         if not evaluate_if(rule.if_expr, env):
@@ -72,6 +83,11 @@ def rule_matches(rule: RuleConfig, env: dict[str, str], project_dir: Path | None
 
     if rule.exists is not None:
         if not evaluate_exists(rule.exists, project_dir):
+            return False
+
+    if rule.changes is not None:
+        resolver = change_resolver or ChangeResolver(project_dir or Path("."))
+        if not changes_match(rule.changes, resolver.resolve(rule.compare_to)):
             return False
 
     return True

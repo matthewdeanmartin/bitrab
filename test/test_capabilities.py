@@ -243,11 +243,11 @@ def test_workflow_is_warning():
 
 
 # ---------------------------------------------------------------------------
-# rules:changes → WARNING
+# rules:changes → supported
 # ---------------------------------------------------------------------------
 
 
-def test_rules_changes_is_warning():
+def test_rules_changes_is_supported():
     raw = {
         "test": {
             "script": ["pytest"],
@@ -255,7 +255,7 @@ def test_rules_changes_is_warning():
         }
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "rules:changes" for d in warnings(diags))
+    assert "rules:changes" not in features(diags)
     assert not errors(diags)
 
 

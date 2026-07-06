@@ -59,7 +59,7 @@ Examples:
 | `workflow:` | warning, ignored locally |
 | `resource_group:` | warning |
 | `environment:` | warning |
-| `rules: changes` | warning |
+| `rules: changes` | supported with local baseline semantics |
 
 ## Defaults and overrides
 
@@ -115,7 +115,8 @@ The merge policy is recursive dict merge in `_merge_configs()`, with the current
 - `$VAR !~ /regex/`
 - top-level `&&` and `||`
 
-`rules: exists` is implemented with filesystem glob checks. `rules: changes` is not implemented locally.
+`rules: exists` is implemented with filesystem glob checks. `rules: changes` uses the shared git-aware change resolver;
+see the user-facing differences page for its baseline ladder.
 
 ## Configuration outside YAML
 

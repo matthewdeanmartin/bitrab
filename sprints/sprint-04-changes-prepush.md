@@ -1,6 +1,6 @@
 # Sprint 04 — `rules: changes`, `--changed`, and the pre-push hook
 
-**Status:** planned
+**Status:** implemented (2026-07-06)
 **Delegable:** the `changes:` evaluator and hook installer are bot-friendly;
 baseline-selection semantics (below) need human sign-off first.
 
