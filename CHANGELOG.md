@@ -2,12 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ### Added
+
 - GitLab `!reference` support resolved against the merged include graph before `extends`, including nested references, list splicing, scalar lookup, missing-target diagnostics, depth limits, and circular-reference detection.
 - `workflow: rules` pipeline gating using the shared rule evaluator. Matching variables merge into pipeline/job variables; `when: never` skips validation cleanly and gives `run` the distinct exit code 3.
 - Local `resource_group:` enforcement through cross-process locks under `.bitrab/locks/`, shared across threads, processes, worktrees, and concurrent bitrab runs. Lock waits use the configured job timeout.
@@ -28,23 +29,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2026-04-26
 
 ### Added
+
 - Improved documentation
 
 ### Changed
+
 - Naming convention improvements
 
 ### Fixed
+
 - Performance improvements
 
 ## [0.3.0] - 2026-03-30
 
 ### Added
+
 - Remote include support for HTTP/HTTPS-fetched YAML via `include: remote:` and `include: url:` entries using `urllib3` and `certifi`. Fetched YAML is parsed in memory, merged like a local include, and can itself contain further includes. Duplicate URLs within the same load are de-duplicated. `bitrab validate` no longer warns on `remote:` includes; `template:` includes still warn.
 - Watch mode via `bitrab watch` subcommand. Runs the pipeline once immediately, then watches `.gitlab-ci.yml` and all transitively included local files for changes, re-running automatically on each save. Uses the `watchdog` library. Features a 1-second debounce to coalesce rapid saves. TUI mode is disabled in watch mode. Stop with Ctrl+C.
 - Extends keyword for job inheritance. Jobs can inherit from other jobs or hidden template jobs (keys starting with `.`) via `extends:`. Supports a single string or a list of parents (later parents take precedence; child overrides all). Merges are deep on dicts; lists and scalars are fully replaced by the child, matching GitLab CI semantics. Multi-level chains are resolved in the correct order. Circular references and references to unknown templates raise a clear error. Hidden template jobs are excluded from the final pipeline job list.
 - Structured event system for execution lifecycle via `EventCollector`, which wraps any `PipelineCallbacks` instance and records a typed `PipelineEvent` for every lifecycle hook. Events carry monotonic timestamps, wall-clock times, and a typed data payload.
 
 ### Fixed
+
 - Dotenv file loading for GitLab CI/CD variable simulation. `VariableManager` now loads `.env` and `.bitrab.env` from the project root at startup. Variables from these files are available to all jobs without putting secrets in `.gitlab-ci.yml`. Resolution order: `os.environ` → built-in CI vars → `.env` → `.bitrab.env` → pipeline `variables:` (pipeline variables always win). A `parse_dotenv()` helper handles comments, blank lines, `export KEY=VAL` prefix, and single/double-quoted values.
 - Artifacts reports dotenv integration. Jobs that write a dotenv file via `artifacts: reports: dotenv:` now have those variables collected and injected into downstream jobs that depend on them via `dependencies:` or the default inherit-all behaviour. Works in both stage-mode and DAG-mode, serial and parallel.
 - Git-derived CI variables now auto-populated. `CI_COMMIT_SHA`, `CI_COMMIT_BRANCH`, `CI_COMMIT_TAG`, `CI_COMMIT_REF_NAME`, `CI_COMMIT_REF_SLUG`, `CI_COMMIT_SHORT_SHA`, `CI_COMMIT_TITLE`, `CI_COMMIT_MESSAGE`, `CI_COMMIT_AUTHOR`, `CI_COMMIT_TIMESTAMP`, `CI_PROJECT_NAMESPACE`, `CI_PROJECT_PATH`, `CI_PROJECT_PATH_SLUG`, `CI_PROJECT_URL`, `CI_PIPELINE_ID`, `CI_PIPELINE_SOURCE`, `CI_JOB_ID`, `GITLAB_CI`, and `CI_SERVER` are now populated automatically by running `git` commands against the project directory. All values fall back to empty string when git is unavailable or the directory is not a repo. Rules like `$CI_COMMIT_BRANCH == "main"` now evaluate correctly locally without manual variable overrides.
@@ -57,11 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added matching comment in `cmd_validate()` explaining why capability diagnostics are informational-only notes rather than validation failures.
 
 ### Changed
+
 - Package description updated in `pyproject.toml` from the stale "Compile bash to gitlab pipeline yaml" to "Run GitLab CI pipelines locally".
 
 ## [0.2.0] - 2026-03-29
 
 ### Added
+
 - Rules `exists` support for file glob patterns. Rules can now include an `exists:` list of file glob patterns. A rule matches only if at least one listed path exists under the project root. Both `if:` and `exists:` must pass when both are present (AND semantics), matching GitLab CI behavior.
 - Compound `if` expressions with `&&` and `||` at the top level of `rules: if:`. `&&` binds tighter than `||` (standard precedence). Quoted string values containing `&&`/`||` are not split. Covers the vast majority of real-world compound rules without parentheses.
 - Allow failure support with `exit_codes` dict. Jobs with `allow_failure: true` no longer fail the pipeline.
@@ -81,21 +89,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validation command to report which GitLab CI syntax will be ignored.
 
 ### Fixed
+
 - `CI_PROJECT_DIR` now uses the resolved project root (`base_path`) instead of the Python process's working directory.
 - Config loader no longer mutates the caller's dict. `PipelineProcessor.process_config()` now deep-copies `raw_config` before processing, so calling code that holds a reference to the original dict is not affected.
 - Removed dead `substitute_variables()` method from `VariableManager`.
 
 ### Removed
+
 - Dropped support for Python 3.8. Minimum required version is now 3.9.
 
 ## [0.1.0] - 2025-09-07
 
 ### Added
+
 - Initial runner implementation
 - Retry mechanism
 - Unit test friendly stdout
 
-[0.4.0]: https://github.com/matthewdeanmartin/bitrab/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/matthewdeanmartin/bitrab/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/matthewdeanmartin/bitrab/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/matthewdeanmartin/bitrab/releases/tag/v0.1.0
+[0.2.0]: https://github.com/matthewdeanmartin/bitrab/compare/v0.1.0...v0.2.0
+[0.3.0]: https://github.com/matthewdeanmartin/bitrab/compare/v0.2.0...v0.3.0
+[0.4.0]: https://github.com/matthewdeanmartin/bitrab/compare/v0.3.0...v0.4.0
+[unreleased]: https://github.com/matthewdeanmartin/bitrab/compare/v0.4.0...HEAD
