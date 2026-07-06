@@ -37,17 +37,18 @@ That changes the economics and the tradeoffs:
 | `parallel:`                                          | Fan-out jobs                  | Supported                                |
 | `parallel: matrix:`                                  | Matrix expansion              | Supported                                |
 | `extends:`                                           | Template inheritance          | Supported                                |
+| `!reference`                                         | Reuse merged configuration    | Supported (nested, depth-limited)         |
 | `include: local`                                     | Merge local config            | Supported                                |
-| `include: remote` / `include: url`                   | Fetch remote config           | Supported; vendor snapshots available    |
+| `include: remote` / `include: url`                   | Fetch remote config           | Supported; TTL cache and vendor snapshots |
 | `include: template`                                  | GitLab template catalog       | Warned and skipped                       |
 | `include: project`                                   | Cross-project config reuse    | Warned and skipped                       |
 | `include: component`                                 | CI component includes         | Error                                    |
 | `image:`                                             | Pull and run container image  | Ignored                                  |
 | `services:`                                          | Sidecar containers            | Ignored                                  |
 | `cache:`                                             | Shared cache semantics        | Supported locally (subset; see Cache)    |
-| `workflow:`                                          | Pipeline-level creation rules | Ignored                                  |
+| `workflow: rules`                                    | Pipeline-level creation rules | Supported; skipped runs exit 3            |
 | `trigger:`                                           | Child or downstream pipelines | Error                                    |
-| `resource_group:`                                    | Cross-run mutex               | Ignored                                  |
+| `resource_group:`                                    | Cross-run mutex               | Supported with local file locks           |
 | `environment:`                                       | Deployment metadata           | Ignored                                  |
 | `release:`                                           | GitLab release creation       | Ignored                                  |
 | `pages` job                                          | GitLab Pages deployment       | Script runs, no deployment               |
@@ -64,6 +65,21 @@ This is one place where "GitLab-like" and "GitLab-identical" are different:
   and requiring every remote URL to have a hash-valid snapshot
 - GitLab-managed include types such as `template`, `project`, and `component` are not available in the same way
   locally[^loader][^capabilities]
+
+Remote includes use a transparent ten-minute cache under `.bitrab/include-cache/`; `--no-include-cache` bypasses it.
+Fetches retry transient connection/read/5xx failures and reject responses larger than 5 MiB. This cache is only a
+freshness optimization. In contrast, `bitrab vendor` is an explicit, hash-locked reproducibility boundary.
+
+## Workflow and shared resources
+
+`workflow:rules` uses the same local rule evaluator as jobs. A matching `when: never` rule skips execution with run exit
+code 3 while validation still succeeds; matching workflow variables are merged into pipeline and job variables.
+
+Jobs sharing `resource_group:` acquire `.bitrab/locks/<group>.lock`, so they serialize across threads, worker processes,
+worktrees, and concurrent bitrab invocations. Lock acquisition uses the job timeout when one is configured.
+
+`!reference` resolves after includes merge and before `extends`, including nested list splicing and scalar lookups. Nested
+references are depth-limited and circular references fail clearly.
 
 ## Rules and branch context
 

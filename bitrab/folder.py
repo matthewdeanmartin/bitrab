@@ -71,6 +71,8 @@ artifacts/
 worktrees/
 cache/
 fingerprints/
+include-cache/
+locks/
 
 # Local secret overrides — never commit these
 .bitrab.env

@@ -14,9 +14,26 @@ from ruamel.yaml import YAML
 from bitrab.config.interpolate import interpolate_inputs
 from bitrab.config.inputs import InputDefinition, parse_input_definitions, resolve_inputs
 from bitrab.exceptions import GitlabRunnerError
+from bitrab.include_cache import DEFAULT_TTL_SECONDS, discard_cached, read_cached, write_cached
 from bitrab.vendor import read_vendored
 
 logger = logging.getLogger(__name__)
+MAX_REMOTE_INCLUDE_BYTES = 5 * 1024 * 1024
+MAX_REFERENCE_DEPTH = 10
+
+
+@dataclass(frozen=True)
+class Reference:
+    """Unresolved GitLab ``!reference`` path produced by the YAML constructor."""
+
+    path: tuple[str | int, ...]
+
+
+def _construct_reference(constructor: Any, node: Any) -> Reference:
+    values = constructor.construct_sequence(node, deep=True)
+    if not values or not all(isinstance(value, (str, int)) for value in values):
+        raise GitlabRunnerError("!reference must contain a non-empty sequence of keys")
+    return Reference(tuple(values))
 
 
 @dataclass(frozen=True)
@@ -73,13 +90,22 @@ class ConfigurationLoader:
         yaml: YAML parser instance.
     """
 
-    def __init__(self, base_path: Path | None = None, offline: bool = False):
+    def __init__(
+        self,
+        base_path: Path | None = None,
+        offline: bool = False,
+        no_include_cache: bool = False,
+        include_cache_ttl: float = DEFAULT_TTL_SECONDS,
+    ):
         if not base_path:
             self.base_path = Path.cwd()
         else:
             self.base_path = base_path
         self.offline = offline
+        self.no_include_cache = no_include_cache
+        self.include_cache_ttl = include_cache_ttl
         self.yaml = YAML(typ="safe")
+        self.yaml.constructor.add_constructor("!reference", _construct_reference)
         self.last_resolved_root_inputs: dict[str, str] = {}
 
     def load_config(self, config_path: Path | None = None) -> dict[str, Any]:
@@ -128,6 +154,7 @@ class ConfigurationLoader:
         self.last_resolved_root_inputs = resolved_inputs
         config = interpolate_inputs(config_doc.body, resolved_inputs, config_doc.source)
         config = self._process_includes(config, config_path.parent)
+        config = self._resolve_references(config)
 
         return config
 
@@ -157,19 +184,103 @@ class ConfigurationLoader:
                 "run 'bitrab vendor' while network access is available"
             )
 
+        if not self.no_include_cache:
+            cached = read_cached(self.base_path, url, self.include_cache_ttl)
+            if cached is not None:
+                try:
+                    return self._load_yaml_documents(io.BytesIO(cached), url)
+                except Exception:
+                    logger.warning("Discarding corrupt remote include cache entry for %s", url)
+                    discard_cached(self.base_path, url)
+
         try:
             http = urllib3.PoolManager(ca_certs=certifi.where())
-            response = http.request("GET", url, timeout=urllib3.Timeout(connect=10, read=30))
+            retry = urllib3.util.Retry(
+                total=3,
+                connect=3,
+                read=3,
+                status=3,
+                backoff_factor=0.25,
+                status_forcelist=(500, 502, 503, 504),
+                allowed_methods=frozenset({"GET"}),
+                raise_on_status=False,
+            )
+            response = http.request(
+                "GET",
+                url,
+                timeout=urllib3.Timeout(connect=10, read=30),
+                retries=retry,
+                preload_content=False,
+            )
+            try:
+                content_length = response.headers.get("Content-Length")
+                try:
+                    declared_size = int(content_length) if content_length is not None else None
+                except (TypeError, ValueError):
+                    declared_size = None
+                if declared_size is not None and declared_size > MAX_REMOTE_INCLUDE_BYTES:
+                    raise GitlabRunnerError(
+                        f"Remote include {url!r} exceeds the {MAX_REMOTE_INCLUDE_BYTES}-byte size limit"
+                    )
+                data = response.read(MAX_REMOTE_INCLUDE_BYTES + 1)
+            finally:
+                response.release_conn()
         except urllib3.exceptions.HTTPError as exc:
             raise GitlabRunnerError(f"Failed to fetch remote include {url!r}: {exc}") from exc
 
         if response.status != 200:
             raise GitlabRunnerError(f"Remote include {url!r} returned HTTP {response.status}")
 
+        if len(data) > MAX_REMOTE_INCLUDE_BYTES:
+            raise GitlabRunnerError(f"Remote include {url!r} exceeds the {MAX_REMOTE_INCLUDE_BYTES}-byte size limit")
+
         try:
-            return self._load_yaml_documents(io.BytesIO(response.data), url)
+            document = self._load_yaml_documents(io.BytesIO(data), url)
         except Exception as exc:
             raise GitlabRunnerError(f"Failed to parse YAML from remote include {url!r}: {exc}") from exc
+        if not self.no_include_cache:
+            write_cached(self.base_path, url, data)
+        return document
+
+    def _resolve_references(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Resolve nested ``!reference`` nodes against the fully merged config."""
+        root = copy.deepcopy(config)
+
+        def lookup(reference: Reference) -> Any:
+            current: Any = root
+            for key in reference.path:
+                try:
+                    current = current[key]
+                except (KeyError, IndexError, TypeError) as exc:
+                    rendered = ", ".join(repr(part) for part in reference.path)
+                    raise GitlabRunnerError(f"!reference [{rendered}] points to a missing value") from exc
+            return copy.deepcopy(current)
+
+        def resolve(value: Any, chain: tuple[tuple[str | int, ...], ...], depth: int) -> Any:
+            if depth > MAX_REFERENCE_DEPTH:
+                raise GitlabRunnerError(f"!reference nesting exceeds the depth limit of {MAX_REFERENCE_DEPTH}")
+            if isinstance(value, Reference):
+                if value.path in chain:
+                    cycle = " -> ".join("[" + ", ".join(map(str, path)) + "]" for path in (*chain, value.path))
+                    raise GitlabRunnerError(f"Circular !reference detected: {cycle}")
+                return resolve(lookup(value), (*chain, value.path), depth + 1)
+            if isinstance(value, list):
+                result: list[Any] = []
+                for item in value:
+                    resolved = resolve(item, chain, depth)
+                    if isinstance(item, Reference) and isinstance(resolved, list):
+                        result.extend(resolved)
+                    else:
+                        result.append(resolved)
+                return result
+            if isinstance(value, dict):
+                return {key: resolve(item, chain, depth) for key, item in value.items()}
+            return value
+
+        resolved = resolve(root, (), 0)
+        if not isinstance(resolved, dict):
+            raise GitlabRunnerError("Resolved pipeline configuration must be a mapping")
+        return resolved
 
     def _load_yaml_file(self, file_path: Path) -> ConfigDocument:
         """

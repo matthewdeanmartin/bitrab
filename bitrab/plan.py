@@ -55,6 +55,95 @@ def parse_duration(value: Any) -> float | None:
         return None
 
 
+def parse_rule_configs(rules_raw: Any) -> list[RuleConfig]:
+    """Parse job or workflow rule mappings into shared ``RuleConfig`` objects."""
+    rules: list[RuleConfig] = []
+    if not isinstance(rules_raw, list):
+        return rules
+    for raw in rules_raw:
+        if not isinstance(raw, dict):
+            continue
+        rule_needs: list[str] | None = None
+        if "needs" in raw:
+            rule_needs = []
+            needs_raw = raw["needs"]
+            if isinstance(needs_raw, list):
+                for item in needs_raw:
+                    if isinstance(item, str):
+                        rule_needs.append(item)
+                    elif isinstance(item, dict) and "job" in item:
+                        rule_needs.append(str(item["job"]))
+
+        rule_exists: list[str] | None = None
+        if "exists" in raw:
+            exists_raw = raw["exists"]
+            if isinstance(exists_raw, list):
+                rule_exists = [str(pattern) for pattern in exists_raw]
+            elif isinstance(exists_raw, str):
+                rule_exists = [exists_raw]
+
+        rule_changes: list[str] | None = None
+        rule_compare_to: str | None = None
+        if "changes" in raw:
+            changes_raw = raw["changes"]
+            if isinstance(changes_raw, list):
+                rule_changes = [str(pattern) for pattern in changes_raw]
+            elif isinstance(changes_raw, dict):
+                paths_raw = changes_raw.get("paths", [])
+                if isinstance(paths_raw, list):
+                    rule_changes = [str(pattern) for pattern in paths_raw]
+                elif isinstance(paths_raw, str):
+                    rule_changes = [paths_raw]
+                compare_raw = changes_raw.get("compare_to")
+                if compare_raw is not None:
+                    rule_compare_to = str(compare_raw)
+
+        variables_raw = raw.get("variables", {})
+        variables = (
+            {str(key): str(value) for key, value in variables_raw.items()} if isinstance(variables_raw, dict) else {}
+        )
+        rules.append(
+            RuleConfig(
+                if_expr=str(raw["if"]) if raw.get("if") is not None else None,
+                when=str(raw["when"]) if raw.get("when") is not None else None,
+                allow_failure=raw.get("allow_failure") if isinstance(raw.get("allow_failure"), bool) else None,
+                variables=variables,
+                needs=rule_needs,
+                exists=rule_exists,
+                changes=rule_changes,
+                compare_to=rule_compare_to,
+            )
+        )
+    return rules
+
+
+def apply_workflow_rules(
+    raw_config: dict[str, Any],
+    project_dir: Path,
+    change_resolver: Any = None,
+) -> tuple[dict[str, Any], bool]:
+    """Apply ``workflow:rules`` and return ``(config, skipped)``."""
+    workflow = raw_config.get("workflow")
+    if not isinstance(workflow, dict) or "rules" not in workflow:
+        return raw_config, False
+    rules = parse_rule_configs(workflow.get("rules"))
+    variables_raw = raw_config.get("variables", {})
+    variables = (
+        {str(key): str(value) for key, value in variables_raw.items()} if isinstance(variables_raw, dict) else {}
+    )
+    manager = VariableManager(variables, project_dir=project_dir)
+    env = os.environ.copy()
+    env.update(manager.gitlab_ci_vars)
+    env.update(manager.base_variables)
+    workflow_job = JobConfig(name="workflow", rules=rules)
+    evaluate_rules(workflow_job, env, project_dir=project_dir, change_resolver=change_resolver)
+    if workflow_job.when == "never":
+        return raw_config, True
+    result = copy.deepcopy(raw_config)
+    result["variables"] = {**variables, **workflow_job.variables}
+    return result, False
+
+
 def filter_pipeline(
     pipeline: PipelineConfig,
     jobs: list[str] | None = None,
@@ -463,58 +552,7 @@ class PipelineProcessor:
                 dependencies = []
 
         # rules: conditional execution
-        rules_raw = job_data.get("rules", [])
-        rules: list[RuleConfig] = []
-        if isinstance(rules_raw, list):
-            for r in rules_raw:
-                if isinstance(r, dict):
-                    rule_needs: list[str] | None = None
-                    if "needs" in r:
-                        rule_needs = []
-                        rule_needs_raw = r["needs"]
-                        if isinstance(rule_needs_raw, list):
-                            for item in rule_needs_raw:
-                                if isinstance(item, str):
-                                    rule_needs.append(item)
-                                elif isinstance(item, dict) and "job" in item:
-                                    rule_needs.append(str(item["job"]))
-
-                    rule_exists: list[str] | None = None
-                    if "exists" in r:
-                        rule_exists_raw = r["exists"]
-                        if isinstance(rule_exists_raw, list):
-                            rule_exists = [str(p) for p in rule_exists_raw]
-                        elif isinstance(rule_exists_raw, str):
-                            rule_exists = [rule_exists_raw]
-
-                    rule_changes: list[str] | None = None
-                    rule_compare_to: str | None = None
-                    if "changes" in r:
-                        rule_changes_raw = r["changes"]
-                        if isinstance(rule_changes_raw, list):
-                            rule_changes = [str(p) for p in rule_changes_raw]
-                        elif isinstance(rule_changes_raw, dict):
-                            paths_raw = rule_changes_raw.get("paths", [])
-                            if isinstance(paths_raw, list):
-                                rule_changes = [str(p) for p in paths_raw]
-                            elif isinstance(paths_raw, str):
-                                rule_changes = [paths_raw]
-                            compare_raw = rule_changes_raw.get("compare_to")
-                            if compare_raw is not None:
-                                rule_compare_to = str(compare_raw)
-
-                    rules.append(
-                        RuleConfig(
-                            if_expr=r.get("if"),
-                            when=r.get("when"),
-                            allow_failure=r.get("allow_failure"),
-                            variables=r.get("variables", {}),
-                            needs=rule_needs,
-                            exists=rule_exists,
-                            changes=rule_changes,
-                            compare_to=rule_compare_to,
-                        )
-                    )
+        rules = parse_rule_configs(job_data.get("rules", []))
 
         # when keyword
         when = job_data.get("when", "on_success")
@@ -549,6 +587,7 @@ class PipelineProcessor:
             artifacts_dotenv=artifacts_dotenv,
             dependencies=dependencies,
             cache=cache,
+            resource_group=(str(job_data["resource_group"]) if job_data.get("resource_group") is not None else None),
         )
 
     def expand_parallel_jobs(
@@ -758,7 +797,8 @@ class LocalGitLabRunner:
         offline: bool = False,
         changed: bool = False,
         changes_base: str | None = None,
-    ) -> None:
+        no_include_cache: bool = False,
+    ) -> bool:
         """
         Run the complete pipeline.
 
@@ -784,6 +824,7 @@ class LocalGitLabRunner:
             offline: Resolve remote includes only from the vendor snapshot.
             changed: Run jobs affected by the local changed-file set.
             changes_base: Explicit git ref used as the local changes baseline.
+            no_include_cache: Bypass transparent remote-include cache reads and writes.
 
         Raises:
             GitLabCIError: If there is an error in the pipeline configuration.
@@ -791,22 +832,26 @@ class LocalGitLabRunner:
         """
         # Load and process configuration
         self.loader.offline = offline
+        self.loader.no_include_cache = no_include_cache
         raw_config = self.loader.load_config_with_inputs(
             config_path=config_path,
             input_values=input_values,
             prompt_missing_inputs=prompt_missing_inputs,
         )
-        pipeline = self.processor.process_config(raw_config)
-
         from bitrab.changes import ChangeResolver, select_changed_jobs
 
         change_resolver = ChangeResolver(self.base_path, changes_base)
+        raw_config, workflow_skipped = apply_workflow_rules(raw_config, self.base_path, change_resolver)
+        if workflow_skipped:
+            safe_print("⏭️  Pipeline skipped by workflow:rules (run exit code 3).")
+            return False
+        pipeline = self.processor.process_config(raw_config)
         if changed:
             changed_names = select_changed_jobs(pipeline, change_resolver.resolve())
             pipeline = filter_pipeline(pipeline, jobs=sorted(changed_names))
             if not pipeline.jobs:
                 safe_print("✅ No jobs are affected by the changed-file set.")
-                return
+                return True
             safe_print(f"🧭 Changed-file selection kept {len(pipeline.jobs)} job(s).")
 
         # Apply job/stage filters with warnings for unknown names
@@ -824,7 +869,7 @@ class LocalGitLabRunner:
             pipeline = filter_pipeline(pipeline, jobs=job_filter, stages=stage_filter)
             if not pipeline.jobs:
                 safe_print("⚠️  No jobs match the given filter — nothing to run.")
-                return
+                return True
 
         # Set up execution components
         variable_manager = VariableManager(pipeline.variables, project_dir=self.base_path)
@@ -925,6 +970,7 @@ class LocalGitLabRunner:
 
         if not dry_run and event_collector is not None:
             persist_run_log(self.base_path, event_collector, started_at, pipeline)
+        return True
 
 
 def persist_run_log(

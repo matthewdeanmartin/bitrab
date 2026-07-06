@@ -19,15 +19,8 @@ stages:
   - docs
   - build
 
-cache:
-  key:
-    files:
-      - pyproject.toml
-      - uv.lock
-  paths:
-    - .venv/
-    - .uv/
-    - .cache/
+# Each job declares its real source inputs for `bitrab run --changed`. In a
+# monorepo these patterns would point at the service/package owned by the job.
 
 # ---------------------------------------------------------------------------
 # SETUP
@@ -35,6 +28,17 @@ cache:
 
 install:
   stage: setup
+  cache:
+    key:
+      files:
+        - pyproject.toml
+        - uv.lock
+    paths:
+      - .venv/
+      - .uv/
+      - .cache/
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "pyproject.toml,uv.lock"
   rules:
     - if: "$CI_PIPELINE_SOURCE != 'local'"
   script: >-
@@ -46,24 +50,32 @@ install:
 
 lint:
   stage: test
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "bitrab/**/*.py,test/**/*.py,scripts/lint.sh,pyproject.toml"
   script: >-
     ./scripts/lint.sh
   allow_failure: false
 
 mypy:
   stage: test
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "bitrab/**/*.py,scripts/mypy.sh,pyproject.toml"
   script: >-
     ./scripts/mypy.sh
   allow_failure: false
 
 precommit:
   stage: test
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "bitrab/**/*,test/**/*,scripts/**/*,docs/**/*,*.toml,*.yml,*.yaml,*.md,Makefile,Justfile"
   script: >-
     ./scripts/precommit.sh
   allow_failure: false
 
 pytest:
   stage: test
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "bitrab/**/*.py,test/**/*.py,pyproject.toml"
   # parallel everywhere.
   needs: []
   script: >-
@@ -85,6 +97,8 @@ pytest:
 
 bandit:
   stage: security
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "bitrab/**/*.py,scripts/bandit.sh,pyproject.toml"
   script: >-
     ./scripts/bandit.sh
   allow_failure: false
@@ -95,12 +109,16 @@ bandit:
 
 check_docs:
   stage: docs
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "docs/**/*.md,README.md,mkdocs.yml,scripts/check_docs.sh,private_dictionary.txt"
   script: >-
     ./scripts/check_docs.sh
   allow_failure: false
 
 build_docs:
   stage: docs
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "bitrab/**/*.py,docs/**/*,README.md,mkdocs.yml,scripts/build_docs.sh,pyproject.toml"
   script: >-
     ./scripts/build_docs.sh
   artifacts:
@@ -113,6 +131,8 @@ build_docs:
 
 build_package:
   stage: build
+  variables:
+    BITRAB_FINGERPRINT_PATHS: "bitrab/**/*,README.md,LICENSE,pyproject.toml,uv.lock,scripts/build_package.sh"
   script: >-
     ./scripts/build_package.sh
   artifacts:

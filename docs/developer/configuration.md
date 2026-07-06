@@ -56,8 +56,8 @@ Examples:
 | `trigger:` | error |
 | `inputs:` | error |
 | `image:` / `services:` | warning, ignored |
-| `workflow:` | warning, ignored locally |
-| `resource_group:` | warning |
+| `workflow: rules` | supported; can skip pipeline execution |
+| `resource_group:` | supported with cross-process local locks |
 | `environment:` | warning |
 | `rules: changes` | supported with local baseline semantics |
 
@@ -117,6 +117,10 @@ The merge policy is recursive dict merge in `_merge_configs()`, with the current
 
 `rules: exists` is implemented with filesystem glob checks. `rules: changes` uses the shared git-aware change resolver;
 see the user-facing differences page for its baseline ladder.
+
+GitLab `!reference` nodes are represented as placeholders during YAML parsing, then resolved against the fully merged
+include graph before `extends` processing. Remote URL includes have a short-lived atomic cache; vendor snapshots remain
+the explicit offline/reproducible mechanism.
 
 ## Configuration outside YAML
 

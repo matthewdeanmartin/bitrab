@@ -214,16 +214,6 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
     if isinstance(default_block, dict) and "cache" in default_block:
         check_cache_block("default", default_block["cache"], diags)
 
-    # workflow: rules — not emulated
-    if "workflow" in raw_config:
-        diags.append(
-            CapabilityDiagnostic(
-                level=DiagnosticLevel.WARNING,
-                feature="workflow",
-                message="'workflow:' is defined but has no effect locally (no pipeline source context).",
-            )
-        )
-
     # ------------------------------------------------------------------
     # 2. Per-job checks
     # ------------------------------------------------------------------
@@ -271,18 +261,6 @@ def check_capabilities(raw_config: dict[str, Any]) -> list[CapabilityDiagnostic]
         # cache: is executed locally — warn only on unsupported sub-keys.
         if "cache" in job_data:
             check_cache_block(f"Job '{job_name}'", job_data["cache"], diags)
-
-        # resource_group — no mutual exclusion enforced locally
-        if "resource_group" in job_data:
-            diags.append(
-                CapabilityDiagnostic(
-                    level=DiagnosticLevel.WARNING,
-                    feature="resource_group",
-                    message=(
-                        f"Job '{job_name}': 'resource_group:' is defined but mutual exclusion is not enforced locally."
-                    ),
-                )
-            )
 
         # environment — no deployment tracking locally
         if "environment" in job_data:

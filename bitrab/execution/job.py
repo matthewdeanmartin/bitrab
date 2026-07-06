@@ -13,6 +13,8 @@ from bitrab.execution.cache import cache_root, restore_caches, save_caches
 from bitrab.execution.shell import RunResult, TextWriter, run_bash
 from bitrab.execution.variables import VariableManager
 from bitrab.models.pipeline import JobConfig
+from bitrab.utils import sanitize_job_name
+from bitrab.utils.filelock import FileLock, FileLockTimeout
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,7 @@ class JobExecutor:
         self.job_history: list[RunResult] = []
         self.dry_run = dry_run
         self.project_dir = project_dir or Path.cwd()
+        self.state_root = self.project_dir
         # Cache store anchored to the *original* project root.  When the
         # stage runner scopes a copy of this executor to a worktree it
         # rebinds project_dir but leaves cache_store_dir alone, so parallel
@@ -189,6 +192,24 @@ class JobExecutor:
         self.execute_with_context(ctx)
 
     def execute_with_context(self, ctx: JobRuntimeContext) -> None:
+        """Execute with optional cross-process ``resource_group`` serialization."""
+        group = ctx.job.resource_group
+        if not group or self.dry_run:
+            self._execute_with_context_unlocked(ctx)
+            return
+        writer = ctx.output_writer
+        job_print = (lambda message: safe_print(message, file=writer)) if writer else safe_print
+        lock = self.state_root / ".bitrab" / "locks" / f"{sanitize_job_name(group)}.lock"
+        timeout = ctx.timeout if ctx.timeout is not None else 365 * 24 * 60 * 60
+        job_print(f"  🔒 Waiting for resource_group {group!r}...")
+        try:
+            with FileLock(lock, timeout=timeout):
+                job_print(f"  🔓 Acquired resource_group {group!r}")
+                self._execute_with_context_unlocked(ctx)
+        except FileLockTimeout as exc:
+            raise JobExecutionError(f"Job {ctx.job.name} timed out waiting for resource_group {group!r}") from exc
+
+    def _execute_with_context_unlocked(self, ctx: JobRuntimeContext) -> None:
         """Core execution loop driven by a :class:`JobRuntimeContext`."""
         job = ctx.job
         output_writer = ctx.output_writer

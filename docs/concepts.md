@@ -76,6 +76,10 @@ Rules are evaluated in order, and the first match wins. If no rule matches, the 
 `rules: changes` is evaluated against bitrab's documented local git baseline, including committed, staged, unstaged,
 and untracked non-ignored files.[^rules][^capabilities]
 
+Pipeline-level `workflow:rules` uses the same evaluator. A skipped workflow does not execute jobs; matching workflow
+variables become pipeline defaults. `resource_group:` names provide cross-process local serialization for jobs that
+share deployment targets or other scarce resources.
+
 ## `when:` and `allow_failure`
 
 Bitrab applies `when:` during scheduling:

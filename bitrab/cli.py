@@ -219,10 +219,15 @@ def load_and_process_config(
     input_values: dict[str, str] | None = None,
     prompt_missing_inputs: bool = False,
     offline: bool = False,
+    no_include_cache: bool = False,
 ) -> tuple[dict, Any]:
     """Load and process configuration, returning raw config and pipeline config."""
     try:
-        loader = _get_configuration_loader()(base_path=config_path.parent, offline=offline)
+        loader = _get_configuration_loader()(
+            base_path=config_path.parent,
+            offline=offline,
+            no_include_cache=no_include_cache,
+        )
         processor = _get_pipeline_processor()()
 
         raw_config = loader.load_config_with_inputs(
@@ -230,7 +235,11 @@ def load_and_process_config(
             input_values=input_values,
             prompt_missing_inputs=prompt_missing_inputs,
         )
+        from bitrab.plan import apply_workflow_rules
+
+        raw_config, workflow_skipped = apply_workflow_rules(raw_config, config_path.parent)
         pipeline_config = processor.process_config(raw_config)
+        pipeline_config.workflow_skipped = workflow_skipped
 
         return raw_config, pipeline_config
     except (BitrabError, GitlabRunnerError) as e:
@@ -294,7 +303,7 @@ def cmd_run(args: argparse.Namespace) -> None:
                     elif answer == "s":
                         serial = True
 
-        runner.run_pipeline(
+        completed = runner.run_pipeline(
             config_path=config_path,
             maximum_degree_of_parallelism=args.parallel,
             dry_run=args.dry_run,
@@ -314,7 +323,10 @@ def cmd_run(args: argparse.Namespace) -> None:
             offline=getattr(args, "offline", False),
             changed=getattr(args, "changed", False),
             changes_base=getattr(args, "changes_base", None),
+            no_include_cache=getattr(args, "no_include_cache", False),
         )
+        if completed is False:
+            sys.exit(3)
 
     except (BitrabError, GitlabRunnerError) as e:
         safe_print(f"❌ Execution error: {e}", file=sys.stderr)
@@ -452,6 +464,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
             input_values=parse_input_args(getattr(args, "inputs", None)),
             prompt_missing_inputs=input_prompt_enabled(args),
             offline=getattr(args, "offline", False),
+            no_include_cache=getattr(args, "no_include_cache", False),
         )
 
         # 2. Official Schema Validation
@@ -520,6 +533,8 @@ def cmd_validate(args: argparse.Namespace) -> None:
                 safe_print(f"   • {warning}", file=human_out)
 
         safe_print("✅ Configuration is valid", file=human_out)
+        if pipeline_config.workflow_skipped:
+            safe_print("   ⏭️  workflow:rules would skip this pipeline", file=human_out)
         safe_print(
             f"   📊 Found {len(pipeline_config.jobs)} jobs across {len(pipeline_config.stages)} stages",
             file=human_out,
@@ -634,6 +649,7 @@ def cmd_watch(args: argparse.Namespace) -> None:
         "use_worktrees": False if getattr(args, "no_worktrees", False) else None,
         "input_values": parse_input_args(getattr(args, "inputs", None)),
         "prompt_missing_inputs": input_prompt_enabled(args),
+        "no_include_cache": getattr(args, "no_include_cache", False),
     }
 
     run_watch(config_path.resolve(), runner_kwargs)
@@ -957,6 +973,11 @@ Version: {__version__}
         metavar="REF",
         help="Compare changes against REF instead of the detected default-branch merge-base.",
     )
+    run_parser.add_argument(
+        "--no-include-cache",
+        action="store_true",
+        help="Bypass transparent remote-include cache reads and writes.",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # Watch command
@@ -988,6 +1009,11 @@ Version: {__version__}
         action="store_true",
         help="Disable per-job git worktree isolation.",
     )
+    watch_parser.add_argument(
+        "--no-include-cache",
+        action="store_true",
+        help="Refetch remote includes on every watch reload.",
+    )
     watch_parser.set_defaults(func=cmd_watch)
 
     # List command
@@ -1011,6 +1037,11 @@ Version: {__version__}
         "--offline",
         action="store_true",
         help="Disable network access and resolve remote includes only from .bitrab/vendor.lock.",
+    )
+    validate_parser.add_argument(
+        "--no-include-cache",
+        action="store_true",
+        help="Bypass transparent remote-include cache reads and writes.",
     )
     validate_parser.set_defaults(func=cmd_validate)
 
@@ -1175,6 +1206,7 @@ def main() -> None:
         args.offline = False
         args.changed = False
         args.changes_base = None
+        args.no_include_cache = False
 
     # Execute the command
     try:

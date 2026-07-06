@@ -200,16 +200,16 @@ def test_trigger_job_is_error():
 
 
 # ---------------------------------------------------------------------------
-# resource_group → WARNING
+# resource_group → supported
 # ---------------------------------------------------------------------------
 
 
-def test_resource_group_is_warning():
+def test_resource_group_is_supported():
     raw = {
         "deploy": {"script": ["./deploy.sh"], "resource_group": "production"},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "resource_group" for d in warnings(diags))
+    assert "resource_group" not in features(diags)
     assert not errors(diags)
 
 
@@ -228,17 +228,17 @@ def test_environment_is_warning():
 
 
 # ---------------------------------------------------------------------------
-# workflow → WARNING
+# workflow → supported
 # ---------------------------------------------------------------------------
 
 
-def test_workflow_is_warning():
+def test_workflow_is_supported():
     raw = {
         "workflow": {"rules": [{"if": '$CI_COMMIT_BRANCH == "main"'}]},
         "job": {"script": ["echo hi"]},
     }
     diags = check_capabilities(raw)
-    assert any(d.feature == "workflow" for d in warnings(diags))
+    assert "workflow" not in features(diags)
     assert not errors(diags)
 
 
@@ -318,7 +318,7 @@ def test_multiple_issues_all_reported():
     diags = check_capabilities(raw)
     feats = features(diags)
     assert "include:component" in feats
-    assert "workflow" in feats
+    assert "workflow" not in feats
     assert "trigger" in feats
     assert "image" in feats
     # Must have at least one error (component + trigger)

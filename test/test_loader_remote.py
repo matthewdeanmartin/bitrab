@@ -23,6 +23,8 @@ def mock_response(status: int, data: bytes) -> MagicMock:
     resp = MagicMock()
     resp.status = status
     resp.data = data
+    resp.headers = {"Content-Length": str(len(data))}
+    resp.read.return_value = data
     return resp
 
 

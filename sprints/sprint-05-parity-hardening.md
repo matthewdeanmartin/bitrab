@@ -1,6 +1,6 @@
 # Sprint 05 — Parity and hardening grab-bag
 
-**Status:** planned
+**Status:** implemented (2026-07-06)
 **Delegable:** yes — each item is independent and well-bounded; good candidates for
 parallel subagents since they touch disjoint files.
 

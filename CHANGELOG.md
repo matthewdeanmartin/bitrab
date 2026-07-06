@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- GitLab `!reference` support resolved against the merged include graph before `extends`, including nested references, list splicing, scalar lookup, missing-target diagnostics, depth limits, and circular-reference detection.
+- `workflow: rules` pipeline gating using the shared rule evaluator. Matching variables merge into pipeline/job variables; `when: never` skips validation cleanly and gives `run` the distinct exit code 3.
+- Local `resource_group:` enforcement through cross-process locks under `.bitrab/locks/`, shared across threads, processes, worktrees, and concurrent bitrab runs. Lock waits use the configured job timeout.
+- Remote include hygiene: urllib3 retry/backoff for connection, read, and 5xx failures; a 5 MiB response limit; and a ten-minute atomic TTL cache under `.bitrab/include-cache/`, bypassed with `--no-include-cache` and kept deliberately distinct from vendor snapshots.
 - `rules: changes` evaluation with slash-aware GitLab-style globs, bare-list and `paths:` forms, and `compare_to:` overrides. Local baselines use an explicit ref when configured, otherwise the merge-base with the detected default branch, and always include committed, staged, unstaged, and untracked non-ignored files; unevaluable repositories conservatively run the job with a warning.
 - `bitrab run --changed` / `--changes-base REF` for selecting jobs whose fingerprint or `changes:` inputs intersect the local change set, plus unknown-input jobs and transitive `needs:` dependents. `rules:changes` patterns now also participate in fingerprint input precedence.
 - `bitrab install-hook` and `--uninstall` for an idempotent, marker-managed pre-push shell hook running `bitrab run --changed --incremental --no-tui`. Existing shell hooks are chained and preserved; foreign non-shell hooks are refused.

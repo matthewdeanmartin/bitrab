@@ -157,7 +157,13 @@ def fetch_url(url: str) -> bytes:
 
 def _documents(data: bytes, source: str) -> list[dict[str, Any]]:
     try:
-        docs = list(YAML(typ="safe").load_all(io.BytesIO(data)))
+        yaml = YAML(typ="safe")
+        # Vendoring only inspects include edges; preserve !reference sequences
+        # as ordinary lists and leave semantic resolution to ConfigurationLoader.
+        yaml.constructor.add_constructor(
+            "!reference", lambda constructor, node: constructor.construct_sequence(node, deep=True)
+        )
+        docs = list(yaml.load_all(io.BytesIO(data)))
     except Exception as exc:
         raise GitlabRunnerError(f"Failed to parse YAML from {source!r}: {exc}") from exc
     result = [{} if doc is None else doc for doc in docs]

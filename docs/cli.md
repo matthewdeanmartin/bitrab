@@ -31,6 +31,7 @@ bitrab run [options]
 | `--offline`                           | Resolve remote includes only from the locked vendor snapshot    |
 | `--changed`                           | Run affected jobs, unknown-input jobs, and `needs:` dependents   |
 | `--changes-base REF`                  | Override the local git comparison baseline                      |
+| `--no-include-cache`                  | Bypass transparent remote-include cache reads and writes         |
 
 Running plain `bitrab` is equivalent to `bitrab run`.[^cli]
 
@@ -61,6 +62,7 @@ Validate the configuration.
 bitrab validate
 bitrab validate --json
 bitrab validate --offline
+bitrab validate --no-include-cache
 ```
 
 This performs schema validation, capability checks, and semantic checks.[^cli][^validate]

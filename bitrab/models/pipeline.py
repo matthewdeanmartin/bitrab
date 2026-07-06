@@ -116,6 +116,9 @@ class JobConfig:
     # an empty list means caching is disabled for this job.
     cache: list[CacheConfig] = field(default_factory=list)
 
+    # resource_group: jobs sharing a name serialize across runs/processes.
+    resource_group: str | None = None
+
     # parallel: job duplication / matrix expansion
     # parallel_total: total number of parallel instances (set by parallel: N or matrix expansion)
     # parallel_index: 1-based index of this instance within the parallel group
@@ -156,3 +159,4 @@ class PipelineConfig:
     variables: dict[str, str] = field(default_factory=dict)
     default: DefaultConfig = field(default_factory=DefaultConfig)
     jobs: list[JobConfig] = field(default_factory=list)
+    workflow_skipped: bool = False

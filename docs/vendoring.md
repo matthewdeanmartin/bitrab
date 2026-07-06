@@ -39,3 +39,7 @@ Offline mode never fetches a remote include. An unlocked URL is a hard error tha
 pipeline's reproducible source of truth. Run `bitrab vendor` explicitly when you want to refresh upstream content.
 
 `include: template`, `include: project`, and `include: component` are not vendorable yet.
+
+Normal, non-vendored remote includes also have a transparent ten-minute cache under `.bitrab/include-cache/` to avoid
+refetching on every watch reload. Use `--no-include-cache` to bypass it. The cache has no provenance contract and must
+not be confused with the hash-locked vendor snapshot.
