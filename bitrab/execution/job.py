@@ -67,6 +67,13 @@ class JobExecutor:
         # worktree jobs share one cache under <project>/.bitrab/cache/.
         self.cache_enabled = cache_enabled
         self.cache_store_dir: Path = cache_root(self.project_dir)
+        # Cache is only meaningful inside git worktrees (each worktree is a
+        # fresh checkout with no .venv / node_modules / etc.).  In the default
+        # shared-filesystem mode every job already sees the live working
+        # directory, so restore/save would redundantly copy files that are
+        # already there — and could hit ETXTBSY when overwriting a running
+        # interpreter.  scope_executor_to_worktree() flips this to True.
+        self.in_worktree: bool = False
 
     # ---- retry helpers ----
 
@@ -226,8 +233,12 @@ class JobExecutor:
         deadline: float | None = (time.monotonic() + job_timeout) if job_timeout is not None else None
 
         # cache: restore (pull) before before_script; save (push) after
-        # scripts.  Skipped entirely under --dry-run and --no-cache.
-        use_cache = bool(job.cache) and self.cache_enabled and not self.dry_run
+        # scripts.  Active only inside a git worktree — in the default
+        # shared-filesystem mode the working directory already contains every
+        # file the cache would copy back, so restore/save is a no-op at best
+        # and risks ETXTBSY when overwriting a running interpreter at worst.
+        # Skipped entirely under --dry-run and --no-cache regardless.
+        use_cache = bool(job.cache) and self.cache_enabled and self.in_worktree and not self.dry_run
         if use_cache:
             job_print("  📦 Restoring cache...")
             restore_caches(job, self.cache_store_dir, execution_dir, env)

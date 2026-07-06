@@ -218,10 +218,15 @@ def scope_executor_to_worktree(executor: JobExecutor, worktree_path: Path) -> Jo
     manager's ``project_dir`` is left alone on purpose: dotenv / git metadata
     should still be read from the canonical project root (the worktree shares
     the same commit anyway).
+
+    ``in_worktree`` is set to ``True`` so that the scoped executor activates
+    cache restore/save — each worktree is a fresh checkout that has no
+    pre-installed dependencies, unlike the shared-filesystem case.
     """
     scoped = copy.copy(executor)
     scoped.project_dir = worktree_path
     scoped.job_history = []  # fresh per-worker history
+    scoped.in_worktree = True  # enable cache in fresh worktree checkouts
     return scoped
 
 
