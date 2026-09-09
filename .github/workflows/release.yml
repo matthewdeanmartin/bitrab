@@ -21,9 +21,9 @@ jobs:
           ref: ${{ github.event.release.target_commitish }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up Python 3.14
+      - name: Set up Python 3.15
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
-        with: {python-version: '3.14'}
+        with: {python-version: '3.15'}
       - name: Set up uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39  # v8.2.0
         with:
@@ -72,9 +72,9 @@ jobs:
           ref: ${{ needs.bump.outputs.branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up Python 3.14
+      - name: Set up Python 3.15
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
-        with: {python-version: '3.14'}
+        with: {python-version: '3.15'}
       - name: Set up uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39  # v8.2.0
         with:
@@ -124,6 +124,6 @@ jobs:
           name: packages
           path: dist/
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           verbose: 'true'
