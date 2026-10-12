@@ -43,7 +43,7 @@ import shutil
 import subprocess  # nosec
 import sys
 import threading
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from typing import IO, Any, Protocol, runtime_checkable
 
@@ -198,10 +198,7 @@ def find_bash_windows() -> str:
 
 
 def pick_bash(login_shell: bool) -> list[str]:
-    if os.name == "nt":
-        cmd = [find_bash_windows()]
-    else:
-        cmd = ["bash"]
+    cmd = [find_bash_windows()] if os.name == "nt" else ["bash"]
     if login_shell:
         cmd.append("-l")
     return cmd
@@ -322,10 +319,8 @@ def run_bash(
                 nonlocal process_killed_by_timeout
                 if not cancel_timer.wait(timeout):
                     process_killed_by_timeout = True
-                    try:
+                    with suppress(OSError):
                         proc.kill()
-                    except OSError:
-                        pass
 
             t_kill = threading.Thread(target=kill_on_timeout, daemon=True)
             t_kill.start()

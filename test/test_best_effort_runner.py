@@ -1,3 +1,4 @@
+import contextlib
 import os
 from pathlib import Path
 
@@ -127,10 +128,8 @@ def test_job_history_includes_failures():
 
     job = JobConfig(name="fail", stage="test", script=["false"], variables={}, before_script=[], after_script=[])
 
-    try:
+    with contextlib.suppress(Exception):
         executor.execute_job(job)
-    except Exception:
-        pass
 
     assert len(executor.job_history) == 1
     assert executor.job_history[0].returncode == 1

@@ -19,11 +19,12 @@ import multiprocessing as mp
 import os
 import subprocess  # nosec
 import sys
+from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from bitrab.execution.artifacts import (
     collect_artifacts,

@@ -11,6 +11,7 @@ Both modes are thin callback wrappers around :class:`StagePipelineRunner`.
 
 from __future__ import annotations
 
+import contextlib
 import multiprocessing as mp
 import os
 import queue
@@ -274,19 +275,15 @@ class CIFileCallbacks(PipelineCallbacks):
     def on_job_complete(self, outcome: JobOutcome) -> None:
         writer = self.open_writers.pop(outcome.job.name, None)
         if writer is not None:
-            try:
+            with contextlib.suppress(OSError):
                 writer.close()
-            except OSError:
-                pass
 
     def on_stage_complete(self, stage: str, outcomes: list[JobOutcome]) -> None:
         # Belt-and-braces: close anything still open after the stage finishes.
         for name in list(self.open_writers):
             writer = self.open_writers.pop(name)
-            try:
+            with contextlib.suppress(OSError):
                 writer.close()
-            except OSError:
-                pass
 
         failures = {o.job.name for o in outcomes if not o.success}
         cached = {o.job.name for o in outcomes if o.memoized}

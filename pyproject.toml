@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
 keywords = ["bash", "gitlab"]
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     # Core enables compile, decompile, validate, best effort runner
     "ruamel.yaml>=0.19.1", # required to read yaml
@@ -31,7 +31,6 @@ dependencies = [
     # Config
     "toml>=0.10.2", # backwards compat,
     "tomlkit>=0.14.0", # right now only used by init
-    "tomli; python_version < '3.11'",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -39,8 +38,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.14",
@@ -81,7 +78,7 @@ dev = [
     "aiohttp>3.13.2",
     "pip-audit",
     "pip",
-    "git2md; python_version >= '3.10'",
+    "git2md",
     "pyclean; python_version >= '3.12'",
     "strip-docs>=1.0; python_version >= '3.12'",
     "gha-update; python_version >= '3.12'",
@@ -97,7 +94,7 @@ dev = [
 
     # build
     "vermin",
-    "metametameta>=0.1.3; python_version >= '3.9'",
+    "metametameta>=0.1.3",
     "hatch",
     "hatchling",
     "ruff>=0.12.0",
@@ -111,7 +108,7 @@ dev = [
     "pytest-randomly>=3.15.0",
     "pytest-sugar>=0.9.7",
     "pytest-mock",
-    "pytest-unused-fixtures; python_version >= '3.10'",
+    "pytest-unused-fixtures",
     "hypothesis[cli]",
     "detect-test-pollution",
     "pytest-timeout>=2.4.0",
@@ -172,7 +169,7 @@ include = [
 
 [tool.black]
 line-length = 120
-target-version = ['py39']
+target-version = ['py311']
 include = '\.pyi?$'
 exclude = '''
 
@@ -217,7 +214,7 @@ skip_glob = ".bitrab"
 [tool.ruff]
 line-length = 320
 # Assume Python 3.10.
-target-version = "py39"
+target-version = "py311"
 
 # Enable Pyflakes `E` and `F` codes by default.
 [tool.ruff.lint]
@@ -226,7 +223,7 @@ select = ["E", "F",
     "UP", # pyupgrade
     "B", # bugbear
 ]
-ignore = [
+ignore = ["RUF100", "UP042", 
     "D402",
     "D301", # messes with doctests
     "E722",

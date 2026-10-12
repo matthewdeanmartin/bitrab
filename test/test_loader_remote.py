@@ -35,9 +35,7 @@ class TestRemoteIncludeFetch:
 
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n"
-            "include:\n  - remote: https://example.com/ci.yml\n"
-            "local_job:\n  script:\n    - echo local\n  stage: test\n",
+            "stages:\n  - test\ninclude:\n  - remote: https://example.com/ci.yml\nlocal_job:\n  script:\n    - echo local\n  stage: test\n",
             encoding="utf-8",
         )
 
@@ -55,7 +53,7 @@ class TestRemoteIncludeFetch:
 
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n" "include:\n  - url: https://example.com/ci.yml\n",
+            "stages:\n  - test\ninclude:\n  - url: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -72,7 +70,7 @@ class TestRemoteIncludeFetch:
 
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n" "include:\n  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\ninclude:\n  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -86,7 +84,7 @@ class TestRemoteIncludeFetch:
         """A non-200 HTTP response raises GitlabRunnerError."""
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n" "include:\n  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\ninclude:\n  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -100,7 +98,7 @@ class TestRemoteIncludeFetch:
         """Invalid YAML in a remote include raises GitlabRunnerError."""
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n" "include:\n  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\ninclude:\n  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -116,10 +114,7 @@ class TestRemoteIncludeFetch:
 
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n"
-            "include:\n"
-            "  - remote: https://example.com/ci.yml\n"
-            "  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\ninclude:\n  - remote: https://example.com/ci.yml\n  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 
@@ -139,7 +134,7 @@ class TestRemoteIncludeFetch:
 
         main_ci = tmp_path / ".gitlab-ci.yml"
         main_ci.write_text(
-            "stages:\n  - test\n" "include:\n" "  - local: local.yml\n" "  - remote: https://example.com/ci.yml\n",
+            "stages:\n  - test\ninclude:\n  - local: local.yml\n  - remote: https://example.com/ci.yml\n",
             encoding="utf-8",
         )
 

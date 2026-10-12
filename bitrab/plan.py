@@ -6,7 +6,7 @@ import itertools
 import os
 import re
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from bitrab.config.loader import ConfigurationLoader
 from bitrab.config.rules import evaluate_rules
@@ -280,7 +280,7 @@ class PipelineProcessor:
             if name in resolved:
                 return resolved[name]
             if name in chain:
-                raise GitlabRunnerError(f"`extends:` circular reference detected: {' -> '.join(chain + [name])}")
+                raise GitlabRunnerError(f"`extends:` circular reference detected: {' -> '.join([*chain, name])}")
             if name not in all_jobs:
                 raise GitlabRunnerError(f"`extends:` references unknown job or template: {name!r}")
 
@@ -294,7 +294,7 @@ class PipelineProcessor:
 
             merged: dict[str, Any] = {}
             for parent in parents:
-                parent_resolved = resolve_one(parent, chain + [name])
+                parent_resolved = resolve_one(parent, [*chain, name])
                 merged = self.deep_merge(merged, parent_resolved)
 
             resolved[name] = self.deep_merge(merged, job_data)
@@ -367,8 +367,7 @@ class PipelineProcessor:
         elif isinstance(raw, list):
             if len(raw) > cls.MAX_CACHE_ENTRIES:
                 safe_print(
-                    f"⚠️  cache: defines {len(raw)} entries but GitLab allows at most "
-                    f"{cls.MAX_CACHE_ENTRIES} — extra entries are ignored."
+                    f"⚠️  cache: defines {len(raw)} entries but GitLab allows at most {cls.MAX_CACHE_ENTRIES} — extra entries are ignored."
                 )
             entries = raw[: cls.MAX_CACHE_ENTRIES]
         else:
@@ -397,8 +396,7 @@ class PipelineProcessor:
                     files = [str(f) for f in files_val if isinstance(f, str)]
                     if len(files) > cls.MAX_CACHE_KEY_FILES:
                         safe_print(
-                            f"⚠️  cache: key: files: lists {len(files)} files but GitLab allows at most "
-                            f"{cls.MAX_CACHE_KEY_FILES} — extra files are ignored."
+                            f"⚠️  cache: key: files: lists {len(files)} files but GitLab allows at most {cls.MAX_CACHE_KEY_FILES} — extra files are ignored."
                         )
                     key_files = files[: cls.MAX_CACHE_KEY_FILES]
                 prefix_val = key_raw.get("prefix")
@@ -537,19 +535,17 @@ class PipelineProcessor:
 
         # cache: job-level cache overrides the top-level default wholesale
         # (no merge, matching GitLab); cache: [] / cache: {} disables.
-        if "cache" in job_data:
-            cache = self.parse_cache_entries(job_data.get("cache"))
-        else:
-            cache = list(global_cache) if global_cache else []
+        cache = (
+            self.parse_cache_entries(job_data.get("cache"))
+            if "cache" in job_data
+            else list(global_cache) if global_cache else []
+        )
 
         # dependencies: None means "inherit all" (GitLab default)
         dependencies: list[str] | None = None
         deps_raw = job_data.get("dependencies")
         if deps_raw is not None:
-            if isinstance(deps_raw, list):
-                dependencies = [str(d) for d in deps_raw if isinstance(d, (str, int))]
-            else:
-                dependencies = []
+            dependencies = [str(d) for d in deps_raw if isinstance(d, (str, int))] if isinstance(deps_raw, list) else []
 
         # rules: conditional execution
         rules = parse_rule_configs(job_data.get("rules", []))
@@ -649,7 +645,7 @@ class PipelineProcessor:
                         else:
                             value_lists.append([str(val)])
                     for combo in itertools.product(*value_lists):
-                        all_combos.append(dict(zip(keys, combo)))
+                        all_combos.append(dict(zip(keys, combo, strict=False)))
 
                 if not all_combos:
                     expanded.append(job)
@@ -739,7 +735,7 @@ class PipelineProcessor:
 
         return jobs
 
-    def ensure_list(self, value: Union[str, list[str]]) -> list[str]:
+    def ensure_list(self, value: str | list[str]) -> list[str]:
         """
         Ensure a value is a list of strings.
 

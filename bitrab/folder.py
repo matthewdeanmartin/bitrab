@@ -32,6 +32,7 @@ on demand by :func:`scan_folder`.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import shutil
@@ -114,10 +115,8 @@ def dir_size_bytes(path: Path) -> int:
     try:
         for dirpath, _dirnames, filenames in os.walk(path):
             for fname in filenames:
-                try:
+                with contextlib.suppress(OSError):
                     total += os.path.getsize(os.path.join(dirpath, fname))
-                except OSError:
-                    pass
     except OSError:
         pass
     return total
@@ -307,10 +306,8 @@ def scan_folder(
     # Count run dirs
     run_count = 0
     if logs_path.exists():
-        try:
+        with contextlib.suppress(OSError):
             run_count = sum(1 for e in os.scandir(logs_path) if e.is_dir() and is_run_id(e.name))
-        except OSError:
-            pass
 
     return FolderSummary(
         bitrab_path=bd,

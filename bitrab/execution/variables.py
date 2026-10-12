@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import subprocess  # nosec B404
@@ -67,10 +68,8 @@ def load_dotenv_files(project_dir: Path) -> dict[str, str]:
     for name in (".env", ".bitrab.env"):
         candidate = project_dir / name
         if candidate.is_file():
-            try:
+            with contextlib.suppress(OSError):
                 combined.update(parse_dotenv(candidate.read_text(encoding="utf-8")))
-            except OSError:
-                pass
     return combined
 
 

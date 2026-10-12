@@ -8,10 +8,11 @@ import json
 import os
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import unquote, urlsplit
 
 import certifi
@@ -137,8 +138,7 @@ def read_vendored(project_root: Path, url: str) -> bytes | None:
         actual = sha256_bytes(data)
         if actual != entry.sha256:
             raise GitlabRunnerError(
-                f"Vendored include {path} does not match vendor.lock (expected {entry.sha256}, got {actual}); "
-                "run 'bitrab vendor' to refresh it"
+                f"Vendored include {path} does not match vendor.lock (expected {entry.sha256}, got {actual}); run 'bitrab vendor' to refresh it"
             )
         return data
 
@@ -275,7 +275,7 @@ def vendor(config_path: Path, fetcher: Callable[[str], bytes] = fetch_url) -> Ve
                 if child and child not in payloads:
                     pending.append(child)
 
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
         entries: list[VendorEntry] = []
         added: list[str] = []
         changed: list[str] = []

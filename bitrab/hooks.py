@@ -87,8 +87,7 @@ def install_pre_push_hook(project_dir: Path) -> HookResult:
             raise GitlabRunnerError(f"Refusing to edit malformed bitrab markers in {path}")
         if not _is_shell_hook(content):
             raise GitlabRunnerError(
-                f"Refusing to modify non-shell pre-push hook {path}. Chain bitrab manually with: "
-                "bitrab run --changed --incremental --no-tui"
+                f"Refusing to modify non-shell pre-push hook {path}. Chain bitrab manually with: bitrab run --changed --incremental --no-tui"
             )
         updated = content.rstrip("\r\n") + "\n\n" + _managed_block(False) + "\n"
         action = "chained"

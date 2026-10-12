@@ -16,6 +16,7 @@ Before a job starts:
 
 from __future__ import annotations
 
+import contextlib
 import glob
 import os
 import shutil
@@ -102,10 +103,7 @@ def inject_dependencies(
     if job.dependencies is not None and len(job.dependencies) == 0:
         return  # explicit empty list = no artifacts
 
-    if job.dependencies is None:
-        sources = completed_jobs
-    else:
-        sources = job.dependencies
+    sources = completed_jobs if job.dependencies is None else job.dependencies
 
     target_dir = effective_dir if effective_dir is not None else project_dir
 
@@ -203,8 +201,6 @@ def load_dotenv_reports(
     for dep_name in sources:
         store = project_dir / DOTENV_STORE.format(job_name=sanitize_name(dep_name))
         if store.is_file():
-            try:
+            with contextlib.suppress(OSError):
                 merged.update(parse_dotenv(store.read_text(encoding="utf-8")))
-            except OSError:
-                pass
     return merged

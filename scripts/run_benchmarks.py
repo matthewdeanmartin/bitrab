@@ -42,8 +42,7 @@ def main(argv: list[str] | None = None) -> int:
         print("benchmark: no saved baseline found; recording one now")
     else:
         print(
-            "benchmark: comparing against saved run "
-            f"{baseline} and failing on regressions above {DEFAULT_REGRESSION_LIMIT}"
+            f"benchmark: comparing against saved run {baseline} and failing on regressions above {DEFAULT_REGRESSION_LIMIT}"
         )
         benchmark_args.extend(
             [

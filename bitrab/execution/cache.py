@@ -31,6 +31,7 @@ worktree jobs share caches.
 
 from __future__ import annotations
 
+import contextlib
 import glob
 import hashlib
 import logging
@@ -214,10 +215,8 @@ def _safe_copy2(src: Path, dest: Path) -> None:
         os.chmod(tmp_path_str, src_mode)
         os.replace(tmp_path_str, dest)
     except BaseException:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path_str)
-        except OSError:
-            pass
         raise
 
 

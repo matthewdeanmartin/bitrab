@@ -40,6 +40,7 @@ root* (never a worktree) so parallel worktree jobs share one store.
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 import glob
 import hashlib
@@ -134,7 +135,7 @@ def write_record(
     record = {
         "fingerprint": fingerprint,
         "status": "success",
-        "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
         "bitrab": __version__,
     }
     root.mkdir(parents=True, exist_ok=True)
@@ -149,10 +150,8 @@ def write_record(
         return False
     finally:
         if tmp.exists():
-            try:
+            with contextlib.suppress(OSError):
                 tmp.unlink()
-            except OSError:
-                pass
 
 
 # ---------------------------------------------------------------------------
@@ -227,8 +226,7 @@ def git_tree_digest(project_dir: Path) -> str:
         )
     except (OSError, subprocess.CalledProcessError):
         logger.warning(
-            "Project %s is not a git repository — file inputs are excluded from job "
-            "fingerprints (declare BITRAB_FINGERPRINT_PATHS to include them).",
+            "Project %s is not a git repository — file inputs are excluded from job fingerprints (declare BITRAB_FINGERPRINT_PATHS to include them).",
             project_dir,
         )
         return NO_GIT_MARKER

@@ -259,7 +259,6 @@ class TestSafeCopy2:
         mode = stat.S_IMODE(os.stat(dest).st_mode)
         assert mode & 0o111, f"Expected executable bit; got mode {oct(mode)}"
 
-
     def test_no_leftover_temp_file_on_success(self, tmp_path):
         src = tmp_path / "s.txt"
         dest = tmp_path / "d.txt"
@@ -272,6 +271,7 @@ class TestSafeCopy2:
 # ---------------------------------------------------------------------------
 # Save / restore behaviour: policy and when
 # ---------------------------------------------------------------------------
+
 
 class TestPolicyAndWhen:
     def test_save_and_restore_roundtrip(self, tmp_path):
@@ -497,6 +497,7 @@ def test_e2e_second_run_sees_restored_files(tmp_path):
 
     # Wipe the source; restore must bring it back.
     import shutil
+
     shutil.rmtree(src / "cached")
 
     target = tmp_path / "target"

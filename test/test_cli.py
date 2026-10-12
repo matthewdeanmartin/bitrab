@@ -517,9 +517,7 @@ def test_cmd_list_parallel_int(capsys, tmp_path):
 def test_cmd_list_parallel_matrix(capsys, tmp_path):
     ci_file = tmp_path / ".gitlab-ci.yml"
     ci_file.write_text(
-        "stages:\n  - test\nbuild:\n  stage: test\n"
-        "  parallel:\n    matrix:\n      - X: [1, 2]\n        Y: [a, b]\n"
-        "  script:\n    - echo hi\n"
+        "stages:\n  - test\nbuild:\n  stage: test\n  parallel:\n    matrix:\n      - X: [1, 2]\n        Y: [a, b]\n  script:\n    - echo hi\n"
     )
     args = argparse.Namespace(config=str(ci_file))
     cmd_list(args)
@@ -686,14 +684,7 @@ def test_cmd_debug_config_exists(capsys, tmp_path):
 def test_cmd_debug_shows_root_input_names(capsys, tmp_path):
     ci_file = tmp_path / ".gitlab-ci.yml"
     ci_file.write_text(
-        "spec:\n"
-        "  inputs:\n"
-        "    job-name:\n"
-        "      default: generated\n"
-        "---\n"
-        "$[[ inputs.job-name ]]:\n"
-        "  script:\n"
-        "    - echo hi\n"
+        "spec:\n  inputs:\n    job-name:\n      default: generated\n---\n$[[ inputs.job-name ]]:\n  script:\n    - echo hi\n"
     )
     args = argparse.Namespace(config=str(ci_file), inputs=None, prompt_inputs=False)
 

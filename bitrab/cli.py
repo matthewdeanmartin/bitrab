@@ -8,8 +8,9 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from bitrab.__about__ import __version__
 from bitrab.console import configure_stdio, safe_print
@@ -603,12 +604,11 @@ def cmd_vendor(args: argparse.Namespace) -> None:
         safe_print(f"➕ Vendored {url} ({current[url].sha256})")
     for url in result.changed:
         safe_print(
-            f"⚠️  UPSTREAM INCLUDE CHANGED: {url}\n" f"   {previous[url].sha256} -> {current[url].sha256}",
+            f"⚠️  UPSTREAM INCLUDE CHANGED: {url}\n   {previous[url].sha256} -> {current[url].sha256}",
             file=sys.stderr,
         )
     safe_print(
-        f"✅ Vendor snapshot refreshed: {len(result.entries)} include(s), "
-        f"{len(result.changed)} changed, {len(result.unchanged)} unchanged"
+        f"✅ Vendor snapshot refreshed: {len(result.entries)} include(s), {len(result.changed)} changed, {len(result.unchanged)} unchanged"
     )
 
 

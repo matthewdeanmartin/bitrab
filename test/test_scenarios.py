@@ -1191,7 +1191,7 @@ class TestMultiIncludeConfig:
 
         shared_yml = tmp_path / "shared.yml"
         shared_yml.write_text(
-            "include:\n  - local: variables.yml\n" "shared_test:\n  stage: test\n  script:\n    - echo shared\n"
+            "include:\n  - local: variables.yml\nshared_test:\n  stage: test\n  script:\n    - echo shared\n"
         )
 
         write_ci(

@@ -341,7 +341,7 @@ class TestNeedsResolution:
             stages=["build", "deploy"],
         )
         pipeline = process(raw)
-        deploy = [j for j in pipeline.jobs if j.name == "deploy"][0]
+        deploy = next(j for j in pipeline.jobs if j.name == "deploy")
         assert sorted(deploy.needs) == ["build 1/2", "build 2/2"]
 
     def test_needs_matrix_expanded(self):
@@ -361,7 +361,7 @@ class TestNeedsResolution:
             stages=["test", "deploy"],
         )
         pipeline = process(raw)
-        report = [j for j in pipeline.jobs if j.name == "report"][0]
+        report = next(j for j in pipeline.jobs if j.name == "report")
         assert len(report.needs) == 2
         assert all("test:" in n for n in report.needs)
 
@@ -382,7 +382,7 @@ class TestNeedsResolution:
             stages=["build", "test"],
         )
         pipeline = process(raw)
-        test = [j for j in pipeline.jobs if j.name == "test"][0]
+        test = next(j for j in pipeline.jobs if j.name == "test")
         assert test.needs == ["build"]
 
     def test_dependencies_expanded(self):
@@ -403,7 +403,7 @@ class TestNeedsResolution:
             stages=["build", "deploy"],
         )
         pipeline = process(raw)
-        deploy = [j for j in pipeline.jobs if j.name == "deploy"][0]
+        deploy = next(j for j in pipeline.jobs if j.name == "deploy")
         assert sorted(deploy.dependencies) == ["build 1/2", "build 2/2"]
 
 

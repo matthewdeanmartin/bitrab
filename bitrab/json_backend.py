@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json as stdlib_json
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 try:
     import orjson as orjson_backend

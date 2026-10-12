@@ -23,6 +23,7 @@ Configuration (``[tool.bitrab]`` in ``pyproject.toml``)::
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import os
 import time
@@ -211,10 +212,8 @@ def snapshot(project_dir: Path) -> dict[str, float]:
     for dirpath, _dirs, files in os.walk(project_dir):
         for fname in files:
             full_str = os.path.join(dirpath, fname)
-            try:
+            with contextlib.suppress(OSError):
                 snapshot[os.path.relpath(full_str, root)] = os.stat(full_str).st_mtime
-            except OSError:
-                pass
     return snapshot
 
 

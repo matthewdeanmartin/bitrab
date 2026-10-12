@@ -149,7 +149,7 @@ class TestProjectIdentityFromRemote:
         assert not url.endswith(".git")
 
     def test_https_without_git_suffix(self):
-        ns, path, url = project_identity_from_remote("https://gitlab.com/myorg/myrepo")
+        ns, path, _url = project_identity_from_remote("https://gitlab.com/myorg/myrepo")
         assert ns == "myorg"
         assert path == "myorg/myrepo"
 

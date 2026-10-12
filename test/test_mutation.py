@@ -80,8 +80,7 @@ class TestLoadMutationConfig:
 
     def test_custom_whitelist(self, tmp_path):
         (tmp_path / "pyproject.toml").write_text(
-            "[tool.bitrab]\nwarn_on_mutation = true\n"
-            '[tool.bitrab.mutation]\nwhitelist = ["docs/**", "*.generated.py"]\n'
+            '[tool.bitrab]\nwarn_on_mutation = true\n[tool.bitrab.mutation]\nwhitelist = ["docs/**", "*.generated.py"]\n'
         )
         cfg = load_mutation_config(tmp_path)
         assert cfg.enabled

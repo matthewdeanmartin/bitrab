@@ -180,8 +180,7 @@ class ConfigurationLoader:
 
         if self.offline:
             raise GitlabRunnerError(
-                f"Remote include {url!r} is not vendored and cannot be loaded in offline mode; "
-                "run 'bitrab vendor' while network access is available"
+                f"Remote include {url!r} is not vendored and cannot be loaded in offline mode; run 'bitrab vendor' while network access is available"
             )
 
         if not self.no_include_cache:

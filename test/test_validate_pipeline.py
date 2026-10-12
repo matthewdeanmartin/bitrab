@@ -131,7 +131,7 @@ def test_validate_ci_config_yaml_error(validator):
 def test_validate_gitlab_ci_yaml_convenience(tmp_path, mock_schema):
     yaml_content = "stages: [build]"
     with patch("bitrab.config.validate_pipeline.GitLabCIValidator.get_schema", return_value=mock_schema):
-        is_valid, errors = validate_gitlab_ci_yaml(yaml_content, cache_dir=str(tmp_path))
+        is_valid, _errors = validate_gitlab_ci_yaml(yaml_content, cache_dir=str(tmp_path))
         assert is_valid is True
 
 
