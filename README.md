@@ -103,3 +103,12 @@ GITLAB is a trademark of GitLab Inc. Bitrab is not affiliated with, endorsed by,
 - [Documentation](https://bitrab.readthedocs.io/en/latest/)
 - [Bug Tracker](https://github.com/matthewdeanmartin/bitrab/issues)
 - [Change Log](https://github.com/matthewdeanmartin/bitrab/blob/main/CHANGELOG.md)
+
+
+## Python 3.15 RC3 verification (2026-10-04)
+
+Refreshed dependencies with `uv lock --upgrade`; lock check passes. 1014 tests pass / 4 skip with stable and prerelease-allowed dependencies on Python 3.15.0rc3 and on 3.14.7, using published wheels only. The experimental environments selected no dependency prereleases. Full development setup remains wheel-blocked by aiohttp >3.13.2; broad quality gates requiring it were not run.
+
+Full RC3 suites and installed-wheel TOML/JSON round trips pass without rtoml or orjson. These portable fallbacks already exist on PyPI; no new fallback was added.
+
+No dependency source builds or GitHub jobs. Changes local; human operators decide releases and upstream reporting.
