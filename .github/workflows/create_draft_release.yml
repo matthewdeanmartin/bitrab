@@ -25,8 +25,8 @@ jobs:
         with:
           enable-cache: true
       - name: Sync dependencies
-        run: uv tool install "keepachangelog-manager-fork[all]"
+        run: uv tool install "keepachangelog-manager-fork"
       - name: Creating Draft release
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: uvx --from "keepachangelog-manager-fork[all]" kaclm github-release --repository ${{ github.repository }}
+        run: uvx --from "keepachangelog-manager-fork" kaclm github-release --repository ${{ github.repository }}
