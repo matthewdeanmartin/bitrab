@@ -3,7 +3,6 @@ SHELL := bash
 
 FILES := $(wildcard **/*.py)
 LOGS_DIR := .build_logs
-STAMP_DIR := .build_history
 VERIFY_TARGETS := ruff mypy pylint bandit smoke pytest
 NO_COLOR_ENV := NO_COLOR=1 CLICOLOR=0 FORCE_COLOR=0 PY_COLORS=0
 BITRAB_CONFIG := .bitrab-ci.yml
@@ -94,45 +93,34 @@ install_plugins:
 .PHONY: install-plugins
 install-plugins: install_plugins
 
-$(STAMP_DIR):
-	@mkdir -p $(STAMP_DIR)
-
 $(LOGS_DIR):
 	@mkdir -p $(LOGS_DIR)
 
-.build_history/isort: $(STAMP_DIR) uv.lock pyproject.toml $(FILES)
+isort: uv.lock pyproject.toml
 	@echo "Formatting imports"
 	$(VENV) isort .
-	@touch .build_history/isort
 
 .PHONY: isort
-isort: .build_history/isort
 
-.build_history/black: $(STAMP_DIR) uv.lock pyproject.toml $(FILES)
+black: uv.lock pyproject.toml
 	@echo "Formatting code"
 	$(VENV) black bitrab
 	$(VENV) black test
-	@touch .build_history/black
 
 .PHONY: black
-black: .build_history/black
 
-.build_history/ruff-fix: $(STAMP_DIR) uv.lock pyproject.toml $(FILES)
+ruff-fix: uv.lock pyproject.toml
 	@echo "Auto-fixing with ruff"
 	$(VENV) ruff check --fix .
-	@touch .build_history/ruff-fix
 
 .PHONY: ruff-fix
-ruff-fix: .build_history/ruff-fix
 
-.build_history/sync-metadata: $(STAMP_DIR) uv.lock pyproject.toml $(FILES)
+sync-metadata: uv.lock pyproject.toml
 	@echo "Syncing generated metadata"
 	$(VENV) metametameta pep621
 	$(VENV) git2md bitrab --ignore __init__.py __pycache__ --output SOURCE.md
-	@touch .build_history/sync-metadata
 
 .PHONY: sync-metadata
-sync-metadata: .build_history/sync-metadata
 
 .PHONY: fix
 fix: uv-lock install-plugins ruff-fix isort black sync-metadata
